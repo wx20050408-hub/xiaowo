@@ -315,6 +315,23 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   background:var(--card);border:1.5px solid var(--line);
 }
 .modeTab.on{border-color:var(--accent);color:var(--accent-deep);font-weight:600;background:var(--bubble-me)}
+
+/* 发图 */
+#imgBtn{
+  width:40px;height:44px;flex-shrink:0;font-size:21px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+}
+#imgBtn:active{background:var(--bg-soft)}
+#imgPreview{display:none;gap:10px;padding:10px 14px 0;background:var(--bg);flex-shrink:0;flex-wrap:wrap}
+#imgPreview.has{display:flex}
+.pimg{position:relative}
+.pimg img{width:56px;height:56px;object-fit:cover;border-radius:12px;box-shadow:var(--shadow)}
+.pimg .rm{
+  position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;
+  background:var(--ink);color:var(--bg);font-size:11px;
+  display:flex;align-items:center;justify-content:center;
+}
+.msgImg{display:block;max-width:min(220px,60vw);border-radius:14px;margin:3px 0}
 </style>
 </head>
 <body>
@@ -338,11 +355,14 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   </main>
 
   <!-- 输入栏 -->
+  <div id="imgPreview"></div>
   <footer id="inputBar">
+    <button id="imgBtn" aria-label="发图片">🖼</button>
     <div id="inputWrap">
       <textarea id="input" rows="1" placeholder="想说什么……"></textarea>
     </div>
     <button id="sendBtn" aria-label="发送">➤</button>
+    <input type="file" id="imgFile" accept="image/*" multiple style="display:none">
   </footer>
 </div>
 
@@ -377,6 +397,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <div id="addKeyForm" style="display:none;background:var(--bg-soft);border-radius:16px;padding:12px 14px;margin-bottom:14px">
       <div class="field" style="margin-bottom:10px"><label>备注名</label><input id="newKeyLabel" placeholder="主号、备用……"></div>
       <div class="field" style="margin-bottom:10px"><label>API Key</label><input type="password" id="newKeyVal" placeholder="sk-ant-…" autocomplete="off"></div>
+      <div class="field" style="margin-bottom:10px"><label>API 地址（留空 = 官方 Anthropic）</label><input id="newKeyUrl" placeholder="https://api.某中转站.com"></div>
       <div style="display:flex;gap:8px">
         <button class="primaryBtn" id="confirmAddKey" style="margin-top:0">确认添加</button>
         <button class="ghostBtn" id="cancelAddKey" style="margin-top:0;flex:1">取消</button>
@@ -533,6 +554,14 @@ const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;
 const fmt = s => esc(s)
   .replace(/`([^`\n]+)`/g,'<code>$1</code>')
   .replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
+/* 消息 content 可能是字符串，也可能是图文块数组 */
+const textOf = ct => typeof ct==='string' ? ct : ct.filter(b=>b.type==='text').map(b=>b.text).join('\n');
+const contentHtml = ct => typeof ct==='string' ? fmt(ct) :
+  ct.map(b=>{
+    if(b.type==='image') return `<img class="msgImg" src="data:${b.source.media_type};base64,${b.source.data}">`;
+    if(b.type==='text') return fmt(b.text);
+    return '';
+  }).join('');
 
 function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
 const persistAll = ()=>{ save('xw_chats',chats); save('xw_current',currentId); save('xw_characters',characters); save('xw_selchar',selCharId); save('xw_settings',settings); save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook); save('xw_presets',presets); save('xw_selpreset',selPresetId); };
@@ -613,7 +642,7 @@ function renderChat(){
     area.innerHTML='<div id="empty"><div class="face">₍ᐢ. .ᐢ₎</div><div class="hint">说点什么吧，我听着呢</div></div>';
     return;
   }
-  c.messages.forEach(m=>area.appendChild(bubbleEl(m.role,fmt(m.content))));
+  c.messages.forEach(m=>area.appendChild(bubbleEl(m.role,contentHtml(m.content))));
   area.scrollTop=area.scrollHeight;
 }
 
@@ -621,23 +650,78 @@ function renderChat(){
 const input=$('input');
 input.oninput=()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,120)+'px'; };
 
+/* ================= 发图 ================= */
+let pendingImgs=[];   // {media_type,data}
+$('imgBtn').onclick=()=>$('imgFile').click();
+$('imgFile').onchange=async e=>{
+  for(const f of e.target.files){
+    try{ pendingImgs.push(await compressImage(f)); }
+    catch(err){ toast('有张图读不了'); }
+  }
+  renderImgPreview();
+  e.target.value='';
+};
+/* 压到最长边 1024、jpeg 0.82，省 token 也省 localStorage */
+function compressImage(file){
+  return new Promise((resolve,reject)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const MAX=1024;
+        let w=img.width,h=img.height;
+        if(Math.max(w,h)>MAX){ const r=MAX/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r); }
+        const cv=document.createElement('canvas');
+        cv.width=w; cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        resolve({media_type:'image/jpeg',data:cv.toDataURL('image/jpeg',.82).split(',')[1]});
+      };
+      img.onerror=()=>reject(new Error('bad image'));
+      img.src=fr.result;
+    };
+    fr.onerror=()=>reject(new Error('bad file'));
+    fr.readAsDataURL(file);
+  });
+}
+function renderImgPreview(){
+  const box=$('imgPreview');
+  box.innerHTML='';
+  box.classList.toggle('has',pendingImgs.length>0);
+  pendingImgs.forEach((p,i)=>{
+    const d=document.createElement('div');
+    d.className='pimg';
+    d.innerHTML=`<img src="data:${p.media_type};base64,${p.data}"><button class="rm">✕</button>`;
+    d.querySelector('.rm').onclick=()=>{ pendingImgs.splice(i,1); renderImgPreview(); };
+    box.appendChild(d);
+  });
+}
+
 /* ================= 发送 & 流式 ================= */
 $('sendBtn').onclick=()=>{ streaming ? stopStream() : send(); };
 function stopStream(){ if(aborter) aborter.abort(); }
 
 async function send(){
   const text=input.value.trim();
-  if(!text) return;
-  const activeKey = apiKeys.find(k=>k.id===selKeyId)?.key||'';
+  if(!text && !pendingImgs.length) return;
+  const curKey = apiKeys.find(k=>k.id===selKeyId);
+  const activeKey = curKey?.key||'';
   if(!activeKey){ toast('先去 ⚙ 里添加并选中一个 API Key'); openSheet('settingsSheet'); return; }
+  let apiUrl=(curKey.url||'').trim()||'https://api.anthropic.com';
+  if(!/\/v1\/messages\/?$/.test(apiUrl)) apiUrl=apiUrl.replace(/\/+$/,'')+'/v1/messages';
 
   let c=curChat();
   if(!c){
-    c={ id:'t'+Date.now(), title:text.slice(0,16)||'新对话', charId:selCharId, ts:Date.now(), messages:[] };
+    c={ id:'t'+Date.now(), title:(text||'[图片]').slice(0,16), charId:selCharId, ts:Date.now(), messages:[] };
     chats.push(c); currentId=c.id;
   }
-  c.messages.push({role:'user',content:text});
+  let content;
+  if(pendingImgs.length){
+    content=pendingImgs.map(p=>({type:'image',source:{type:'base64',media_type:p.media_type,data:p.data}}));
+    if(text) content.push({type:'text',text});
+  }else content=text;
+  c.messages.push({role:'user',content});
   c.ts=Date.now();
+  pendingImgs=[]; renderImgPreview();
   input.value=''; input.style.height='auto';
   persistAll(); renderChat();
 
@@ -664,7 +748,7 @@ async function send(){
     /* 系统提示词 = 角色设定 + 命中的世界书 + 预设附加词 */
     const sysParts=[];
     if(ch && ch.prompt.trim()) sysParts.push(ch.prompt);
-    const recentText=c.messages.slice(-5).map(m=>m.content).join('\n');
+    const recentText=c.messages.slice(-5).map(m=>textOf(m.content)).join('\n');
     const hits=worldbook.filter(w=>{
       if(!w.on || !w.content.trim()) return false;
       if(w.mode==='always') return true;
@@ -675,7 +759,7 @@ async function send(){
     if(preset && preset.prompt.trim()) sysParts.push(preset.prompt);
     if(sysParts.length) body.system=sysParts.join('\n\n');
 
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
+    const res=await fetch(apiUrl,{
       method:'POST',
       signal:aborter.signal,
       headers:{
@@ -750,7 +834,7 @@ function renderKeyList(){
     it.innerHTML=`<div class="selMark">${k.id===selKeyId?'✓':''}</div>
       <div class="keyInfo">
         <div class="keyLabel">${esc(k.label||'未命名')}</div>
-        <div class="keyPreview">${maskKey(k.key)}</div>
+        <div class="keyPreview">${maskKey(k.key)}${k.url?' · '+esc(k.url.replace(/^https?:\/\//,'').split('/')[0]):''}</div>
       </div>
       <button class="delKey" title="删除">✕</button>`;
     it.onclick=ev=>{
@@ -771,7 +855,7 @@ function renderKeyList(){
 $('addKeyBtn').onclick=()=>{
   $('addKeyForm').style.display='block';
   $('addKeyBtn').style.display='none';
-  $('newKeyLabel').value=''; $('newKeyVal').value='';
+  $('newKeyLabel').value=''; $('newKeyVal').value=''; $('newKeyUrl').value='';
   setTimeout(()=>$('newKeyLabel').focus(),50);
 };
 $('cancelAddKey').onclick=()=>{ $('addKeyForm').style.display='none'; $('addKeyBtn').style.display='block'; };
@@ -779,7 +863,7 @@ $('confirmAddKey').onclick=()=>{
   const label=$('newKeyLabel').value.trim();
   const key=$('newKeyVal').value.trim();
   if(!key){ toast('Key 不能空着'); return; }
-  const nk={id:'k'+Date.now(),label:label||'未命名',key};
+  const nk={id:'k'+Date.now(),label:label||'未命名',key,url:$('newKeyUrl').value.trim()};
   apiKeys.push(nk);
   if(!selKeyId) selKeyId=nk.id;
   persistAll(); renderKeyList();
