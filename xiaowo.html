@@ -274,6 +274,28 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   white-space:nowrap;
 }
 .toast.show{opacity:.92}
+
+/* Key 列表 */
+.keyItem{
+  display:flex;align-items:center;gap:10px;
+  background:var(--card);border-radius:14px;box-shadow:var(--shadow);
+  padding:11px 14px;margin-bottom:8px;
+  border:2px solid transparent;cursor:pointer;
+  transition:border-color .15s;
+}
+.keyItem.sel{border-color:var(--accent)}
+.keyItem:active{opacity:.85}
+.selMark{
+  width:22px;height:22px;border-radius:50%;flex-shrink:0;
+  background:var(--bg-soft);display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:var(--accent-deep);
+}
+.keyItem.sel .selMark{background:var(--accent);color:#fff}
+.keyInfo{flex:1;min-width:0}
+.keyLabel{font-weight:600;font-size:14px}
+.keyPreview{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.delKey{color:var(--ink-soft);font-size:14px;padding:4px 6px;border-radius:8px;flex-shrink:0}
+.delKey:active{color:var(--danger)}
 </style>
 </head>
 <body>
@@ -329,8 +351,17 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   <div class="sheet">
     <div class="sheetTitle">连接设置<button class="close" data-close="settingsSheet">✕</button></div>
     <div class="field">
-      <label>API Key</label>
-      <input type="password" id="setKey" placeholder="sk-ant-…" autocomplete="off">
+      <label>API Key 列表</label>
+      <div id="keyList"></div>
+      <button class="ghostBtn" id="addKeyBtn" style="margin-top:6px;font-size:13px">＋ 添加 Key</button>
+    </div>
+    <div id="addKeyForm" style="display:none;background:var(--bg-soft);border-radius:16px;padding:12px 14px;margin-bottom:14px">
+      <div class="field" style="margin-bottom:10px"><label>备注名</label><input id="newKeyLabel" placeholder="主号、备用……"></div>
+      <div class="field" style="margin-bottom:10px"><label>API Key</label><input type="password" id="newKeyVal" placeholder="sk-ant-…" autocomplete="off"></div>
+      <div style="display:flex;gap:8px">
+        <button class="primaryBtn" id="confirmAddKey" style="margin-top:0">确认添加</button>
+        <button class="ghostBtn" id="cancelAddKey" style="margin-top:0;flex:1">取消</button>
+      </div>
     </div>
     <div class="field">
       <label>模型</label>
@@ -409,6 +440,15 @@ let characters = load('xw_characters', [
 let chats = load('xw_chats', []);   // {id,title,charId,ts,messages:[{role,content}]}
 let currentId = load('xw_current', null);
 let selCharId = load('xw_selchar', characters[0]?.id || null);
+let apiKeys = load('xw_apikeys', []);
+let selKeyId = load('xw_selkey', null);
+/* 兼容旧数据：单 apiKey → 列表第一条 */
+if(!apiKeys.length && settings.apiKey){
+  apiKeys=[{id:'k1',label:'默认',key:settings.apiKey}];
+  selKeyId='k1';
+  settings.apiKey='';
+}
+if(!selKeyId && apiKeys.length) selKeyId=apiKeys[0].id;
 let streaming = false, aborter = null;
 
 const $ = id => document.getElementById(id);
@@ -418,7 +458,7 @@ const fmt = s => esc(s)
   .replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
 
 function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
-const persistAll = ()=>{ save('xw_chats',chats); save('xw_current',currentId); save('xw_characters',characters); save('xw_selchar',selCharId); save('xw_settings',settings); };
+const persistAll = ()=>{ save('xw_chats',chats); save('xw_current',currentId); save('xw_characters',characters); save('xw_selchar',selCharId); save('xw_settings',settings); save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); };
 
 /* ================= 主题 ================= */
 function applyTheme(){
@@ -510,7 +550,8 @@ function stopStream(){ if(aborter) aborter.abort(); }
 async function send(){
   const text=input.value.trim();
   if(!text) return;
-  if(!settings.apiKey){ toast('先去 ⚙ 里填 API Key 哦'); openSheet('settingsSheet'); return; }
+  const activeKey = apiKeys.find(k=>k.id===selKeyId)?.key||'';
+  if(!activeKey){ toast('先去 ⚙ 里添加并选中一个 API Key'); openSheet('settingsSheet'); return; }
 
   let c=curChat();
   if(!c){
@@ -545,7 +586,7 @@ async function send(){
       signal:aborter.signal,
       headers:{
         'content-type':'application/json',
-        'x-api-key':settings.apiKey,
+        'x-api-key':activeKey,
         'anthropic-version':'2023-06-01',
         'anthropic-dangerous-direct-browser-access':'true',
       },
@@ -601,9 +642,61 @@ function closeSheet(id){ $(id).classList.remove('show'); }
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeSheet(b.dataset.close));
 document.querySelectorAll('.sheetScrim').forEach(s=>s.addEventListener('click',e=>{ if(e.target===s) s.classList.remove('show'); }));
 
+/* ================= API Key 管理 ================= */
+function maskKey(k){ return k.length>12 ? k.slice(0,8)+'••••'+k.slice(-4) : '••••••••'; }
+function renderKeyList(){
+  const list=$('keyList'); list.innerHTML='';
+  if(!apiKeys.length){
+    list.innerHTML='<div style="font-size:13px;color:var(--ink-soft);padding:6px 2px">还没有 Key，点下方添加</div>';
+    return;
+  }
+  apiKeys.forEach(k=>{
+    const it=document.createElement('div');
+    it.className='keyItem'+(k.id===selKeyId?' sel':'');
+    it.innerHTML=`<div class="selMark">${k.id===selKeyId?'✓':''}</div>
+      <div class="keyInfo">
+        <div class="keyLabel">${esc(k.label||'未命名')}</div>
+        <div class="keyPreview">${maskKey(k.key)}</div>
+      </div>
+      <button class="delKey" title="删除">✕</button>`;
+    it.onclick=ev=>{
+      if(ev.target.classList.contains('delKey')) return;
+      selKeyId=k.id; persistAll(); renderKeyList();
+      toast(`已切换到「${esc(k.label||'未命名')}」`);
+    };
+    it.querySelector('.delKey').onclick=ev=>{
+      ev.stopPropagation();
+      if(!confirm(`删掉「${k.label||'未命名'}」这个 Key？`)) return;
+      apiKeys=apiKeys.filter(x=>x.id!==k.id);
+      if(selKeyId===k.id) selKeyId=apiKeys[0]?.id||null;
+      persistAll(); renderKeyList();
+    };
+    list.appendChild(it);
+  });
+}
+$('addKeyBtn').onclick=()=>{
+  $('addKeyForm').style.display='block';
+  $('addKeyBtn').style.display='none';
+  $('newKeyLabel').value=''; $('newKeyVal').value='';
+  setTimeout(()=>$('newKeyLabel').focus(),50);
+};
+$('cancelAddKey').onclick=()=>{ $('addKeyForm').style.display='none'; $('addKeyBtn').style.display='block'; };
+$('confirmAddKey').onclick=()=>{
+  const label=$('newKeyLabel').value.trim();
+  const key=$('newKeyVal').value.trim();
+  if(!key){ toast('Key 不能空着'); return; }
+  const nk={id:'k'+Date.now(),label:label||'未命名',key};
+  apiKeys.push(nk);
+  if(!selKeyId) selKeyId=nk.id;
+  persistAll(); renderKeyList();
+  $('addKeyForm').style.display='none'; $('addKeyBtn').style.display='block';
+  toast('Key 添加好啦 ✓');
+};
+
 /* ================= 设置 ================= */
 $('gearBtn').onclick=()=>{
-  $('setKey').value=settings.apiKey;
+  renderKeyList();
+  $('addKeyForm').style.display='none'; $('addKeyBtn').style.display='block';
   const sel=$('setModel');
   const known=[...sel.options].some(o=>o.value===settings.model);
   sel.value=known?settings.model:'custom';
@@ -614,7 +707,6 @@ $('gearBtn').onclick=()=>{
 };
 $('setModel').onchange=e=>{ $('setModelCustom').style.display=e.target.value==='custom'?'block':'none'; };
 $('saveSettings').onclick=()=>{
-  settings.apiKey=$('setKey').value.trim();
   settings.model=$('setModel').value==='custom'?$('setModelCustom').value.trim():$('setModel').value;
   settings.maxTokens=Number($('setMaxTokens').value)||2048;
   persistAll(); closeSheet('settingsSheet'); toast('存好啦');
@@ -683,7 +775,7 @@ $('importFile').onchange=async e=>{
     const data=JSON.parse(await f.text());
     if(data.characters) characters=data.characters;
     if(data.chats) chats=data.chats;
-    if(data.settings){ const k=settings.apiKey; settings={...settings,...data.settings}; if(!settings.apiKey) settings.apiKey=k; }
+    if(data.settings){ settings={...settings,...data.settings,apiKey:''}; }
     persistAll(); applyTheme(); renderChat(); renderHistory(); renderChars();
     toast('恢复好啦');
   }catch(err){ toast('这个文件读不了'); }
