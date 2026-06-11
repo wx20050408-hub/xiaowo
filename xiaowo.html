@@ -174,13 +174,14 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   border-radius:16px;padding:10px 14px 10px 38px;font-size:14px;
 }
 
-#newChat{
+#newChat,#newGroup{
   margin:8px 16px 4px;padding:11px;border-radius:16px;
   background:var(--card);box-shadow:var(--shadow);
   font-size:14px;font-weight:600;color:var(--accent-deep);
   display:flex;align-items:center;justify-content:center;gap:6px;
 }
-#newChat:active{transform:scale(.98)}
+#newGroup{margin-top:2px}
+#newChat:active,#newGroup:active{transform:scale(.98)}
 
 /* 历史列表 */
 #historyList{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 10px}
@@ -332,6 +333,16 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   display:flex;align-items:center;justify-content:center;
 }
 .msgImg{display:block;max-width:min(220px,60vw);border-radius:14px;margin:3px 0}
+
+/* 头像 & 群聊 */
+.msg.ta{flex-direction:row;gap:8px}
+.msg .av{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;margin-top:21px;
+  background:var(--bubble-me);display:flex;align-items:center;justify-content:center;
+  font-size:15px;object-fit:cover;overflow:hidden;box-shadow:var(--shadow);
+}
+.mcol{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+.avSm{width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0;box-shadow:var(--shadow)}
 </style>
 </head>
 <body>
@@ -378,6 +389,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   </div>
   <div id="searchWrap"><input id="search" placeholder="搜索聊天"></div>
   <button id="newChat">✦ 开个新对话</button>
+  <button id="newGroup">👥 开个群聊</button>
   <div id="historyList"></div>
   <div id="drawerFoot">
     <button class="footBtn" id="charBtn"><span class="ic">☺</span>角色</button>
@@ -438,6 +450,14 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <div class="sheetTitle" id="charEditTitle">新角色<button class="close" data-close="charEditSheet">✕</button></div>
     <div class="field"><label>名字</label><input id="ceName" placeholder="比如：黎湛"></div>
     <div class="field"><label>头像（一个emoji或颜文字）</label><input id="ceEmoji" placeholder="❄"></div>
+    <div class="field"><label>图片头像（选了就优先用图片）</label>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="ceAvPreview"></div>
+        <button class="ghostBtn" id="pickAv" style="margin-top:0;flex:1">选图片</button>
+        <button class="ghostBtn" id="clearAv" style="margin-top:0;flex:1;display:none">移除图片</button>
+      </div>
+      <input type="file" id="avFile" accept="image/*" style="display:none">
+    </div>
     <div class="field"><label>人设 / 系统提示词</label><textarea id="cePrompt" placeholder="把他的设定贴在这里…"></textarea></div>
     <button class="primaryBtn" id="saveChar">保存</button>
     <button class="ghostBtn" id="delChar" style="color:var(--danger);display:none">删除这个角色</button>
@@ -459,6 +479,17 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <button class="boxRow" id="importBtn" style="width:100%"><span class="ic">📥</span><span class="grow" style="text-align:left">从备份恢复</span></button>
     <input type="file" id="importFile" accept=".json" style="display:none">
     <div class="hintText">以后想到什么小玩意儿，都往这里塞。</div>
+  </div>
+</div>
+
+<!-- 建群弹层 -->
+<div class="sheetScrim" id="groupSheet">
+  <div class="sheet">
+    <div class="sheetTitle">开个群聊<button class="close" data-close="groupSheet">✕</button></div>
+    <div class="field"><label>群名（可以不填）</label><input id="groupName" placeholder="比如：深夜小群"></div>
+    <label style="font-size:13px;color:var(--ink-soft);display:block;margin-bottom:6px">点角色加入群（点的顺序就是发言顺序）</label>
+    <div id="groupCharList"></div>
+    <button class="primaryBtn" id="createGroup">建群</button>
   </div>
 </div>
 
@@ -619,19 +650,28 @@ function curChar(of){ const id = of?.charId ?? selCharId; return characters.find
 
 function renderHeader(){
   const c=curChat();
+  const pr=presets.find(p=>p.id===selPresetId);
+  if(c && c.members && c.members.length){
+    $('headerName').textContent=c.title;
+    const names=c.members.map(id=>characters.find(x=>x.id===id)?.name).filter(Boolean).join('、');
+    $('headerSub').textContent=(names||'群聊')+(pr?` · ${pr.name}`:'');
+    return;
+  }
   const ch=curChar(c);
   $('headerName').textContent = c ? c.title : (ch ? ch.name : '小窝');
-  const pr=presets.find(p=>p.id===selPresetId);
   $('headerSub').textContent = (ch ? `${ch.name} · 在线` : '在线') + (pr ? ` · ${pr.name}` : '');
 }
 function switchChat(id){ currentId=id; persistAll(); renderChat(); }
 
-function bubbleEl(role,html,extra){
+function bubbleEl(role,html,extra,ch){
   const m=document.createElement('div');
   m.className='msg '+(role==='user'?'me':'ta');
-  const ch=curChar(curChat());
-  const who=role==='user'?'':(ch?ch.name:'');
-  m.innerHTML=(who?`<div class="who">${esc(who)}</div>`:'')+`<div class="bubble ${extra||''}">${html}</div>`;
+  if(role==='user'){
+    m.innerHTML=`<div class="bubble ${extra||''}">${html}</div>`;
+  }else{
+    const av=ch&&ch.avatar?`<img class="av" src="${ch.avatar}">`:`<div class="av">${esc(ch?.emoji||'☺')}</div>`;
+    m.innerHTML=`${av}<div class="mcol"><div class="who">${esc(ch?.name||'')}</div><div class="bubble ${extra||''}">${html}</div></div>`;
+  }
   return m;
 }
 function renderChat(){
@@ -642,7 +682,11 @@ function renderChat(){
     area.innerHTML='<div id="empty"><div class="face">₍ᐢ. .ᐢ₎</div><div class="hint">说点什么吧，我听着呢</div></div>';
     return;
   }
-  c.messages.forEach(m=>area.appendChild(bubbleEl(m.role,contentHtml(m.content))));
+  c.messages.forEach(m=>{
+    let ch=null;
+    if(m.role!=='user') ch=(m.charId&&characters.find(x=>x.id===m.charId))||curChar(c)||{name:'?'};
+    area.appendChild(bubbleEl(m.role,contentHtml(m.content),'',ch));
+  });
   area.scrollTop=area.scrollHeight;
 }
 
@@ -700,6 +744,124 @@ function renderImgPreview(){
 $('sendBtn').onclick=()=>{ streaming ? stopStream() : send(); };
 function stopStream(){ if(aborter) aborter.abort(); }
 
+/* 系统提示词 = 角色设定 + 群聊须知 + 命中的世界书 + 预设附加词 */
+function buildSystem(personaPrompt,c,groupNote){
+  const preset=presets.find(p=>p.id===selPresetId);
+  const sysParts=[];
+  if(personaPrompt && personaPrompt.trim()) sysParts.push(personaPrompt);
+  if(groupNote) sysParts.push(groupNote);
+  const recentText=c.messages.slice(-5).map(m=>textOf(m.content)).join('\n');
+  const hits=worldbook.filter(w=>{
+    if(!w.on || !w.content.trim()) return false;
+    if(w.mode==='always') return true;
+    return (w.keywords||'').split(/[,，]/).map(s=>s.trim()).filter(Boolean)
+      .some(k=>recentText.includes(k));
+  });
+  if(hits.length) sysParts.push('【世界设定】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
+  if(preset && preset.prompt.trim()) sysParts.push(preset.prompt);
+  return sysParts.join('\n\n');
+}
+function baseBody(messages){
+  const preset=presets.find(p=>p.id===selPresetId);
+  const body={
+    model: settings.model,
+    max_tokens: Number(preset?.maxTokens)||Number(settings.maxTokens)||2048,
+    stream: true,
+    messages,
+  };
+  if(preset && preset.temperature!=='' && preset.temperature!=null)
+    body.temperature=Number(preset.temperature);
+  return body;
+}
+
+/* 群聊历史 → 某个成员视角的 API messages：
+   自己的发言是 assistant，别人（含用户）的都是带名字前缀的 user，连续同角色合并 */
+const toBlocks = ct => typeof ct==='string' ? [{type:'text',text:ct}] : ct.map(b=>b.type==='text'?{...b}:b);
+function prefixed(name,ct){
+  const bs=toBlocks(ct);
+  if(bs.length&&bs[0].type==='text'){ bs[0]={...bs[0],text:`${name}：${bs[0].text}`}; return bs; }
+  return [{type:'text',text:`${name}：`},...bs];
+}
+function groupApiMessages(c,member){
+  const myName=$('profileName').textContent.trim()||'用户';
+  const out=[];
+  const push=(role,blocks)=>{
+    if(out.length&&out[out.length-1].role===role) out[out.length-1].content=out[out.length-1].content.concat(blocks);
+    else out.push({role,content:blocks});
+  };
+  for(const m of c.messages){
+    if(m.role==='assistant'&&m.charId===member.id) push('assistant',toBlocks(m.content));
+    else if(m.role==='assistant') push('user',prefixed(characters.find(x=>x.id===m.charId)?.name||'某人',m.content));
+    else push('user',prefixed(myName,m.content));
+  }
+  return out;
+}
+
+async function callStream(apiUrl,key,body,bub,area,out){
+  const res=await fetch(apiUrl,{
+    method:'POST',
+    signal:aborter.signal,
+    headers:{
+      'content-type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true',
+    },
+    body:JSON.stringify(body),
+  });
+  if(!res.ok){
+    const errText=await res.text();
+    throw new Error(`HTTP ${res.status}：${errText.slice(0,300)}`);
+  }
+  const reader=res.body.getReader();
+  const dec=new TextDecoder();
+  let buf='';
+  while(true){
+    const {done,value}=await reader.read();
+    if(done) break;
+    buf+=dec.decode(value,{stream:true});
+    const lines=buf.split('\n'); buf=lines.pop();
+    for(const line of lines){
+      if(!line.startsWith('data:')) continue;
+      const payload=line.slice(5).trim();
+      if(!payload||payload==='[DONE]') continue;
+      try{
+        const ev=JSON.parse(payload);
+        if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.text){
+          out.acc+=ev.delta.text;
+          bub.innerHTML=fmt(out.acc);
+          area.scrollTop=area.scrollHeight;
+        }
+        if(ev.type==='error') throw new Error(ev.error?.message||'流式出错');
+      }catch(e){ if(e instanceof SyntaxError) continue; throw e; }
+    }
+  }
+}
+
+/* 跑一条回复（单聊一条 / 群聊每个成员一条），返回 false 表示中断或出错 */
+async function runReply(c,apiUrl,key,body,ch){
+  const area=$('msgArea');
+  const holder=bubbleEl('assistant','<span class="typingDot">…</span>','',ch);
+  area.appendChild(holder); area.scrollTop=area.scrollHeight;
+  const bub=holder.querySelector('.bubble');
+  const out={acc:''};
+  try{
+    await callStream(apiUrl,key,body,bub,area,out);
+    if(out.acc){ c.messages.push({role:'assistant',charId:ch?.id,content:out.acc}); c.ts=Date.now(); persistAll(); }
+    else bub.innerHTML='<i>（空回复）</i>';
+    return true;
+  }catch(e){
+    if(e.name==='AbortError'){
+      if(out.acc){ c.messages.push({role:'assistant',charId:ch?.id,content:out.acc}); persistAll(); }
+      else holder.remove();
+    }else{
+      bub.classList.add('err');
+      bub.textContent='出错了：'+e.message;
+    }
+    return false;
+  }
+}
+
 async function send(){
   const text=input.value.trim();
   if(!text && !pendingImgs.length) return;
@@ -725,87 +887,27 @@ async function send(){
   input.value=''; input.style.height='auto';
   persistAll(); renderChat();
 
-  const area=$('msgArea');
-  const holder=bubbleEl('assistant','<span class="typingDot">…</span>');
-  area.appendChild(holder); area.scrollTop=area.scrollHeight;
-  const bub=holder.querySelector('.bubble');
-
   streaming=true; $('sendBtn').textContent='■'; $('sendBtn').classList.add('stop');
   aborter=new AbortController();
-  let acc='';
   try{
-    const ch=curChar(c);
-    const preset=presets.find(p=>p.id===selPresetId);
-    const body={
-      model: settings.model,
-      max_tokens: Number(preset?.maxTokens)||Number(settings.maxTokens)||2048,
-      stream: true,
-      messages: c.messages.map(m=>({role:m.role,content:m.content})),
-    };
-    if(preset && preset.temperature!=='' && preset.temperature!=null)
-      body.temperature=Number(preset.temperature);
-
-    /* 系统提示词 = 角色设定 + 命中的世界书 + 预设附加词 */
-    const sysParts=[];
-    if(ch && ch.prompt.trim()) sysParts.push(ch.prompt);
-    const recentText=c.messages.slice(-5).map(m=>textOf(m.content)).join('\n');
-    const hits=worldbook.filter(w=>{
-      if(!w.on || !w.content.trim()) return false;
-      if(w.mode==='always') return true;
-      return (w.keywords||'').split(/[,，]/).map(s=>s.trim()).filter(Boolean)
-        .some(k=>recentText.includes(k));
-    });
-    if(hits.length) sysParts.push('【世界设定】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
-    if(preset && preset.prompt.trim()) sysParts.push(preset.prompt);
-    if(sysParts.length) body.system=sysParts.join('\n\n');
-
-    const res=await fetch(apiUrl,{
-      method:'POST',
-      signal:aborter.signal,
-      headers:{
-        'content-type':'application/json',
-        'x-api-key':activeKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true',
-      },
-      body:JSON.stringify(body),
-    });
-    if(!res.ok){
-      const errText=await res.text();
-      throw new Error(`HTTP ${res.status}：${errText.slice(0,300)}`);
-    }
-    const reader=res.body.getReader();
-    const dec=new TextDecoder();
-    let buf='';
-    while(true){
-      const {done,value}=await reader.read();
-      if(done) break;
-      buf+=dec.decode(value,{stream:true});
-      const lines=buf.split('\n'); buf=lines.pop();
-      for(const line of lines){
-        if(!line.startsWith('data:')) continue;
-        const payload=line.slice(5).trim();
-        if(!payload||payload==='[DONE]') continue;
-        try{
-          const ev=JSON.parse(payload);
-          if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.text){
-            acc+=ev.delta.text;
-            bub.innerHTML=fmt(acc);
-            area.scrollTop=area.scrollHeight;
-          }
-          if(ev.type==='error') throw new Error(ev.error?.message||'流式出错');
-        }catch(e){ if(e instanceof SyntaxError) continue; throw e; }
+    if(c.members && c.members.length){
+      /* 群聊：成员按顺序轮流回复 */
+      const members=c.members.map(id=>characters.find(x=>x.id===id)).filter(Boolean);
+      const allNames=members.map(m=>m.name).join('、');
+      const myName=$('profileName').textContent.trim()||'用户';
+      for(const m of members){
+        const note=`【群聊】这是一个群聊，成员有：${allNames}，还有用户「${myName}」。你只扮演「${m.name}」，以${m.name}的身份说一条消息，不要替其他任何人发言，也不要在开头加自己的名字。`;
+        const body=baseBody(groupApiMessages(c,m));
+        const sys=buildSystem(m.prompt,c,note);
+        if(sys) body.system=sys;
+        if(!await runReply(c,apiUrl,activeKey,body,m)) break;
       }
-    }
-    if(acc){ c.messages.push({role:'assistant',content:acc}); c.ts=Date.now(); persistAll(); }
-    else bub.innerHTML='<i>（空回复）</i>';
-  }catch(e){
-    if(e.name==='AbortError'){
-      if(acc){ c.messages.push({role:'assistant',content:acc}); persistAll(); }
-      else holder.remove();
     }else{
-      bub.classList.add('err');
-      bub.textContent='出错了：'+e.message;
+      const ch=curChar(c);
+      const body=baseBody(c.messages.map(m=>({role:m.role,content:m.content})));
+      const sys=buildSystem(ch?ch.prompt:'',c);
+      if(sys) body.system=sys;
+      await runReply(c,apiUrl,activeKey,body,ch);
     }
   }finally{
     streaming=false; aborter=null;
@@ -898,7 +1000,8 @@ function renderChars(){
   characters.forEach(ch=>{
     const it=document.createElement('div');
     it.className='charItem'+(ch.id===selCharId?' sel':'');
-    it.innerHTML=`<span class="em">${esc(ch.emoji||'☺')}</span>
+    const av=ch.avatar?`<img class="avSm" src="${ch.avatar}">`:`<span class="em">${esc(ch.emoji||'☺')}</span>`;
+    it.innerHTML=`${av}
       <div class="info"><div class="nm">${esc(ch.name)}</div><div class="pv">${esc(ch.prompt||'还没写设定')}</div></div>
       <button class="edit">编辑</button>`;
     it.querySelector('.info').onclick=()=>{ selCharId=ch.id; persistAll(); renderChars(); renderHeader(); toast(`新对话会用「${ch.name}」`); };
@@ -909,6 +1012,8 @@ function renderChars(){
 $('addChar').onclick=()=>openCharEdit(null);
 function openCharEdit(ch){
   editingChar=ch;
+  editingAvatar=ch?.avatar||null;
+  renderAvPreview();
   $('charEditTitle').childNodes[0].textContent=ch?'编辑角色':'新角色';
   $('ceName').value=ch?ch.name:'';
   $('ceEmoji').value=ch?ch.emoji:'';
@@ -916,13 +1021,48 @@ function openCharEdit(ch){
   $('delChar').style.display=ch&&characters.length>1?'block':'none';
   openSheet('charEditSheet');
 }
+/* 图片头像：方形居中裁切，压到 128px */
+let editingAvatar=null;
+function compressAvatar(file){
+  return new Promise((resolve,reject)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const S=128, side=Math.min(img.width,img.height);
+        const cv=document.createElement('canvas');
+        cv.width=S; cv.height=S;
+        cv.getContext('2d').drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,S,S);
+        resolve(cv.toDataURL('image/jpeg',.85));
+      };
+      img.onerror=()=>reject(new Error('bad image'));
+      img.src=fr.result;
+    };
+    fr.onerror=()=>reject(new Error('bad file'));
+    fr.readAsDataURL(file);
+  });
+}
+function renderAvPreview(){
+  $('ceAvPreview').innerHTML=editingAvatar
+    ?`<img src="${editingAvatar}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:var(--shadow)">`
+    :`<div style="width:44px;height:44px;border-radius:50%;background:var(--bg-soft);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:12px">无</div>`;
+  $('clearAv').style.display=editingAvatar?'block':'none';
+}
+$('pickAv').onclick=()=>$('avFile').click();
+$('avFile').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ editingAvatar=await compressAvatar(f); renderAvPreview(); }
+  catch(err){ toast('这张图读不了'); }
+  e.target.value='';
+};
+$('clearAv').onclick=()=>{ editingAvatar=null; renderAvPreview(); };
 $('saveChar').onclick=()=>{
   const name=$('ceName').value.trim();
   if(!name){ toast('名字不能空着'); return; }
   if(editingChar){
-    editingChar.name=name; editingChar.emoji=$('ceEmoji').value.trim(); editingChar.prompt=$('cePrompt').value;
+    editingChar.name=name; editingChar.emoji=$('ceEmoji').value.trim(); editingChar.prompt=$('cePrompt').value; editingChar.avatar=editingAvatar;
   }else{
-    const nc={id:'c'+Date.now(),name,emoji:$('ceEmoji').value.trim(),prompt:$('cePrompt').value};
+    const nc={id:'c'+Date.now(),name,emoji:$('ceEmoji').value.trim(),prompt:$('cePrompt').value,avatar:editingAvatar};
     characters.push(nc); selCharId=nc.id;
   }
   persistAll(); closeSheet('charEditSheet'); renderChars(); renderHeader(); toast('存好啦');
@@ -932,6 +1072,46 @@ $('delChar').onclick=()=>{
   characters=characters.filter(c=>c.id!==editingChar.id);
   if(selCharId===editingChar.id) selCharId=characters[0]?.id||null;
   persistAll(); closeSheet('charEditSheet'); renderChars();
+};
+
+/* ================= 群聊 ================= */
+let groupSel=[];
+$('newGroup').onclick=()=>{
+  groupSel=[]; $('groupName').value='';
+  renderGroupChars(); openDrawer(false); openSheet('groupSheet');
+};
+function renderGroupChars(){
+  const list=$('groupCharList'); list.innerHTML='';
+  if(!characters.length){
+    list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:16px 0">先去「角色」里建几个角色吧</div>';
+    return;
+  }
+  characters.forEach(ch=>{
+    const i=groupSel.indexOf(ch.id);
+    const it=document.createElement('div');
+    it.className='charItem'+(i>=0?' sel':'');
+    const av=ch.avatar?`<img class="avSm" src="${ch.avatar}">`:`<span class="em">${esc(ch.emoji||'☺')}</span>`;
+    it.innerHTML=`${av}<div class="info"><div class="nm">${esc(ch.name)}</div><div class="pv">${i>=0?`第 ${i+1} 个发言`:'点一下加入'}</div></div>`;
+    it.onclick=()=>{
+      const j=groupSel.indexOf(ch.id);
+      if(j>=0) groupSel.splice(j,1); else groupSel.push(ch.id);
+      renderGroupChars();
+    };
+    list.appendChild(it);
+  });
+}
+$('createGroup').onclick=()=>{
+  if(groupSel.length<2){ toast('至少选两个角色才算群哦'); return; }
+  const names=groupSel.map(id=>characters.find(x=>x.id===id)?.name).filter(Boolean);
+  const c={
+    id:'t'+Date.now(),
+    title:$('groupName').value.trim()||('群聊：'+names.join('、')).slice(0,20),
+    members:groupSel.slice(),
+    ts:Date.now(), messages:[],
+  };
+  chats.push(c); currentId=c.id;
+  persistAll(); closeSheet('groupSheet'); renderChat(); renderHistory();
+  toast('群建好啦，说点什么吧');
 };
 
 /* ================= 世界书 ================= */
