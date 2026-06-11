@@ -296,6 +296,25 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .keyPreview{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .delKey{color:var(--ink-soft);font-size:14px;padding:4px 6px;border-radius:8px;flex-shrink:0}
 .delKey:active{color:var(--danger)}
+
+/* 世界书 & 预设 */
+.wbToggle{
+  width:42px;height:24px;border-radius:12px;flex-shrink:0;
+  background:var(--line);position:relative;transition:background .2s;
+}
+.wbToggle.on{background:var(--accent)}
+.wbToggle::after{
+  content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;
+  border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.15);
+  transition:left .2s;
+}
+.wbToggle.on::after{left:21px}
+.modeTabs{display:flex;gap:8px}
+.modeTab{
+  flex:1;padding:9px;border-radius:12px;font-size:13px;
+  background:var(--card);border:1.5px solid var(--line);
+}
+.modeTab.on{border-color:var(--accent);color:var(--accent-deep);font-weight:600;background:var(--bubble-me)}
 </style>
 </head>
 <body>
@@ -413,10 +432,64 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <button class="themeDot" data-theme="cream" style="background:#F6DCC4"></button>
       <button class="themeDot" data-theme="mist" style="background:#DEDEF5"></button>
     </div>
+    <button class="boxRow" id="wbBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">世界书</span></button>
+    <button class="boxRow" id="presetBtn" style="width:100%"><span class="ic">🎛️</span><span class="grow" style="text-align:left">预设</span></button>
     <button class="boxRow" id="exportBtn" style="width:100%"><span class="ic">📦</span><span class="grow" style="text-align:left">备份所有数据（导出 JSON）</span></button>
     <button class="boxRow" id="importBtn" style="width:100%"><span class="ic">📥</span><span class="grow" style="text-align:left">从备份恢复</span></button>
     <input type="file" id="importFile" accept=".json" style="display:none">
     <div class="hintText">以后想到什么小玩意儿，都往这里塞。</div>
+  </div>
+</div>
+
+<!-- 世界书列表弹层 -->
+<div class="sheetScrim" id="wbSheet">
+  <div class="sheet">
+    <div class="sheetTitle">世界书<button class="close" data-close="wbSheet">✕</button></div>
+    <div id="wbList"></div>
+    <button class="ghostBtn" id="addWb">＋ 新条目</button>
+    <div class="hintText">「常驻」条目每次都生效；「关键词」条目只在最近 5 条消息提到关键词时生效。命中的内容会拼在角色设定后面发给 API。</div>
+  </div>
+</div>
+
+<!-- 世界书编辑弹层 -->
+<div class="sheetScrim" id="wbEditSheet">
+  <div class="sheet">
+    <div class="sheetTitle" id="wbEditTitle">新条目<button class="close" data-close="wbEditSheet">✕</button></div>
+    <div class="field"><label>标题</label><input id="wbTitle" placeholder="比如：王国的历史"></div>
+    <div class="field"><label>内容</label><textarea id="wbContent" placeholder="把设定写在这里…"></textarea></div>
+    <div class="field">
+      <label>触发方式</label>
+      <div class="modeTabs">
+        <button class="modeTab" data-mode="always">常驻</button>
+        <button class="modeTab" data-mode="keyword">关键词</button>
+      </div>
+      <input id="wbKeywords" placeholder="关键词，逗号分隔，比如：王国, 历史, 战争" style="display:none;margin-top:8px">
+    </div>
+    <button class="primaryBtn" id="saveWb">保存</button>
+    <button class="ghostBtn" id="delWb" style="color:var(--danger);display:none">删除这个条目</button>
+  </div>
+</div>
+
+<!-- 预设列表弹层 -->
+<div class="sheetScrim" id="presetSheet">
+  <div class="sheet">
+    <div class="sheetTitle">预设<button class="close" data-close="presetSheet">✕</button></div>
+    <div id="presetList"></div>
+    <button class="ghostBtn" id="addPreset">＋ 新预设</button>
+    <div class="hintText">预设的附加提示词会拼在系统提示词最后；temperature 和 max_tokens 会覆盖默认值。</div>
+  </div>
+</div>
+
+<!-- 预设编辑弹层 -->
+<div class="sheetScrim" id="presetEditSheet">
+  <div class="sheet">
+    <div class="sheetTitle" id="presetEditTitle">新预设<button class="close" data-close="presetEditSheet">✕</button></div>
+    <div class="field"><label>名字</label><input id="peName" placeholder="比如：长文模式"></div>
+    <div class="field"><label>附加提示词（拼在系统提示词最后，可留空）</label><textarea id="pePrompt" placeholder="比如：回复尽量详细，多写细节…"></textarea></div>
+    <div class="field"><label>temperature（0 ~ 1，留空用默认）</label><input type="number" id="peTemp" min="0" max="1" step="0.1" placeholder="默认"></div>
+    <div class="field"><label>max_tokens（留空用连接设置里的值）</label><input type="number" id="peMaxTokens" min="256" max="8192" placeholder="默认"></div>
+    <button class="primaryBtn" id="savePreset">保存</button>
+    <button class="ghostBtn" id="delPreset" style="color:var(--danger);display:none">删除这个预设</button>
   </div>
 </div>
 
@@ -449,6 +522,10 @@ if(!apiKeys.length && settings.apiKey){
   settings.apiKey='';
 }
 if(!selKeyId && apiKeys.length) selKeyId=apiKeys[0].id;
+let worldbook = load('xw_worldbook', []);   // {id,title,content,mode:'always'|'keyword',keywords,on}
+let presets = load('xw_presets', []);       // {id,name,prompt,temperature,maxTokens}
+let selPresetId = load('xw_selpreset', null);
+if(selPresetId && !presets.some(p=>p.id===selPresetId)) selPresetId=null;
 let streaming = false, aborter = null;
 
 const $ = id => document.getElementById(id);
@@ -458,7 +535,7 @@ const fmt = s => esc(s)
   .replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
 
 function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
-const persistAll = ()=>{ save('xw_chats',chats); save('xw_current',currentId); save('xw_characters',characters); save('xw_selchar',selCharId); save('xw_settings',settings); save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); };
+const persistAll = ()=>{ save('xw_chats',chats); save('xw_current',currentId); save('xw_characters',characters); save('xw_selchar',selCharId); save('xw_settings',settings); save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook); save('xw_presets',presets); save('xw_selpreset',selPresetId); };
 
 /* ================= 主题 ================= */
 function applyTheme(){
@@ -515,7 +592,8 @@ function renderHeader(){
   const c=curChat();
   const ch=curChar(c);
   $('headerName').textContent = c ? c.title : (ch ? ch.name : '小窝');
-  $('headerSub').textContent = ch ? `${ch.name} · 在线` : '在线';
+  const pr=presets.find(p=>p.id===selPresetId);
+  $('headerSub').textContent = (ch ? `${ch.name} · 在线` : '在线') + (pr ? ` · ${pr.name}` : '');
 }
 function switchChat(id){ currentId=id; persistAll(); renderChat(); }
 
@@ -573,13 +651,29 @@ async function send(){
   let acc='';
   try{
     const ch=curChar(c);
+    const preset=presets.find(p=>p.id===selPresetId);
     const body={
       model: settings.model,
-      max_tokens: Number(settings.maxTokens)||2048,
+      max_tokens: Number(preset?.maxTokens)||Number(settings.maxTokens)||2048,
       stream: true,
       messages: c.messages.map(m=>({role:m.role,content:m.content})),
     };
-    if(ch && ch.prompt.trim()) body.system=ch.prompt;
+    if(preset && preset.temperature!=='' && preset.temperature!=null)
+      body.temperature=Number(preset.temperature);
+
+    /* 系统提示词 = 角色设定 + 命中的世界书 + 预设附加词 */
+    const sysParts=[];
+    if(ch && ch.prompt.trim()) sysParts.push(ch.prompt);
+    const recentText=c.messages.slice(-5).map(m=>m.content).join('\n');
+    const hits=worldbook.filter(w=>{
+      if(!w.on || !w.content.trim()) return false;
+      if(w.mode==='always') return true;
+      return (w.keywords||'').split(/[,，]/).map(s=>s.trim()).filter(Boolean)
+        .some(k=>recentText.includes(k));
+    });
+    if(hits.length) sysParts.push('【世界设定】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
+    if(preset && preset.prompt.trim()) sysParts.push(preset.prompt);
+    if(sysParts.length) body.system=sysParts.join('\n\n');
 
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -756,11 +850,124 @@ $('delChar').onclick=()=>{
   persistAll(); closeSheet('charEditSheet'); renderChars();
 };
 
+/* ================= 世界书 ================= */
+let editingWb=null, wbMode='always';
+$('wbBtn').onclick=()=>{ renderWb(); openSheet('wbSheet'); };
+function renderWb(){
+  const list=$('wbList'); list.innerHTML='';
+  if(!worldbook.length){
+    list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:20px 0">还没有条目</div>';
+    return;
+  }
+  worldbook.forEach(w=>{
+    const it=document.createElement('div');
+    it.className='charItem';
+    const modeText=w.mode==='keyword'?`关键词：${w.keywords||'（没填）'}`:'常驻';
+    it.innerHTML=`<button class="wbToggle${w.on?' on':''}"></button>
+      <div class="info"><div class="nm">${esc(w.title)}</div><div class="pv">${esc(modeText)}</div></div>
+      <button class="edit">编辑</button>`;
+    it.querySelector('.wbToggle').onclick=ev=>{
+      ev.stopPropagation();
+      w.on=!w.on; persistAll();
+      ev.target.classList.toggle('on',w.on);
+    };
+    it.querySelector('.info').onclick=()=>openWbEdit(w);
+    it.querySelector('.edit').onclick=()=>openWbEdit(w);
+    list.appendChild(it);
+  });
+}
+$('addWb').onclick=()=>openWbEdit(null);
+function setWbMode(m){
+  wbMode=m;
+  document.querySelectorAll('#wbEditSheet .modeTab').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
+  $('wbKeywords').style.display=m==='keyword'?'block':'none';
+}
+document.querySelectorAll('#wbEditSheet .modeTab').forEach(b=>b.onclick=()=>setWbMode(b.dataset.mode));
+function openWbEdit(w){
+  editingWb=w;
+  $('wbEditTitle').childNodes[0].textContent=w?'编辑条目':'新条目';
+  $('wbTitle').value=w?w.title:'';
+  $('wbContent').value=w?w.content:'';
+  $('wbKeywords').value=w?(w.keywords||''):'';
+  setWbMode(w?w.mode:'always');
+  $('delWb').style.display=w?'block':'none';
+  openSheet('wbEditSheet');
+}
+$('saveWb').onclick=()=>{
+  const title=$('wbTitle').value.trim();
+  if(!title){ toast('标题不能空着'); return; }
+  const data={ title, content:$('wbContent').value, mode:wbMode, keywords:$('wbKeywords').value.trim() };
+  if(editingWb) Object.assign(editingWb,data);
+  else worldbook.push({ id:'w'+Date.now(), on:true, ...data });
+  persistAll(); closeSheet('wbEditSheet'); renderWb(); toast('存好啦');
+};
+$('delWb').onclick=()=>{
+  if(!editingWb||!confirm(`删掉「${editingWb.title}」？`)) return;
+  worldbook=worldbook.filter(w=>w.id!==editingWb.id);
+  persistAll(); closeSheet('wbEditSheet'); renderWb();
+};
+
+/* ================= 预设 ================= */
+let editingPreset=null;
+$('presetBtn').onclick=()=>{ renderPresets(); openSheet('presetSheet'); };
+function renderPresets(){
+  const list=$('presetList'); list.innerHTML='';
+  const none=document.createElement('div');
+  none.className='charItem'+(selPresetId==null?' sel':'');
+  none.innerHTML=`<span class="em">○</span><div class="info"><div class="nm">不使用预设</div><div class="pv">按角色设定和默认参数来</div></div>`;
+  none.onclick=()=>{ selPresetId=null; persistAll(); renderPresets(); renderHeader(); };
+  list.appendChild(none);
+  presets.forEach(p=>{
+    const it=document.createElement('div');
+    it.className='charItem'+(p.id===selPresetId?' sel':'');
+    const parts=[];
+    if(p.temperature!==''&&p.temperature!=null) parts.push(`temp ${p.temperature}`);
+    if(p.maxTokens) parts.push(`max ${p.maxTokens}`);
+    if(p.prompt.trim()) parts.push('有附加词');
+    it.innerHTML=`<span class="em">🎛️</span>
+      <div class="info"><div class="nm">${esc(p.name)}</div><div class="pv">${esc(parts.join(' · ')||'全用默认')}</div></div>
+      <button class="edit">编辑</button>`;
+    it.querySelector('.info').onclick=()=>{ selPresetId=p.id; persistAll(); renderPresets(); renderHeader(); toast(`已切到「${p.name}」`); };
+    it.querySelector('.edit').onclick=ev=>{ ev.stopPropagation(); openPresetEdit(p); };
+    list.appendChild(it);
+  });
+}
+$('addPreset').onclick=()=>openPresetEdit(null);
+function openPresetEdit(p){
+  editingPreset=p;
+  $('presetEditTitle').childNodes[0].textContent=p?'编辑预设':'新预设';
+  $('peName').value=p?p.name:'';
+  $('pePrompt').value=p?p.prompt:'';
+  $('peTemp').value=p&&p.temperature!=null?p.temperature:'';
+  $('peMaxTokens').value=p&&p.maxTokens?p.maxTokens:'';
+  $('delPreset').style.display=p?'block':'none';
+  openSheet('presetEditSheet');
+}
+$('savePreset').onclick=()=>{
+  const name=$('peName').value.trim();
+  if(!name){ toast('名字不能空着'); return; }
+  const t=$('peTemp').value.trim();
+  const data={
+    name, prompt:$('pePrompt').value,
+    temperature: t===''?null:Math.min(1,Math.max(0,Number(t))),
+    maxTokens: Number($('peMaxTokens').value)||null,
+  };
+  if(editingPreset) Object.assign(editingPreset,data);
+  else{ const np={id:'p'+Date.now(),...data}; presets.push(np); selPresetId=np.id; }
+  persistAll(); closeSheet('presetEditSheet'); renderPresets(); renderHeader(); toast('存好啦');
+};
+$('delPreset').onclick=()=>{
+  if(!editingPreset||!confirm(`删掉「${editingPreset.name}」？`)) return;
+  presets=presets.filter(p=>p.id!==editingPreset.id);
+  if(selPresetId===editingPreset.id) selPresetId=null;
+  persistAll(); closeSheet('presetEditSheet'); renderPresets(); renderHeader();
+};
+
 /* ================= 百宝箱 ================= */
 $('boxBtn').onclick=()=>{ applyTheme(); openSheet('boxSheet'); };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -775,6 +982,11 @@ $('importFile').onchange=async e=>{
     const data=JSON.parse(await f.text());
     if(data.characters) characters=data.characters;
     if(data.chats) chats=data.chats;
+    if(data.worldbook) worldbook=data.worldbook;
+    if(data.presets){
+      presets=data.presets;
+      selPresetId=presets.some(p=>p.id===data.selPresetId)?data.selPresetId:null;
+    }
     if(data.settings){ settings={...settings,...data.settings,apiKey:''}; }
     persistAll(); applyTheme(); renderChat(); renderHistory(); renderChars();
     toast('恢复好啦');
