@@ -163,8 +163,10 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   display:flex;align-items:center;justify-content:center;
   font-size:24px;flex-shrink:0;box-shadow:var(--shadow);
 }
-#profileText{min-width:0}
-#profileName{font-weight:600;font-size:15px}
+#profileText{min-width:0;flex:1}
+#profileName{font-weight:600;font-size:15px;border:none;background:none;width:100%;padding:0}
+#avatar{overflow:hidden;cursor:pointer}
+#avatar img{width:100%;height:100%;object-fit:cover}
 #profileStatus{font-size:12px;color:var(--ink-soft);border:none;background:none;width:100%;padding:0}
 
 #searchWrap{margin:0 16px 6px;position:relative}
@@ -336,6 +338,8 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 
 /* 头像 & 群聊 */
 .msg.ta{flex-direction:row;gap:8px}
+.msg.me{flex-direction:row;align-items:flex-start;gap:8px}
+.msg.me .av{margin-top:0}
 .msg .av{
   width:30px;height:30px;border-radius:50%;flex-shrink:0;margin-top:21px;
   background:var(--bubble-me);display:flex;align-items:center;justify-content:center;
@@ -393,11 +397,12 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 <div id="scrim"></div>
 <aside id="drawer">
   <div id="profile">
-    <div id="avatar">₍ᵔ·̫ᵔ₎</div>
+    <div id="avatar" title="点我换头像">₍ᵔ·̫ᵔ₎</div>
     <div id="profileText">
-      <div id="profileName">溪溪</div>
+      <input id="profileName" placeholder="你的昵称">
       <input id="profileStatus" placeholder="写点状态…">
     </div>
+    <input type="file" id="myAvFile" accept="image/*" style="display:none">
   </div>
   <div id="searchWrap"><input id="search" placeholder="搜索聊天"></div>
   <button id="newChat">✦ 开个新对话</button>
@@ -476,6 +481,14 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       </div>
       <input type="file" id="avFile" accept="image/*" style="display:none">
     </div>
+    <div class="field"><label>聊天背景图（只在和TA的对话里显示）</label>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="ceBgPreview"></div>
+        <button class="ghostBtn" id="pickBg" style="margin-top:0;flex:1">选背景</button>
+        <button class="ghostBtn" id="clearBg" style="margin-top:0;flex:1;display:none">移除背景</button>
+      </div>
+      <input type="file" id="bgFile" accept="image/*" style="display:none">
+    </div>
     <div class="field"><label>人设 / 系统提示词</label><textarea id="cePrompt" placeholder="把他的设定贴在这里…"></textarea></div>
     <div class="field"><label>温度（0~1，留空跟随预设/默认）</label><input type="number" id="ceTemp" min="0" max="1" step="0.1" placeholder="默认"></div>
     <div class="field">
@@ -501,6 +514,12 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <button class="themeDot" data-theme="cream" style="background:#F6DCC4"></button>
       <button class="themeDot" data-theme="mist" style="background:#DEDEF5"></button>
     </div>
+    <div class="boxRow">
+      <span class="ic">🔤</span><span class="grow" id="fontLabel">字体：默认</span>
+      <button id="fontBtn" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">导入</button>
+      <button id="fontReset" style="color:var(--ink-soft);padding:4px 8px">还原</button>
+    </div>
+    <input type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2" style="display:none">
     <button class="boxRow" id="memBtn" style="width:100%"><span class="ic">🧠</span><span class="grow" style="text-align:left">记忆</span></button>
     <button class="boxRow" id="wbBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">世界书</span></button>
     <button class="boxRow" id="presetBtn" style="width:100%"><span class="ic">🎛️</span><span class="grow" style="text-align:left">预设</span></button>
@@ -678,6 +697,7 @@ const contentHtml = ct => typeof ct==='string' ? fmt(ct) :
   }).join('');
 
 function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
+const userName = ()=> (settings.myName||'').trim()||'溪溪';
 const persistAll = ()=>{ save('xw_chats',chats); save('xw_current',currentId); save('xw_characters',characters); save('xw_selchar',selCharId); save('xw_settings',settings); save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook); save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories); };
 
 /* ================= 主题 ================= */
@@ -692,6 +712,24 @@ $('menuBtn').onclick = ()=>{ renderHistory(); openDrawer(true) };
 $('scrim').onclick = ()=>openDrawer(false);
 $('profileStatus').value = settings.status||'';
 $('profileStatus').onchange = e=>{ settings.status=e.target.value; persistAll(); };
+$('profileName').value = settings.myName||'溪溪';
+$('profileName').onchange = e=>{
+  settings.myName=e.target.value.trim();
+  persistAll(); toast(`以后就叫你「${userName()}」`);
+};
+function renderProfile(){
+  $('avatar').innerHTML = settings.myAvatar ? `<img src="${settings.myAvatar}">` : '₍ᵔ·̫ᵔ₎';
+}
+$('avatar').onclick = ()=>$('myAvFile').click();
+$('myAvFile').onchange = async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    settings.myAvatar=await compressAvatar(f);
+    persistAll(); renderProfile(); renderChat();
+    toast('头像换好啦');
+  }catch(err){ toast('这张图读不了'); }
+  e.target.value='';
+};
 $('search').oninput = ()=>renderHistory();
 
 function dateLabel(ts){
@@ -752,7 +790,8 @@ function bubbleEl(role,html,extra,ch){
   const m=document.createElement('div');
   m.className='msg '+(role==='user'?'me':'ta');
   if(role==='user'){
-    m.innerHTML=`<div class="bubble ${extra||''}">${html}</div>`;
+    const av=settings.myAvatar?`<img class="av" src="${settings.myAvatar}">`:'';
+    m.innerHTML=`<div class="bubble ${extra||''}">${html}</div>${av}`;
   }else{
     const av=ch&&ch.avatar?`<img class="av" src="${ch.avatar}">`:`<div class="av">${esc(ch?.emoji||'☺')}</div>`;
     m.innerHTML=`${av}<div class="mcol"><div class="who">${esc(ch?.name||'')}</div><div class="bubble ${extra||''}">${html}</div></div>`;
@@ -763,6 +802,15 @@ function renderChat(){
   const area=$('msgArea'); area.innerHTML='';
   renderHeader();
   const c=curChat();
+  /* 角色聊天背景（单聊生效，叠一层半透明保证字能看清） */
+  const bgCh=(!c||!(c.members&&c.members.length))?curChar(c):null;
+  if(bgCh?.bg){
+    area.style.backgroundImage=`linear-gradient(rgba(255,255,255,.4),rgba(255,255,255,.4)),url(${bgCh.bg})`;
+    area.style.backgroundSize='cover';
+    area.style.backgroundPosition='center';
+  }else{
+    area.style.backgroundImage='';
+  }
   if(!c||!c.messages.length){
     area.innerHTML='<div id="empty"><div class="face">₍ᐢ. .ᐢ₎</div><div class="hint">说点什么吧，我听着呢</div></div>';
     return;
@@ -802,20 +850,19 @@ $('imgFile').onchange=async e=>{
   renderImgPreview();
   e.target.value='';
 };
-/* 压到最长边 1024、jpeg 0.82，省 token 也省 localStorage */
-function compressImage(file){
+/* 压到最长边 MAX、jpeg，省 token 也省 localStorage */
+function compressImage(file,MAX=1024,q=.82){
   return new Promise((resolve,reject)=>{
     const fr=new FileReader();
     fr.onload=()=>{
       const img=new Image();
       img.onload=()=>{
-        const MAX=1024;
         let w=img.width,h=img.height;
         if(Math.max(w,h)>MAX){ const r=MAX/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r); }
         const cv=document.createElement('canvas');
         cv.width=w; cv.height=h;
         cv.getContext('2d').drawImage(img,0,0,w,h);
-        resolve({media_type:'image/jpeg',data:cv.toDataURL('image/jpeg',.82).split(',')[1]});
+        resolve({media_type:'image/jpeg',data:cv.toDataURL('image/jpeg',q).split(',')[1]});
       };
       img.onerror=()=>reject(new Error('bad image'));
       img.src=fr.result;
@@ -844,8 +891,7 @@ function stopStream(){ if(aborter) aborter.abort(); }
 /* 提示词变量：{{user}} {{char}} {{date}} {{time}} */
 function applyVars(s,ch){
   const now=new Date();
-  const myName=$('profileName').textContent.trim()||'用户';
-  return s.replace(/\{\{user\}\}/gi,myName)
+  return s.replace(/\{\{user\}\}/gi,userName())
           .replace(/\{\{char\}\}/gi,ch?.name||'')
           .replace(/\{\{date\}\}/gi,`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`)
           .replace(/\{\{time\}\}/gi,`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
@@ -895,7 +941,7 @@ function prefixed(name,ct){
   return [{type:'text',text:`${name}：`},...bs];
 }
 function groupApiMessages(c,member){
-  const myName=$('profileName').textContent.trim()||'用户';
+  const myName=userName();
   const out=[];
   const push=(role,blocks)=>{
     if(out.length&&out[out.length-1].role===role) out[out.length-1].content=out[out.length-1].content.concat(blocks);
@@ -1027,7 +1073,7 @@ async function generateReply(c,onlyCharId){
       let members=c.members.map(id=>characters.find(x=>x.id===id)).filter(Boolean);
       if(onlyCharId) members=members.filter(m=>m.id===onlyCharId);
       const allNames=c.members.map(id=>characters.find(x=>x.id===id)?.name).filter(Boolean).join('、');
-      const myName=$('profileName').textContent.trim()||'用户';
+      const myName=userName();
       for(const m of members){
         const note=`【群聊】这是一个群聊，成员有：${allNames}，还有用户「${myName}」。你只扮演「${m.name}」，以${m.name}的身份说一条消息，不要替其他任何人发言，也不要在开头加自己的名字。`;
         let gm=c.messages;
@@ -1217,6 +1263,8 @@ function openCharEdit(ch){
   editingChar=ch;
   editingAvatar=ch?.avatar||null;
   renderAvPreview();
+  editingBg=ch?.bg||null;
+  renderBgPreview();
   $('charEditTitle').childNodes[0].textContent=ch?'编辑角色':'新角色';
   $('ceName').value=ch?ch.name:'';
   $('ceEmoji').value=ch?ch.emoji:'';
@@ -1258,6 +1306,26 @@ function renderAvPreview(){
     :`<div style="width:44px;height:44px;border-radius:50%;background:var(--bg-soft);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:12px">无</div>`;
   $('clearAv').style.display=editingAvatar?'block':'none';
 }
+/* 聊天背景图 */
+let editingBg=null;
+function renderBgPreview(){
+  $('ceBgPreview').innerHTML=editingBg
+    ?`<img src="${editingBg}" style="width:60px;height:44px;border-radius:10px;object-fit:cover;box-shadow:var(--shadow)">`
+    :`<div style="width:60px;height:44px;border-radius:10px;background:var(--bg-soft);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:12px">无</div>`;
+  $('clearBg').style.display=editingBg?'block':'none';
+}
+$('pickBg').onclick=()=>$('bgFile').click();
+$('bgFile').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const r=await compressImage(f,1280,.78);
+    editingBg=`data:${r.media_type};base64,${r.data}`;
+    renderBgPreview();
+  }catch(err){ toast('这张图读不了'); }
+  e.target.value='';
+};
+$('clearBg').onclick=()=>{ editingBg=null; renderBgPreview(); };
+
 $('pickAv').onclick=()=>$('avFile').click();
 $('avFile').onchange=async e=>{
   const f=e.target.files[0]; if(!f) return;
@@ -1272,6 +1340,7 @@ $('saveChar').onclick=()=>{
   const t=$('ceTemp').value.trim();
   const extra={
     avatar:editingAvatar,
+    bg:editingBg,
     temp: t===''?null:Math.min(1,Math.max(0,Number(t))),
     ctxOn: ceCtxOn,
     ctxN: Math.min(516,Math.max(1,Number($('ceCtxN').value)||50)),
@@ -1283,7 +1352,7 @@ $('saveChar').onclick=()=>{
     const nc={id:'c'+Date.now(),name,emoji:$('ceEmoji').value.trim(),prompt:$('cePrompt').value,...extra};
     characters.push(nc); selCharId=nc.id;
   }
-  persistAll(); closeSheet('charEditSheet'); renderChars(); renderHeader(); toast('存好啦');
+  persistAll(); closeSheet('charEditSheet'); renderChars(); renderChat(); toast('存好啦');
 };
 $('delChar').onclick=()=>{
   if(!editingChar||!confirm(`删掉「${editingChar.name}」？`)) return;
@@ -1609,6 +1678,77 @@ $('delPreset').onclick=()=>{
   persistAll(); closeSheet('presetEditSheet'); renderPresets(); renderHeader();
 };
 
+/* ================= 字体（存 IndexedDB，localStorage 装不下大字体） ================= */
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open('xiaowo',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('kv');
+    r.onsuccess=()=>res(r.result);
+    r.onerror=()=>rej(r.error);
+  });
+}
+async function idbSet(k,v){
+  const db=await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction('kv','readwrite');
+    tx.objectStore('kv').put(v,k);
+    tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
+  });
+}
+async function idbGet(k){
+  const db=await idbOpen();
+  return new Promise((res,rej)=>{
+    const rq=db.transaction('kv','readonly').objectStore('kv').get(k);
+    rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error);
+  });
+}
+async function idbDel(k){
+  const db=await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction('kv','readwrite');
+    tx.objectStore('kv').delete(k);
+    tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
+  });
+}
+function renderFontRow(){
+  $('fontLabel').textContent='字体：'+(settings.fontOn?(settings.fontName||'自定义'):'默认');
+}
+async function applyFont(){
+  renderFontRow();
+  if(!settings.fontOn){ document.body.style.fontFamily=''; return; }
+  try{
+    const buf=await idbGet('font');
+    if(!buf){ settings.fontOn=false; persistAll(); renderFontRow(); return; }
+    const ff=new FontFace('xwFont',buf);
+    await ff.load();
+    document.fonts.add(ff);
+    document.body.style.fontFamily='"xwFont","PingFang SC","HarmonyOS Sans SC",system-ui,sans-serif';
+  }catch(e){ /* 字体坏了就静默退回默认 */ }
+}
+$('fontBtn').onclick=()=>$('fontFile').click();
+$('fontFile').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const buf=await f.arrayBuffer();
+    const ff=new FontFace('xwFont',buf);
+    await ff.load();                      // 先验证字体能用
+    await idbSet('font',buf);
+    document.fonts.add(ff);
+    document.body.style.fontFamily='"xwFont","PingFang SC","HarmonyOS Sans SC",system-ui,sans-serif';
+    settings.fontOn=true; settings.fontName=f.name.replace(/\.[^.]+$/,'');
+    persistAll(); renderFontRow();
+    toast('字体换好啦');
+  }catch(err){ toast('这个字体文件读不了'); }
+  e.target.value='';
+};
+$('fontReset').onclick=()=>{
+  settings.fontOn=false; settings.fontName='';
+  persistAll(); renderFontRow();
+  document.body.style.fontFamily='';
+  idbDel('font');
+  toast('回到默认字体');
+};
+
 /* ================= 百宝箱 ================= */
 $('boxBtn').onclick=()=>{ applyTheme(); openSheet('boxSheet'); };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
@@ -1643,6 +1783,8 @@ $('importFile').onchange=async e=>{
 
 /* ================= 启动 ================= */
 applyTheme();
+renderProfile();
+applyFont();
 renderChat();
 renderHistory();
 </script>
