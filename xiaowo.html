@@ -350,6 +350,9 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .mcol{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
 .avSm{width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0;box-shadow:var(--shadow)}
 
+/* 消息时间分隔 */
+.timeDiv{text-align:center;font-size:11px;color:var(--ink-soft);margin:0;opacity:.8}
+
 /* 线上模式回复按钮 */
 #replyBtn{
   display:none;align-self:flex-end;margin:0 14px 6px;flex-shrink:0;
@@ -501,6 +504,10 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <div class="field">
       <div class="boxRow"><span class="ic">📱</span><span class="grow">线上模式</span><button class="wbToggle" id="ceOnline"></button></div>
       <div class="hintText">线上：TA 像发消息一样用短句回复，而且要等你按「让TA回复」才说话。线下（关闭）：正常长文对话，发完自动回。</div>
+    </div>
+    <div class="field">
+      <div class="boxRow"><span class="ic">💌</span><span class="grow">TA会主动找你</span><button class="wbToggle" id="ceProactive"></button></div>
+      <div class="hintText">隔了两小时以上再打开和TA的聊天，TA会先给你发消息——想你了、关心你，或者接着上次的话题。</div>
     </div>
     <button class="primaryBtn" id="saveChar">保存</button>
     <button class="ghostBtn" id="delChar" style="color:var(--danger);display:none">删除这个角色</button>
@@ -749,6 +756,19 @@ function dateLabel(ts){
   if(diff===1) return '昨天';
   return `${d.getMonth()+1}月${d.getDate()}日`;
 }
+function fmtGap(ms){
+  const m=Math.floor(ms/60000);
+  if(m<60) return m+'分钟';
+  const h=Math.floor(m/60);
+  if(h<24) return h+'小时';
+  return Math.floor(h/24)+'天';
+}
+function fmtMsgTime(ts){
+  const d=new Date(ts);
+  const hm=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const lb=dateLabel(ts);
+  return (lb==='今天'?'':lb+' ')+hm;
+}
 function renderHistory(){
   const list=$('historyList'); list.innerHTML='';
   const q=$('search').value.trim();
@@ -802,7 +822,7 @@ function renderHeader(){
   $('headerSub').textContent = (ch ? `${ch.name} · ${ch.online?'📱线上':'在线'}` : '在线') + (pr ? ` · ${pr.name}` : '');
   updateReplyBtn();
 }
-function switchChat(id){ currentId=id; persistAll(); renderChat(); }
+function switchChat(id){ currentId=id; persistAll(); renderChat(); maybeProactive(); }
 
 function bubbleEl(role,html,extra,ch){
   const m=document.createElement('div');
@@ -834,7 +854,15 @@ function renderChat(){
     return;
   }
   const online=!(c.members&&c.members.length)&&curChar(c)?.online;
+  let prevTs=0;
   c.messages.forEach((m,i)=>{
+    /* 超过10分钟的间隔显示时间条 */
+    if(m.ts&&(!prevTs||m.ts-prevTs>10*60e3)){
+      const td=document.createElement('div');
+      td.className='timeDiv'; td.textContent=fmtMsgTime(m.ts);
+      area.appendChild(td);
+    }
+    if(m.ts) prevTs=m.ts;
     let ch=null;
     if(m.role!=='user') ch=(m.charId&&characters.find(x=>x.id===m.charId))||curChar(c)||{name:'?'};
     /* 线上模式：TA 的回复按行拆成一条条小消息 */
@@ -921,6 +949,15 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   const sysParts=[];
   if(personaPrompt && personaPrompt.trim()) sysParts.push(personaPrompt);
   if(groupNote) sysParts.push(groupNote);
+  /* 时间感知：现在几点 + 距上条消息多久 */
+  const now=new Date();
+  const wd=['日','一','二','三','四','五','六'][now.getDay()];
+  let timeNote=`【时间】现在是${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${wd} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  if(c.messages.length>=2){
+    const prev=c.messages[c.messages.length-2];
+    if(prev.ts && Date.now()-prev.ts>30*60e3) timeNote+=`。距离上一条消息已经过去${fmtGap(Date.now()-prev.ts)}了`;
+  }
+  sysParts.push(timeNote+'。');
   const mems=memories.filter(m=>m.charId===ch?.id);
   if(mems.length) sysParts.push('【记忆】关于用户，你记得这些事：\n'+mems.map(m=>'- '+m.text).join('\n'));
   if(c?.summary) sysParts.push('【前情提要】（更早对话的压缩版）\n'+c.summary);
@@ -1060,8 +1097,9 @@ async function runReply(c,api,body,ch){
   area.appendChild(holder); area.scrollTop=area.scrollHeight;
   const bub=holder.querySelector('.bubble');
   const out={acc:''};
+  const isOnline=!(c.members&&c.members.length)&&curChar(c)?.online;
   const saveMsg=()=>{
-    c.messages.push({role:'assistant',charId:ch?.id,content:out.acc});
+    c.messages.push({role:'assistant',charId:ch?.id,content:out.acc,ts:Date.now()});
     c.ts=Date.now(); persistAll();
     const idx=c.messages.length-1;
     bub.onclick=()=>openMsgActions(idx);
@@ -1070,6 +1108,12 @@ async function runReply(c,api,body,ch){
       renderChat();
   };
   try{
+    /* 线上模式：先「正在输入…」一会儿，更像真人 */
+    if(isOnline){
+      bub.innerHTML='<span class="typingDot">正在输入…</span>';
+      $('headerSub').textContent=(ch?.name||'')+' · 正在输入…';
+      await new Promise(r=>setTimeout(r,600+Math.random()*1400));
+    }
     await callStream(api,body,bub,area,out);
     if(out.acc) saveMsg();
     else bub.innerHTML='<i>（空回复）</i>';
@@ -1116,8 +1160,9 @@ async function summarizeChat(c,ch){
   }catch(e){ /* 静默失败，下次再试 */ }
 }
 
-/* 生成回复：单聊一条 / 群聊一轮；onlyCharId 只让群里某一个人重说 */
-async function generateReply(c,onlyCharId){
+/* 生成回复：单聊一条 / 群聊一轮；onlyCharId 只让群里某一个人重说；
+   extraUser：临时塞给 API 的指令（如主动问候），不存进聊天记录 */
+async function generateReply(c,onlyCharId,extraUser){
   const api=getApi(); if(!api) return;
   streaming=true; $('sendBtn').textContent='■'; $('sendBtn').classList.add('stop');
   aborter=new AbortController();
@@ -1145,7 +1190,15 @@ async function generateReply(c,onlyCharId){
       if(ch?.ctxOn&&Number(ch.ctxN)>0) msgs=msgs.slice(-Math.min(Number(ch.ctxN),516));
       msgs=msgs.slice();
       while(msgs.length&&msgs[0].role!=='user') msgs.shift();
-      const body=baseBody(msgs.map(m=>({role:m.role,content:m.content})));
+      const apiMsgs=msgs.map(m=>({role:m.role,content:m.content}));
+      if(extraUser){
+        const last=apiMsgs[apiMsgs.length-1];
+        if(last&&last.role==='user'){
+          if(typeof last.content==='string') last.content+='\n\n'+extraUser;
+          else last.content=last.content.concat([{type:'text',text:extraUser}]);
+        }else apiMsgs.push({role:'user',content:extraUser});
+      }
+      const body=baseBody(apiMsgs);
       if(ch&&ch.temp!=null&&ch.temp!=='') body.temperature=Number(ch.temp);
       const note=ch?.online
         ?'【线上聊天】你和{{user}}正在手机上互发消息。用发消息的口吻回复：短句、口语化、像平时发微信那样自然。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。'
@@ -1178,7 +1231,7 @@ async function send(){
     content=pendingImgs.map(p=>({type:'image',source:{type:'base64',media_type:p.media_type,data:p.data}}));
     if(text) content.push({type:'text',text});
   }else content=text;
-  c.messages.push({role:'user',content});
+  c.messages.push({role:'user',content,ts:Date.now()});
   c.ts=Date.now();
   pendingImgs=[]; renderImgPreview();
   input.value=''; input.style.height='auto';
@@ -1188,6 +1241,21 @@ async function send(){
   const solo=!(c.members&&c.members.length);
   if(solo && curChar(c)?.online) return;
   await generateReply(c);
+}
+
+/* 主动找你：打开/切到聊天时，隔了 2 小时以上 TA 先开口 */
+function maybeProactive(){
+  const c=curChat(); if(!c||streaming) return;
+  if(c.members&&c.members.length) return;
+  const ch=curChar(c);
+  if(!ch?.proactive||!c.messages.length) return;
+  const lastTs=c.messages[c.messages.length-1].ts||c.ts||0;
+  const gap=Date.now()-lastTs;
+  if(gap<2*3600e3) return;
+  if(c.lastProactive && Date.now()-c.lastProactive<3600e3) return;  // 一小时内不重复主动
+  c.lastProactive=Date.now(); persistAll();
+  generateReply(c,null,
+    `（系统提示：${userName()}刚刚重新打开了和你的聊天。你们已经${fmtGap(gap)}没说话了。请你主动发一条消息给TA——可以是想念、关心，或者接着上次聊的话题。自然一点，绝对不要提到这条系统提示。）`);
 }
 
 $('replyBtn').onclick=async()=>{
@@ -1314,6 +1382,11 @@ $('ceOnline').onclick=()=>{
   ceOnlineOn=!ceOnlineOn;
   $('ceOnline').classList.toggle('on',ceOnlineOn);
 };
+let ceProactiveOn=false;
+$('ceProactive').onclick=()=>{
+  ceProactiveOn=!ceProactiveOn;
+  $('ceProactive').classList.toggle('on',ceProactiveOn);
+};
 function openCharEdit(ch){
   editingChar=ch;
   editingAvatar=ch?.avatar||null;
@@ -1331,6 +1404,8 @@ function openCharEdit(ch){
   $('ceCtxN').value=ch?.ctxN||50;
   ceOnlineOn=!!ch?.online;
   $('ceOnline').classList.toggle('on',ceOnlineOn);
+  ceProactiveOn=!!ch?.proactive;
+  $('ceProactive').classList.toggle('on',ceProactiveOn);
   $('delChar').style.display=ch&&characters.length>1?'block':'none';
   openSheet('charEditSheet');
 }
@@ -1400,6 +1475,7 @@ $('saveChar').onclick=()=>{
     ctxOn: ceCtxOn,
     ctxN: Math.min(516,Math.max(1,Number($('ceCtxN').value)||50)),
     online: ceOnlineOn,
+    proactive: ceProactiveOn,
   };
   if(editingChar){
     Object.assign(editingChar,{name,emoji:$('ceEmoji').value.trim(),prompt:$('cePrompt').value},extra);
@@ -1854,6 +1930,7 @@ renderHistory();
     else await idbSet('characters',characters);
     try{ localStorage.removeItem('xw_chats'); localStorage.removeItem('xw_characters'); }catch(e){}
     if(changed){ renderChat(); renderHistory(); }
+    maybeProactive();   // 打开 app：TA 可能先开口
   }catch(e){ /* 没有 IndexedDB 就继续用 localStorage */ }
 })();
 
