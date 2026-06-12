@@ -455,7 +455,8 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     </div>
     <div class="field">
       <label>单次回复上限（max_tokens）</label>
-      <input type="number" id="setMaxTokens" value="2048" min="256" max="8192">
+      <input type="number" id="setMaxTokens" value="2048" min="256" max="64000">
+      <div class="hintText">设多大都不多花钱——模型说完会自然停笔，这只是保险丝。Sonnet 最高 64000，个别模型上限低，设超了会报错，调小即可。</div>
     </div>
     <button class="primaryBtn" id="saveSettings">保存</button>
     <div class="hintText">Key 只存在这台手机的浏览器里，不会发给除 Anthropic 之外的任何地方。</div>
@@ -607,7 +608,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <div class="field"><label>名字</label><input id="peName" placeholder="比如：长文模式"></div>
     <div class="field"><label>附加提示词（拼在系统提示词最后，可留空）</label><textarea id="pePrompt" placeholder="比如：回复尽量详细，多写细节…"></textarea></div>
     <div class="field"><label>temperature（0 ~ 1，留空用默认）</label><input type="number" id="peTemp" min="0" max="1" step="0.1" placeholder="默认"></div>
-    <div class="field"><label>max_tokens（留空用连接设置里的值）</label><input type="number" id="peMaxTokens" min="256" max="8192" placeholder="默认"></div>
+    <div class="field"><label>max_tokens（留空用连接设置里的值）</label><input type="number" id="peMaxTokens" min="256" max="64000" placeholder="默认"></div>
     <button class="primaryBtn" id="savePreset">保存</button>
     <button class="ghostBtn" id="delPreset" style="color:var(--danger);display:none">删除这个预设</button>
   </div>
