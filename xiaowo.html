@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="小窝">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <title>小窝 ⸝⸝</title>
 <style>
 :root{
@@ -494,7 +496,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <div class="field">
       <div class="boxRow" style="margin-bottom:8px"><span class="ic">✂️</span><span class="grow">限制上下文消息数量</span><button class="wbToggle" id="ceCtxToggle"></button></div>
       <input type="number" id="ceCtxN" min="1" max="516" value="50" style="display:none">
-      <div class="hintText">开了只把最近 N 条发给 API（最高 516），关了就全部发、无限制。</div>
+      <div class="hintText">开了只把最近 N 条发给 API（最高 516），关了就全部发、无限制。被裁掉的旧对话会自动压成「前情提要」，TA 不会失忆。</div>
     </div>
     <div class="field">
       <div class="boxRow"><span class="ic">📱</span><span class="grow">线上模式</span><button class="wbToggle" id="ceOnline"></button></div>
@@ -698,7 +700,14 @@ const contentHtml = ct => typeof ct==='string' ? fmt(ct) :
 
 function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
 const userName = ()=> (settings.myName||'').trim()||'溪溪';
-const persistAll = ()=>{ save('xw_chats',chats); save('xw_current',currentId); save('xw_characters',characters); save('xw_selchar',selCharId); save('xw_settings',settings); save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook); save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories); };
+/* 聊天和角色（带图，体积大）住 IndexedDB；其余小数据住 localStorage */
+const persistAll = ()=>{
+  save('xw_current',currentId); save('xw_selchar',selCharId); save('xw_settings',settings);
+  save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook);
+  save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories);
+  idbSet('chats',chats).catch(()=>save('xw_chats',chats));
+  idbSet('characters',characters).catch(()=>save('xw_characters',characters));
+};
 
 /* ================= 主题 ================= */
 function applyTheme(){
@@ -743,7 +752,7 @@ function dateLabel(ts){
 function renderHistory(){
   const list=$('historyList'); list.innerHTML='';
   const q=$('search').value.trim();
-  const items=chats.filter(c=>!q||c.title.includes(q)).sort((a,b)=>b.ts-a.ts);
+  const items=chats.filter(c=>!q||c.title.includes(q)||c.messages.some(m=>textOf(m.content).includes(q))).sort((a,b)=>b.ts-a.ts);
   if(!items.length){ list.innerHTML='<div id="histEmpty">还没有聊天记录</div>'; return; }
   let lastLabel='';
   items.forEach(c=>{
@@ -751,7 +760,16 @@ function renderHistory(){
     if(lb!==lastLabel){ lastLabel=lb; const dl=document.createElement('div'); dl.className='dateLabel'; dl.textContent=lb; list.appendChild(dl); }
     const it=document.createElement('div');
     it.className='histItem'+(c.id===currentId?' active':'');
-    it.innerHTML=`<span class="t">${esc(c.title)}</span><button class="del">✕</button>`;
+    /* 标题没命中但内容命中 → 显示命中片段 */
+    let snippet='';
+    if(q&&!c.title.includes(q)){
+      const mm=c.messages.find(m=>textOf(m.content).includes(q));
+      if(mm){
+        const t=textOf(mm.content); const idx=t.indexOf(q);
+        snippet=(idx>8?'…':'')+t.slice(Math.max(0,idx-8),idx+q.length+14);
+      }
+    }
+    it.innerHTML=`<span class="t">${esc(c.title)}${snippet?`<div style="font-size:11px;color:var(--ink-soft);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(snippet)}</div>`:''}</span><button class="del">✕</button>`;
     it.querySelector('.t').onclick=()=>{ switchChat(c.id); openDrawer(false); };
     it.querySelector('.del').onclick=ev=>{
       ev.stopPropagation();
@@ -905,6 +923,7 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   if(groupNote) sysParts.push(groupNote);
   const mems=memories.filter(m=>m.charId===ch?.id);
   if(mems.length) sysParts.push('【记忆】关于用户，你记得这些事：\n'+mems.map(m=>'- '+m.text).join('\n'));
+  if(c?.summary) sysParts.push('【前情提要】（更早对话的压缩版）\n'+c.summary);
   const recentText=c.messages.slice(-5).map(m=>textOf(m.content)).join('\n');
   const hits=[];
   for(const bk of worldbook){
@@ -978,24 +997,28 @@ function toOpenAI(body){
         :{type:'text',text:b.text}
     )});
   }
-  const o={model:body.model,max_tokens:body.max_tokens,stream:true,messages:msgs};
+  const o={model:body.model,max_tokens:body.max_tokens,stream:body.stream!==false,messages:msgs};
   if(body.temperature!=null) o.temperature=body.temperature;
   return o;
 }
 
-async function callStream(api,body,bub,area,out){
-  const isOA=api.fmt==='openai';
+function apiHeaders(api){
   const headers={'content-type':'application/json'};
-  if(isOA) headers['authorization']='Bearer '+api.key;
+  if(api.fmt==='openai') headers['authorization']='Bearer '+api.key;
   else{
     headers['x-api-key']=api.key;
     headers['anthropic-version']='2023-06-01';
     headers['anthropic-dangerous-direct-browser-access']='true';
   }
+  return headers;
+}
+
+async function callStream(api,body,bub,area,out){
+  const isOA=api.fmt==='openai';
   const res=await fetch(api.apiUrl,{
     method:'POST',
     signal:aborter.signal,
-    headers,
+    headers:apiHeaders(api),
     body:JSON.stringify(isOA?toOpenAI(body):body),
   });
   if(!res.ok){
@@ -1057,10 +1080,40 @@ async function runReply(c,api,body,ch){
       else holder.remove();
     }else{
       bub.classList.add('err');
-      bub.textContent='出错了：'+e.message;
+      bub.textContent='出错了：'+e.message+'（点我重试）';
+      bub.onclick=()=>{
+        if(streaming) return;
+        holder.remove();
+        generateReply(c,(c.members&&c.members.length&&ch)?ch.id:null);
+      };
     }
     return false;
   }
+}
+
+/* 自动摘要：上下文限制裁掉的旧消息，后台压成「前情提要」存进 c.summary */
+async function summarizeChat(c,ch){
+  const api=getApi(); if(!api) return;
+  const N=Math.min(Number(ch.ctxN),516);
+  const cut=c.messages.length-N;
+  const done=c.summarizedUpTo||0;
+  if(cut-done<8) return;   // 攒够 8 条被裁掉的新消息才压一次，省 API 调用
+  const part=c.messages.slice(done,cut)
+    .map(m=>(m.role==='user'?userName():(characters.find(x=>x.id===m.charId)?.name||ch?.name||'TA'))+'：'+textOf(m.content))
+    .filter(s=>s.split('：').slice(1).join('：').trim())
+    .join('\n');
+  if(!part) return;
+  const prompt=(c.summary?`已有前情提要：\n${c.summary}\n\n`:'')
+    +'请把下面新增的对话并入前情提要，输出更新后的完整前情提要。要求：第三人称，保留关键事件、人物关系与感情变化、重要约定，250字以内，直接输出提要本身，不要解释：\n\n'+part;
+  const body={model:settings.model,max_tokens:600,stream:false,messages:[{role:'user',content:prompt}]};
+  try{
+    const isOA=api.fmt==='openai';
+    const res=await fetch(api.apiUrl,{method:'POST',headers:apiHeaders(api),body:JSON.stringify(isOA?toOpenAI(body):body)});
+    if(!res.ok) return;
+    const j=await res.json();
+    const txt=isOA ? j.choices?.[0]?.message?.content : j.content?.[0]?.text;
+    if(txt){ c.summary=txt.trim(); c.summarizedUpTo=cut; persistAll(); }
+  }catch(e){ /* 静默失败，下次再试 */ }
 }
 
 /* 生成回复：单聊一条 / 群聊一轮；onlyCharId 只让群里某一个人重说 */
@@ -1100,6 +1153,8 @@ async function generateReply(c,onlyCharId){
       const sys=buildSystem(ch?ch.prompt:'',c,note,ch);
       if(sys) body.system=sys;
       await runReply(c,api,body,ch);
+      /* 上下文限制开着且已超长 → 后台压前情提要（不等待） */
+      if(ch?.ctxOn&&Number(ch.ctxN)>0&&c.messages.length>Number(ch.ctxN)) summarizeChat(c,ch);
     }
   }finally{
     streaming=false; aborter=null;
@@ -1787,6 +1842,25 @@ renderProfile();
 applyFont();
 renderChat();
 renderHistory();
+
+/* 从 IndexedDB 加载大数据；首次运行把 localStorage 旧数据迁移过去并腾出空间 */
+(async()=>{
+  try{
+    const [ic,ich]=await Promise.all([idbGet('chats'),idbGet('characters')]);
+    let changed=false;
+    if(ic){ chats=ic; changed=true; }
+    else if(chats.length) await idbSet('chats',chats);
+    if(ich){ characters=ich; changed=true; }
+    else await idbSet('characters',characters);
+    try{ localStorage.removeItem('xw_chats'); localStorage.removeItem('xw_characters'); }catch(e){}
+    if(changed){ renderChat(); renderHistory(); }
+  }catch(e){ /* 没有 IndexedDB 就继续用 localStorage */ }
+})();
+
+/* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
 </script>
 </body>
 </html>

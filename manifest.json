@@ -1,0 +1,13 @@
+{
+  "name": "小窝",
+  "short_name": "小窝",
+  "start_url": "./xiaowo.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FBF6EE",
+  "theme_color": "#FBF6EE",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
