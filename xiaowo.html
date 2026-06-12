@@ -351,11 +351,16 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .modeTab.on{border-color:var(--accent);color:var(--accent-deep);font-weight:600;background:var(--bubble-me)}
 
 /* 发图 */
-#imgBtn{
-  width:40px;height:44px;flex-shrink:0;font-size:21px;border-radius:14px;
+#imgBtn,#fileBtn{
+  width:36px;height:44px;flex-shrink:0;font-size:20px;border-radius:14px;
   display:flex;align-items:center;justify-content:center;
 }
-#imgBtn:active{background:var(--bg-soft)}
+#imgBtn:active,#fileBtn:active{background:var(--bg-soft)}
+.fchip{
+  display:flex;align-items:center;height:56px;padding:0 12px;
+  background:var(--card);border-radius:12px;box-shadow:var(--shadow);
+  font-size:12px;max-width:150px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
 #imgPreview{display:none;gap:10px;padding:10px 14px 0;background:var(--bg);flex-shrink:0;flex-wrap:wrap}
 #imgPreview.has{display:flex}
 .pimg{position:relative}
@@ -455,11 +460,13 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   <div id="imgPreview"></div>
   <footer id="inputBar">
     <button id="imgBtn" aria-label="发图片">🖼</button>
+    <button id="fileBtn" aria-label="发文件">📎</button>
     <div id="inputWrap">
       <textarea id="input" rows="1" placeholder="想说什么……"></textarea>
     </div>
     <button id="sendBtn" aria-label="发送">➤</button>
     <input type="file" id="imgFile" accept="image/*" multiple style="display:none">
+    <input type="file" id="docFile" accept=".txt,.md,.json,.csv,.log,.html,.css,.js,.py,.xml,.yaml,.yml" multiple style="display:none">
   </footer>
 </div>
 
@@ -593,7 +600,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       </div>
       <div class="hintText">会拼在人设后面一起发给 API。把思考链要求从人设挪到这里、选「仅线下」，线上发消息就不会带思考链了；选「关闭」就完全不生效。</div>
     </div>
-    <div class="field"><label>温度（0~1，留空跟随预设/默认）</label><input type="number" id="ceTemp" min="0" max="1" step="0.1" placeholder="默认"></div>
+    <div class="field"><label>温度（0~2，留空跟随预设/默认；Anthropic 官方最高 1，超了会自动按 1 发）</label><input type="number" id="ceTemp" min="0" max="2" step="0.1" placeholder="默认"></div>
     <div class="field">
       <div class="boxRow" style="margin-bottom:8px"><span class="ic">✂️</span><span class="grow">限制上下文消息数量</span><button class="wbToggle" id="ceCtxToggle"></button></div>
       <input type="number" id="ceCtxN" min="1" max="516" value="50" style="display:none">
@@ -606,6 +613,10 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <div class="field">
       <div class="boxRow"><span class="ic">💌</span><span class="grow">TA会主动找你</span><button class="wbToggle" id="ceProactive"></button></div>
       <div class="hintText">隔了两小时以上再打开和TA的聊天，TA会先给你发消息——想你了、关心你，或者接着上次的话题。</div>
+    </div>
+    <div class="field">
+      <div class="boxRow"><span class="ic">📝</span><span class="grow">TA会自己记笔记</span><button class="wbToggle" id="ceAutoMem"></button></div>
+      <div class="hintText">聊天中TA了解到你的重要信息（喜好、约定、近况）会自己写进记忆，跨对话不忘。记了什么可以去 百宝箱→记忆 里看和删。</div>
     </div>
     <button class="primaryBtn" id="saveChar">保存</button>
     <button class="ghostBtn" id="delChar" style="color:var(--danger);display:none">删除这个角色</button>
@@ -711,7 +722,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <div class="sheetTitle" id="presetEditTitle">新预设<button class="close" data-close="presetEditSheet">✕</button></div>
     <div class="field"><label>名字</label><input id="peName" placeholder="比如：长文模式"></div>
     <div class="field"><label>附加提示词（拼在系统提示词最后，可留空）</label><textarea id="pePrompt" placeholder="比如：回复尽量详细，多写细节…"></textarea></div>
-    <div class="field"><label>temperature（0 ~ 1，留空用默认）</label><input type="number" id="peTemp" min="0" max="1" step="0.1" placeholder="默认"></div>
+    <div class="field"><label>temperature（0 ~ 2，留空用默认；Anthropic 官方最高 1，超了自动按 1 发）</label><input type="number" id="peTemp" min="0" max="2" step="0.1" placeholder="默认"></div>
     <div class="field"><label>max_tokens（留空用连接设置里的值）</label><input type="number" id="peMaxTokens" min="256" max="64000" placeholder="默认"></div>
     <button class="primaryBtn" id="savePreset">保存</button>
     <button class="ghostBtn" id="delPreset" style="color:var(--danger);display:none">删除这个预设</button>
@@ -872,6 +883,20 @@ function fmtAssistant(s){
                        : fmt(seg.text.replace(/^\n+|\n+$/g,''))
   ).join('');
 }
+/* 上传的文件在气泡里折叠显示 */
+function fmtFiles(s){
+  if(!/<file /.test(s)) return fmt(s);
+  let html='',last=0,m;
+  const re=/<file name="([^"]*)">\n?([\s\S]*?)\n?<\/file>/g;
+  while((m=re.exec(s))){
+    html+=fmt(s.slice(last,m.index).replace(/\n+$/,''));
+    const body=m[2].length>3000?m[2].slice(0,3000)+'\n…（预览截断，TA能看到全文）':m[2];
+    html+=`<details class="thinkBlock"><summary>📄 ${esc(m[1]||'文件')}</summary><div class="thinkBody">${esc(body)}</div></details>`;
+    last=re.lastIndex;
+  }
+  html+=fmt(s.slice(last).replace(/^\n+/,''));
+  return html;
+}
 /* 折叠块的展开点击别触发消息操作菜单 */
 const wireThink=root=>root.querySelectorAll('.thinkBlock summary').forEach(x=>x.onclick=ev=>ev.stopPropagation());
 /* 去掉思考链，只留正文（朗读、导出、摘要用） */
@@ -884,10 +909,10 @@ function dlFile(name,content,mime){
 }
 /* 消息 content 可能是字符串，也可能是图文块数组 */
 const textOf = ct => typeof ct==='string' ? ct : ct.filter(b=>b.type==='text').map(b=>b.text).join('\n');
-const contentHtml = ct => typeof ct==='string' ? fmt(ct) :
+const contentHtml = ct => typeof ct==='string' ? fmtFiles(ct) :
   ct.map(b=>{
     if(b.type==='image') return `<img class="msgImg" src="data:${b.source.media_type};base64,${b.source.data}">`;
-    if(b.type==='text') return fmt(b.text);
+    if(b.type==='text') return fmtFiles(b.text);
     return '';
   }).join('');
 
@@ -1110,8 +1135,23 @@ function renderChat(){
 const input=$('input');
 input.oninput=()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,120)+'px'; };
 
-/* ================= 发图 ================= */
+/* ================= 发图 & 发文件 ================= */
 let pendingImgs=[];   // {media_type,data}
+let pendingFiles=[];  // {name,text}
+$('fileBtn').onclick=()=>$('docFile').click();
+$('docFile').onchange=async e=>{
+  for(const f of e.target.files){
+    if(f.size>300*1024){ toast(`「${f.name}」太大了（上限300KB）`); continue; }
+    try{
+      let t=await f.text();
+      const MAX=30000;
+      if(t.length>MAX){ t=t.slice(0,MAX)+'\n…（太长了，后面被截掉）'; toast(`「${f.name}」太长，只保留前3万字`); }
+      pendingFiles.push({name:f.name,text:t});
+    }catch(err){ toast('这个文件读不了'); }
+  }
+  renderImgPreview();
+  e.target.value='';
+};
 $('imgBtn').onclick=()=>$('imgFile').click();
 $('imgFile').onchange=async e=>{
   for(const f of e.target.files){
@@ -1145,12 +1185,19 @@ function compressImage(file,MAX=1024,q=.82){
 function renderImgPreview(){
   const box=$('imgPreview');
   box.innerHTML='';
-  box.classList.toggle('has',pendingImgs.length>0);
+  box.classList.toggle('has',pendingImgs.length>0||pendingFiles.length>0);
   pendingImgs.forEach((p,i)=>{
     const d=document.createElement('div');
     d.className='pimg';
     d.innerHTML=`<img src="data:${p.media_type};base64,${p.data}"><button class="rm">✕</button>`;
     d.querySelector('.rm').onclick=()=>{ pendingImgs.splice(i,1); renderImgPreview(); };
+    box.appendChild(d);
+  });
+  pendingFiles.forEach((p,i)=>{
+    const d=document.createElement('div');
+    d.className='pimg';
+    d.innerHTML=`<div class="fchip">📄 ${esc(p.name)}</div><button class="rm">✕</button>`;
+    d.querySelector('.rm').onclick=()=>{ pendingFiles.splice(i,1); renderImgPreview(); };
     box.appendChild(d);
   });
 }
@@ -1171,6 +1218,9 @@ function applyVars(s,ch){
 /* ===== 缓存策略（见 claude-cache-tutorial）=====
    system 只放静态内容整体吃缓存；每轮变化的（时间、关键词世界书）
    在发请求时注入最后一条 user 消息，不进数据库、不毁前缀 */
+
+/* TA 自己记笔记的说明书 */
+const memNote=()=>`【记笔记】当你从对话里得知关于${userName()}的重要新信息（喜好、习惯、约定、TA的近况），在回复的最末尾另起一行用 <记住>一句话概括</记住> 记下来，可以写多条；没有新信息就别写。这个标记会被系统悄悄收走，${userName()}看不到。`;
 
 /* 角色的补充设定：按开关和线上/线下状态决定要不要拼进人设 */
 function extraPromptOf(ch,isOnline){
@@ -1358,6 +1408,8 @@ function apiHeaders(api){
 
 async function callStream(api,body,bub,area,out){
   const isOA=api.fmt==='openai';
+  /* OpenAI 系温度 0~2，Anthropic 最高 1：超了自动压回，不报错 */
+  if(!isOA&&body.temperature!=null) body.temperature=Math.min(1,body.temperature);
   if(!isOA) addCacheControl(body);
   const res=await fetch(api.apiUrl,{
     method:'POST',
@@ -1406,6 +1458,18 @@ async function runReply(c,api,body,ch){
   const out={acc:''};
   const isOnline=!(c.members&&c.members.length)&&curChar(c)?.online;
   const saveMsg=()=>{
+    /* TA 自己记的笔记：收走 <记住> 标记，存进记忆 */
+    if(out.acc.includes('<记住>')){
+      let n=0;
+      out.acc=out.acc.replace(/<记住>([\s\S]*?)<\/记住>/g,(_,t)=>{
+        t=t.trim();
+        if(t) memories.push({id:'m'+Date.now()+'_'+(n++),charId:ch?.id,text:t.slice(0,200)});
+        return '';
+      }).replace(/\n{3,}/g,'\n\n').trim();
+      if(n) toast(`${ch?.name||'TA'} 记住了 ${n} 件事`);
+      bub.innerHTML=out.acc?fmtAssistant(out.acc):'<i>（TA 默默记了笔记）</i>';
+      if(!out.acc){ persistAll(); return; }
+    }
     c.messages.push({role:'assistant',charId:ch?.id,content:out.acc,ts:Date.now()});
     c.ts=Date.now(); persistAll();
     const idx=c.messages.length-1;
@@ -1506,7 +1570,8 @@ async function generateReply(c,onlyCharId,extraUser){
       const allNames=c.members.map(id=>characters.find(x=>x.id===id)?.name).filter(Boolean).join('、');
       const myName=userName();
       for(const m of members){
-        const note=`【群聊】这是一个群聊，成员有：${allNames}，还有用户「${myName}」。你只扮演「${m.name}」，以${m.name}的身份说一条消息，不要替其他任何人发言，也不要在开头加自己的名字。`;
+        const note=`【群聊】这是一个群聊，成员有：${allNames}，还有用户「${myName}」。你只扮演「${m.name}」，以${m.name}的身份说一条消息，不要替其他任何人发言，也不要在开头加自己的名字。`
+          +(m.autoMem?'\n\n'+memNote():'');
         let gm=c.messages;
         if(m.ctxOn&&Number(m.ctxN)>0) gm=gm.slice(-Math.min(Number(m.ctxN),516));
         const am=groupApiMessages({messages:gm},m);
@@ -1552,10 +1617,10 @@ async function generateReply(c,onlyCharId,extraUser){
       }
       const body=baseBody(apiMsgs);
       if(ch&&ch.temp!=null&&ch.temp!=='') body.temperature=Number(ch.temp);
-      const note=ch?.online
-        ?'【线上聊天】你和{{user}}正在手机上互发消息。用发消息的口吻回复：短句、口语化、像平时发微信那样自然。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。'
-        :null;
-      const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,!!ch.online):'',c,note,ch);
+      const noteParts=[];
+      if(ch?.online) noteParts.push('【线上聊天】你和{{user}}正在手机上互发消息。用发消息的口吻回复：短句、口语化、像平时发微信那样自然。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。');
+      if(ch?.autoMem) noteParts.push(memNote());
+      const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,!!ch.online):'',c,noteParts.join('\n\n')||null,ch);
       if(sys) body.system=sys;
       await runReply(c,api,body,ch);
       /* 窗口超出 N → 后台压前情提要并推进锚点（不等待） */
@@ -1570,22 +1635,28 @@ async function generateReply(c,onlyCharId,extraUser){
 
 async function send(){
   const text=input.value.trim();
-  if(!text && !pendingImgs.length) return;
+  if(!text && !pendingImgs.length && !pendingFiles.length) return;
   if(!getApi()) return;
 
   let c=curChat();
   if(!c){
-    c={ id:'t'+Date.now(), title:(text||'[图片]').slice(0,16), charId:selCharId, ts:Date.now(), messages:[] };
+    c={ id:'t'+Date.now(), title:(text||(pendingFiles.length?'[文件]':'[图片]')).slice(0,16), charId:selCharId, ts:Date.now(), messages:[] };
     chats.push(c); currentId=c.id;
+  }
+  /* 文件转成带标记的文字，渲染时折叠显示 */
+  let textFull=text;
+  if(pendingFiles.length){
+    const ft=pendingFiles.map(f=>`<file name="${f.name.replace(/"/g,'')}">\n${f.text}\n</file>`).join('\n\n');
+    textFull=ft+(text?'\n\n'+text:'');
   }
   let content;
   if(pendingImgs.length){
     content=pendingImgs.map(p=>({type:'image',source:{type:'base64',media_type:p.media_type,data:p.data}}));
-    if(text) content.push({type:'text',text});
-  }else content=text;
+    if(textFull) content.push({type:'text',text:textFull});
+  }else content=textFull;
   c.messages.push({role:'user',content,ts:Date.now()});
   c.ts=Date.now();
-  pendingImgs=[]; renderImgPreview();
+  pendingImgs=[]; pendingFiles=[]; renderImgPreview();
   input.value=''; input.style.height='auto';
   persistAll(); renderChat();
   if(typeof content!=='string') genImgDescs(c);   // 带图：后台生成文字描述
@@ -1839,6 +1910,11 @@ $('ceProactive').onclick=()=>{
   ceProactiveOn=!ceProactiveOn;
   $('ceProactive').classList.toggle('on',ceProactiveOn);
 };
+let ceAutoMemOn=false;
+$('ceAutoMem').onclick=()=>{
+  ceAutoMemOn=!ceAutoMemOn;
+  $('ceAutoMem').classList.toggle('on',ceAutoMemOn);
+};
 let ceExtraMode='off';
 function setCeExtraMode(m){
   ceExtraMode=m;
@@ -1866,6 +1942,8 @@ function openCharEdit(ch){
   $('ceOnline').classList.toggle('on',ceOnlineOn);
   ceProactiveOn=!!ch?.proactive;
   $('ceProactive').classList.toggle('on',ceProactiveOn);
+  ceAutoMemOn=!!ch?.autoMem;
+  $('ceAutoMem').classList.toggle('on',ceAutoMemOn);
   $('delChar').style.display=ch&&characters.length>1?'block':'none';
   openSheet('charEditSheet');
 }
@@ -1933,11 +2011,12 @@ $('saveChar').onclick=()=>{
     bg:editingBg,
     extra:$('ceExtra').value,
     extraMode:ceExtraMode,
-    temp: t===''?null:Math.min(1,Math.max(0,Number(t))),
+    temp: t===''?null:Math.min(2,Math.max(0,Number(t))),
     ctxOn: ceCtxOn,
     ctxN: Math.min(516,Math.max(1,Number($('ceCtxN').value)||50)),
     online: ceOnlineOn,
     proactive: ceProactiveOn,
+    autoMem: ceAutoMemOn,
   };
   if(editingChar){
     Object.assign(editingChar,{name,emoji:$('ceEmoji').value.trim(),prompt:$('cePrompt').value},extra);
@@ -2462,7 +2541,7 @@ $('savePreset').onclick=()=>{
   const t=$('peTemp').value.trim();
   const data={
     name, prompt:$('pePrompt').value,
-    temperature: t===''?null:Math.min(1,Math.max(0,Number(t))),
+    temperature: t===''?null:Math.min(2,Math.max(0,Number(t))),
     maxTokens: Number($('peMaxTokens').value)||null,
   };
   if(editingPreset) Object.assign(editingPreset,data);
