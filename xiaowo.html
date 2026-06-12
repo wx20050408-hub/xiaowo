@@ -387,6 +387,20 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 /* 消息时间分隔 */
 .timeDiv{text-align:center;font-size:11px;color:var(--ink-soft);margin:0;opacity:.8}
 
+/* 群成员栏 */
+#memberBar{
+  display:none;gap:10px;padding:8px 14px;align-items:flex-start;
+  border-bottom:1px solid var(--line);overflow-x:auto;flex-shrink:0;
+  -webkit-overflow-scrolling:touch;
+}
+#memberBar.show{display:flex}
+.mbHint{font-size:10px;color:var(--ink-soft);flex-shrink:0;align-self:center;line-height:1.3}
+.mbChip{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;width:48px;transition:transform .1s}
+.mbChip:active{transform:scale(.92)}
+.mbChip .avSm{width:34px;height:34px}
+.mbChip .n{font-size:10px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;max-width:48px;text-overflow:ellipsis}
+.mbChip.mbMode .n{color:var(--accent-deep);font-weight:600}
+
 /* token 统计小字 */
 .msgStats{
   font-size:10px;color:var(--ink-soft);opacity:.75;
@@ -450,6 +464,9 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     </div>
     <button class="iconBtn" id="gearBtn" aria-label="设置">⚙</button>
   </header>
+
+  <!-- 群成员栏：点头像让TA说话 -->
+  <div id="memberBar"></div>
 
   <!-- 消息区 -->
   <main id="msgArea">
@@ -670,6 +687,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   <div class="sheet">
     <div class="sheetTitle">开个群聊<button class="close" data-close="groupSheet">✕</button></div>
     <div class="field"><label>群名（可以不填）</label><input id="groupName" placeholder="比如：深夜小群"></div>
+    <div class="boxRow" style="margin-bottom:10px"><span class="ic">📱</span><span class="grow">线上模式（他们不抢话，你点谁谁说）</span><button class="wbToggle" id="groupOnline"></button></div>
     <label style="font-size:13px;color:var(--ink-soft);display:block;margin-bottom:6px">点角色加入群（点的顺序就是发言顺序）</label>
     <div id="groupCharList"></div>
     <button class="primaryBtn" id="createGroup">建群</button>
@@ -1036,10 +1054,11 @@ function curChar(of){ const id = of?.charId ?? selCharId; return characters.find
 function renderHeader(){
   const c=curChat();
   const pr=presets.find(p=>p.id===selPresetId);
+  renderMemberBar();
   if(c && c.members && c.members.length){
     $('headerName').textContent=c.title;
     const names=c.members.map(id=>characters.find(x=>x.id===id)?.name).filter(Boolean).join('、');
-    $('headerSub').textContent=(names||'群聊')+(pr?` · ${pr.name}`:'');
+    $('headerSub').textContent=(names||'群聊')+(c.online?' · 📱线上':'')+(pr?` · ${pr.name}`:'');
     updateReplyBtn();
     return;
   }
@@ -1048,6 +1067,36 @@ function renderHeader(){
   $('headerSub').textContent = (ch ? `${ch.name} · ${ch.online?'📱线上':'在线'}` : '在线')
     + (ch?.sign ? ` · ${ch.sign}` : '') + (pr ? ` · ${pr.name}` : '');
   updateReplyBtn();
+}
+/* 群成员栏：点头像点名发言，末尾是线上/线下切换 */
+function renderMemberBar(){
+  const bar=$('memberBar');
+  const c=curChat();
+  if(!c||!(c.members&&c.members.length)){ bar.classList.remove('show'); return; }
+  bar.classList.add('show');
+  bar.innerHTML='';
+  const hint=document.createElement('div');
+  hint.className='mbHint'; hint.innerHTML='点头像<br>让TA说';
+  bar.appendChild(hint);
+  c.members.forEach(id=>{
+    const ch=characters.find(x=>x.id===id); if(!ch) return;
+    const chip=document.createElement('button');
+    chip.className='mbChip';
+    const av=ch.avatar
+      ?`<img class="avSm" src="${ch.avatar}">`
+      :`<div class="avSm" style="background:var(--bubble-me);display:flex;align-items:center;justify-content:center;font-size:15px">${esc(ch.emoji||'☺')}</div>`;
+    chip.innerHTML=av+`<span class="n">${esc(ch.name)}</span>`;
+    chip.onclick=()=>{ if(streaming) return; generateReply(c,ch.id); };
+    bar.appendChild(chip);
+  });
+  const tg=document.createElement('button');
+  tg.className='mbChip mbMode';
+  tg.innerHTML=`<span style="font-size:20px;line-height:34px">${c.online?'📱':'💬'}</span><span class="n">${c.online?'线上':'线下'}</span>`;
+  tg.onclick=()=>{
+    c.online=!c.online; persistAll(); renderHeader();
+    toast(c.online?'线上：他们不抢话，点头像才说':'线下：你发消息他们自动接话');
+  };
+  bar.appendChild(tg);
 }
 function switchChat(id){ currentId=id; persistAll(); renderChat(); maybeAnniversary(); maybeProactive(); maybeUpdateSign(); }
 function renameChat(c){
@@ -1093,7 +1142,7 @@ function renderChat(){
     area.innerHTML='<div id="empty"><div class="face">₍ᐢ. .ᐢ₎</div><div class="hint">说点什么吧，我听着呢</div></div>';
     return;
   }
-  const online=!(c.members&&c.members.length)&&curChar(c)?.online;
+  const online=c.members&&c.members.length?!!c.online:curChar(c)?.online;
   let prevTs=0;
   c.messages.forEach((m,i)=>{
     /* 超过10分钟的间隔显示时间条 */
@@ -1492,7 +1541,7 @@ async function runReply(c,api,body,ch){
   area.appendChild(holder); area.scrollTop=area.scrollHeight;
   const bub=holder.querySelector('.bubble');
   const out={acc:''};
-  const isOnline=!(c.members&&c.members.length)&&curChar(c)?.online;
+  const isOnline=c.members&&c.members.length?!!c.online:curChar(c)?.online;
   const saveMsg=()=>{
     /* TA 自己记的笔记：收走 <记住> 标记，存进记忆 */
     if(out.acc.includes('<记住>')){
@@ -1515,7 +1564,8 @@ async function runReply(c,api,body,ch){
     bub.onclick=()=>openMsgActions(idx);
     wireThink(bub);
     /* 线上模式：回复完按行拆成小气泡 */
-    if(c.id===currentId && !(c.members&&c.members.length) && curChar(c)?.online && out.acc.includes('\n'))
+    const onlineNow=c.members&&c.members.length?!!c.online:curChar(c)?.online;
+    if(c.id===currentId && onlineNow && out.acc.includes('\n'))
       renderChat();
     else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
   };
@@ -1612,6 +1662,7 @@ async function generateReply(c,onlyCharId,extraUser){
       const myName=userName();
       for(const m of members){
         const note=`【群聊】这是一个群聊，成员有：${allNames}，还有用户「${myName}」。你只扮演「${m.name}」，以${m.name}的身份说一条消息，不要替其他任何人发言，也不要在开头加自己的名字。`
+          +(c.online?'\n\n【线上群聊】大家在手机群里发消息。用发消息的口吻：短句、口语化、像平时在微信群里那样。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。':'')
           +(m.autoMem?'\n\n'+memNote():'');
         let gm=c.messages;
         if(m.ctxOn&&Number(m.ctxN)>0) gm=gm.slice(-Math.min(Number(m.ctxN),516));
@@ -1702,9 +1753,9 @@ async function send(){
   persistAll(); renderChat();
   if(typeof content!=='string') genImgDescs(c);   // 带图：后台生成文字描述
 
-  /* 线上模式：不自动回，等「让TA回复」 */
+  /* 线上模式：不自动回，等「让TA回复」或点名 */
   const solo=!(c.members&&c.members.length);
-  if(solo && curChar(c)?.online) return;
+  if(solo ? curChar(c)?.online : c.online) return;
   await generateReply(c);
 }
 
@@ -1830,9 +1881,8 @@ $('replyBtn').onclick=async()=>{
 };
 function updateReplyBtn(){
   const c=curChat();
-  const solo=c&&!(c.members&&c.members.length);
-  const ch=solo?curChar(c):null;
-  $('replyBtn').style.display=(ch&&ch.online&&!streaming)?'block':'none';
+  const isOn=c&&(c.members&&c.members.length?!!c.online:curChar(c)?.online);
+  $('replyBtn').style.display=(isOn&&!streaming)?'block':'none';
 }
 
 /* ================= 弹层通用 ================= */
@@ -2211,9 +2261,14 @@ $('saveMem').onclick=()=>{
 };
 
 /* ================= 群聊 ================= */
-let groupSel=[];
+let groupSel=[], groupOnlineOn=false;
+$('groupOnline').onclick=()=>{
+  groupOnlineOn=!groupOnlineOn;
+  $('groupOnline').classList.toggle('on',groupOnlineOn);
+};
 $('newGroup').onclick=()=>{
   groupSel=[]; $('groupName').value='';
+  groupOnlineOn=false; $('groupOnline').classList.remove('on');
   renderGroupChars(); openDrawer(false); openSheet('groupSheet');
 };
 function renderGroupChars(){
@@ -2243,6 +2298,7 @@ $('createGroup').onclick=()=>{
     id:'t'+Date.now(),
     title:$('groupName').value.trim()||('群聊：'+names.join('、')).slice(0,20),
     members:groupSel.slice(),
+    online:groupOnlineOn,
     ts:Date.now(), messages:[],
   };
   chats.push(c); currentId=c.id;
