@@ -105,6 +105,18 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .typingDot{display:inline-block;animation:blink 1s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
 
+/* 思考链折叠块 */
+.thinkBlock{
+  margin:4px 0;border-left:3px solid var(--line);
+  background:var(--bg-soft);border-radius:10px;
+  padding:6px 10px;font-size:13px;color:var(--ink-soft);
+}
+.thinkBlock summary{cursor:pointer;user-select:none;font-size:12px;list-style:none}
+.thinkBlock summary::-webkit-details-marker{display:none}
+.thinkBlock summary::before{content:"▸ "}
+.thinkBlock[open] summary::before{content:"▾ "}
+.thinkBody{margin-top:6px;white-space:pre-wrap;line-height:1.55}
+
 /* 空状态 */
 #empty{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -200,6 +212,8 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .histItem .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .histItem .del{color:var(--ink-soft);font-size:15px;padding:4px 6px;border-radius:8px;flex-shrink:0}
 .histItem .del:active{color:var(--danger)}
+.histItem .ren{color:var(--ink-soft);font-size:13px;padding:4px 5px;border-radius:8px;flex-shrink:0}
+.histItem .ren:active{color:var(--accent-deep)}
 #histEmpty{text-align:center;color:var(--ink-soft);font-size:13px;padding:30px 0}
 
 /* 侧边栏底部 */
@@ -554,6 +568,16 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <input type="file" id="bgFile" accept="image/*" style="display:none">
     </div>
     <div class="field"><label>人设 / 系统提示词</label><textarea id="cePrompt" placeholder="把他的设定贴在这里…"></textarea></div>
+    <div class="field"><label>补充设定（可单独开关，思考链格式这类要求放这里）</label>
+      <textarea id="ceExtra" style="min-height:70px" placeholder="比如：回复前先输出思考过程…"></textarea>
+      <div class="modeTabs" style="margin-top:8px">
+        <button class="modeTab" data-xmode="off">关闭</button>
+        <button class="modeTab" data-xmode="always">都用</button>
+        <button class="modeTab" data-xmode="offline">仅线下</button>
+        <button class="modeTab" data-xmode="online">仅线上</button>
+      </div>
+      <div class="hintText">会拼在人设后面一起发给 API。把思考链要求从人设挪到这里、选「仅线下」，线上发消息就不会带思考链了；选「关闭」就完全不生效。</div>
+    </div>
     <div class="field"><label>温度（0~1，留空跟随预设/默认）</label><input type="number" id="ceTemp" min="0" max="1" step="0.1" placeholder="默认"></div>
     <div class="field">
       <div class="boxRow" style="margin-bottom:8px"><span class="ic">✂️</span><span class="grow">限制上下文消息数量</span><button class="wbToggle" id="ceCtxToggle"></button></div>
@@ -756,6 +780,31 @@ const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;
 const fmt = s => esc(s)
   .replace(/`([^`\n]+)`/g,'<code>$1</code>')
   .replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
+
+/* ===== 思考链：把 <think>…</think> 拆出来折叠显示 ===== */
+function extractThink(s){
+  const segs=[]; let last=0, m;
+  const re=/<think(?:ing)?>([\s\S]*?)(<\/think(?:ing)?>|$)/gi;
+  while((m=re.exec(s))){
+    if(m.index>last) segs.push({type:'text',text:s.slice(last,m.index)});
+    segs.push({type:'think',text:m[1],closed:!!m[2]});
+    last=re.lastIndex;
+    if(!m[2]) break;   // 没闭合说明还在流式输出中
+  }
+  if(last<s.length) segs.push({type:'text',text:s.slice(last)});
+  return segs;
+}
+const thinkHtml=(t,closed)=>`<details class="thinkBlock"${closed?'':' open'}><summary>💭 ${closed?'思考过程':'思考中…'}</summary><div class="thinkBody">${fmt(t.trim())}</div></details>`;
+/* TA 的纯文本回复用这个渲染：思考折叠 + 正文照常 */
+function fmtAssistant(s){
+  if(!/<think/i.test(s)) return fmt(s);
+  return extractThink(s).map(seg=>
+    seg.type==='think' ? thinkHtml(seg.text,seg.closed)
+                       : fmt(seg.text.replace(/^\n+|\n+$/g,''))
+  ).join('');
+}
+/* 折叠块的展开点击别触发消息操作菜单 */
+const wireThink=root=>root.querySelectorAll('.thinkBlock summary').forEach(x=>x.onclick=ev=>ev.stopPropagation());
 /* 消息 content 可能是字符串，也可能是图文块数组 */
 const textOf = ct => typeof ct==='string' ? ct : ct.filter(b=>b.type==='text').map(b=>b.text).join('\n');
 const contentHtml = ct => typeof ct==='string' ? fmt(ct) :
@@ -850,8 +899,9 @@ function renderHistory(){
         snippet=(idx>8?'…':'')+t.slice(Math.max(0,idx-8),idx+q.length+14);
       }
     }
-    it.innerHTML=`<span class="t">${esc(c.title)}${snippet?`<div style="font-size:11px;color:var(--ink-soft);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(snippet)}</div>`:''}</span><button class="del">✕</button>`;
+    it.innerHTML=`<span class="t">${esc(c.title)}${snippet?`<div style="font-size:11px;color:var(--ink-soft);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(snippet)}</div>`:''}</span><button class="ren">✎</button><button class="del">✕</button>`;
     it.querySelector('.t').onclick=()=>{ switchChat(c.id); openDrawer(false); };
+    it.querySelector('.ren').onclick=ev=>{ ev.stopPropagation(); renameChat(c); };
     it.querySelector('.del').onclick=ev=>{
       ev.stopPropagation();
       if(!confirm(`删掉「${c.title}」？`)) return;
@@ -884,6 +934,17 @@ function renderHeader(){
   updateReplyBtn();
 }
 function switchChat(id){ currentId=id; persistAll(); renderChat(); maybeProactive(); }
+function renameChat(c){
+  const t=prompt('给这段对话改个名字：',c.title);
+  if(t==null) return;
+  const v=t.trim(); if(!v){ toast('名字不能空着'); return; }
+  c.title=v.slice(0,24);
+  persistAll(); renderHistory();
+  if(c.id===currentId) renderHeader();
+  toast('改好啦');
+}
+/* 点顶栏的对话名也能改名 */
+$('headerName').onclick=()=>{ const c=curChat(); if(c) renameChat(c); };
 
 function bubbleEl(role,html,extra,ch){
   const m=document.createElement('div');
@@ -926,17 +987,28 @@ function renderChat(){
     if(m.ts) prevTs=m.ts;
     let ch=null;
     if(m.role!=='user') ch=(m.charId&&characters.find(x=>x.id===m.charId))||curChar(c)||{name:'?'};
-    /* 线上模式：TA 的回复按行拆成一条条小消息 */
-    if(online&&m.role!=='user'&&typeof m.content==='string'&&m.content.includes('\n')){
-      m.content.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
-        const el=bubbleEl(m.role,fmt(line),'',ch);
-        el.querySelector('.bubble').onclick=()=>openMsgActions(i);
-        area.appendChild(el);
-      });
-      return;
+    /* 线上模式：TA 的回复按行拆成一条条小消息（思考块单独一个气泡） */
+    if(online&&m.role!=='user'&&typeof m.content==='string'){
+      const segs=/<think/i.test(m.content)?extractThink(m.content):[{type:'text',text:m.content}];
+      const thinks=segs.filter(x=>x.type==='think');
+      const text=segs.filter(x=>x.type==='text').map(x=>x.text).join('\n');
+      const pieces=[];
+      if(thinks.length) pieces.push(thinks.map(t=>thinkHtml(t.text,t.closed)).join(''));
+      text.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>pieces.push(fmt(line)));
+      if(pieces.length>1||thinks.length){
+        pieces.forEach(html=>{
+          const el=bubbleEl(m.role,html,'',ch);
+          el.querySelector('.bubble').onclick=()=>openMsgActions(i);
+          wireThink(el);
+          area.appendChild(el);
+        });
+        return;
+      }
     }
-    const el=bubbleEl(m.role,contentHtml(m.content),'',ch);
+    const html=(m.role!=='user'&&typeof m.content==='string')?fmtAssistant(m.content):contentHtml(m.content);
+    const el=bubbleEl(m.role,html,'',ch);
     el.querySelector('.bubble').onclick=()=>openMsgActions(i);
+    wireThink(el);
     area.appendChild(el);
   });
   area.scrollTop=area.scrollHeight;
@@ -1007,6 +1079,14 @@ function applyVars(s,ch){
 /* ===== 缓存策略（见 claude-cache-tutorial）=====
    system 只放静态内容整体吃缓存；每轮变化的（时间、关键词世界书）
    在发请求时注入最后一条 user 消息，不进数据库、不毁前缀 */
+
+/* 角色的补充设定：按开关和线上/线下状态决定要不要拼进人设 */
+function extraPromptOf(ch,isOnline){
+  if(!ch?.extra||!ch.extra.trim()) return '';
+  const m=ch.extraMode||'off';
+  const use = m==='always' || (m==='offline'&&!isOnline) || (m==='online'&&isOnline);
+  return use ? '\n\n'+ch.extra : '';
+}
 
 /* 静态系统提示词 = 人设 + 群聊须知 + 记忆 + 前情提要 + 常驻世界书 + 预设 */
 function buildSystem(personaPrompt,c,groupNote,ch){
@@ -1193,7 +1273,7 @@ async function callStream(api,body,bub,area,out){
                          : (ev.type==='content_block_delta'?ev.delta?.text:null);
         if(piece){
           out.acc+=piece;
-          bub.innerHTML=fmt(out.acc);
+          bub.innerHTML=fmtAssistant(out.acc);
           area.scrollTop=area.scrollHeight;
         }
         if(ev.type==='error') throw new Error(ev.error?.message||'流式出错');
@@ -1216,6 +1296,7 @@ async function runReply(c,api,body,ch){
     c.ts=Date.now(); persistAll();
     const idx=c.messages.length-1;
     bub.onclick=()=>openMsgActions(idx);
+    wireThink(bub);
     /* 线上模式：回复完按行拆成小气泡 */
     if(c.id===currentId && !(c.members&&c.members.length) && curChar(c)?.online && out.acc.includes('\n'))
       renderChat();
@@ -1318,7 +1399,7 @@ async function generateReply(c,onlyCharId,extraUser){
         injectIntoLastUser(am,buildDynamic(c,m));
         const body=baseBody(am);
         if(m.temp!=null&&m.temp!=='') body.temperature=Number(m.temp);
-        const sys=buildSystem(m.prompt,c,note,m);
+        const sys=buildSystem(m.prompt+extraPromptOf(m,false),c,note,m);
         if(sys) body.system=sys;
         if(!await runReply(c,api,body,m)) break;
       }
@@ -1333,7 +1414,16 @@ async function generateReply(c,onlyCharId,extraUser){
       }
       msgs=msgs.slice();
       while(msgs.length&&msgs[0].role!=='user') msgs.shift();
-      const apiMsgs=msgs.map((m,i)=>({role:m.role,content:degradeContent(m,i<msgs.length-3)}));
+      /* 连发的几条消息合并成一条发给 API，不然模型容易只看见最后一条 */
+      const apiMsgs=[];
+      msgs.forEach((m,i)=>{
+        const ct=degradeContent(m,i<msgs.length-3);
+        const prev=apiMsgs[apiMsgs.length-1];
+        if(prev&&prev.role===m.role){
+          if(typeof prev.content==='string'&&typeof ct==='string') prev.content+='\n'+ct;
+          else prev.content=toBlocks(prev.content).concat(toBlocks(ct));
+        }else apiMsgs.push({role:m.role,content:ct});
+      });
       injectIntoLastUser(apiMsgs,buildDynamic(c,ch));
       if(extraUser){
         const last=apiMsgs[apiMsgs.length-1];
@@ -1347,7 +1437,7 @@ async function generateReply(c,onlyCharId,extraUser){
       const note=ch?.online
         ?'【线上聊天】你和{{user}}正在手机上互发消息。用发消息的口吻回复：短句、口语化、像平时发微信那样自然。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。'
         :null;
-      const sys=buildSystem(ch?ch.prompt:'',c,note,ch);
+      const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,!!ch.online):'',c,note,ch);
       if(sys) body.system=sys;
       await runReply(c,api,body,ch);
       /* 窗口超出 N → 后台压前情提要并推进锚点（不等待） */
@@ -1532,6 +1622,12 @@ $('ceProactive').onclick=()=>{
   ceProactiveOn=!ceProactiveOn;
   $('ceProactive').classList.toggle('on',ceProactiveOn);
 };
+let ceExtraMode='off';
+function setCeExtraMode(m){
+  ceExtraMode=m;
+  document.querySelectorAll('#charEditSheet .modeTab').forEach(b=>b.classList.toggle('on',b.dataset.xmode===m));
+}
+document.querySelectorAll('#charEditSheet .modeTab').forEach(b=>b.onclick=()=>setCeExtraMode(b.dataset.xmode));
 function openCharEdit(ch){
   editingChar=ch;
   editingAvatar=ch?.avatar||null;
@@ -1542,6 +1638,8 @@ function openCharEdit(ch){
   $('ceName').value=ch?ch.name:'';
   $('ceEmoji').value=ch?ch.emoji:'';
   $('cePrompt').value=ch?ch.prompt:'';
+  $('ceExtra').value=ch?.extra||'';
+  setCeExtraMode(ch?.extraMode||'off');
   $('ceTemp').value=ch&&ch.temp!=null?ch.temp:'';
   ceCtxOn=!!ch?.ctxOn;
   $('ceCtxToggle').classList.toggle('on',ceCtxOn);
@@ -1616,6 +1714,8 @@ $('saveChar').onclick=()=>{
   const extra={
     avatar:editingAvatar,
     bg:editingBg,
+    extra:$('ceExtra').value,
+    extraMode:ceExtraMode,
     temp: t===''?null:Math.min(1,Math.max(0,Number(t))),
     ctxOn: ceCtxOn,
     ctxN: Math.min(516,Math.max(1,Number($('ceCtxN').value)||50)),
