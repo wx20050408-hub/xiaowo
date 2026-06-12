@@ -343,6 +343,15 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 }
 .mcol{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
 .avSm{width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0;box-shadow:var(--shadow)}
+
+/* 线上模式回复按钮 */
+#replyBtn{
+  display:none;align-self:flex-end;margin:0 14px 6px;flex-shrink:0;
+  padding:9px 18px;border-radius:20px;
+  background:var(--accent);color:#fff;font-size:14px;font-weight:600;
+  box-shadow:var(--shadow);
+}
+#replyBtn:active{background:var(--accent-deep)}
 </style>
 </head>
 <body>
@@ -364,6 +373,9 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <div class="hint">说点什么吧，我听着呢</div>
     </div>
   </main>
+
+  <!-- 线上模式：手动触发回复 -->
+  <button id="replyBtn">📨 让TA回复</button>
 
   <!-- 输入栏 -->
   <div id="imgPreview"></div>
@@ -465,6 +477,16 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <input type="file" id="avFile" accept="image/*" style="display:none">
     </div>
     <div class="field"><label>人设 / 系统提示词</label><textarea id="cePrompt" placeholder="把他的设定贴在这里…"></textarea></div>
+    <div class="field"><label>温度（0~1，留空跟随预设/默认）</label><input type="number" id="ceTemp" min="0" max="1" step="0.1" placeholder="默认"></div>
+    <div class="field">
+      <div class="boxRow" style="margin-bottom:8px"><span class="ic">✂️</span><span class="grow">限制上下文消息数量</span><button class="wbToggle" id="ceCtxToggle"></button></div>
+      <input type="number" id="ceCtxN" min="1" max="516" value="50" style="display:none">
+      <div class="hintText">开了只把最近 N 条发给 API（最高 516），关了就全部发、无限制。</div>
+    </div>
+    <div class="field">
+      <div class="boxRow"><span class="ic">📱</span><span class="grow">线上模式</span><button class="wbToggle" id="ceOnline"></button></div>
+      <div class="hintText">线上：TA 像发消息一样用短句回复，而且要等你按「让TA回复」才说话。线下（关闭）：正常长文对话，发完自动回。</div>
+    </div>
     <button class="primaryBtn" id="saveChar">保存</button>
     <button class="ghostBtn" id="delChar" style="color:var(--danger);display:none">删除这个角色</button>
   </div>
@@ -505,7 +527,18 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   <div class="sheet">
     <div class="sheetTitle">世界书<button class="close" data-close="wbSheet">✕</button></div>
     <div id="wbList"></div>
-    <button class="ghostBtn" id="addWb">＋ 新条目</button>
+    <button class="ghostBtn" id="addWb">＋ 新世界书</button>
+    <div class="hintText">世界书像文件夹，点进去往里添加条目。开关关掉的世界书整本不生效。</div>
+  </div>
+</div>
+
+<!-- 世界书条目列表弹层 -->
+<div class="sheetScrim" id="wbBookSheet">
+  <div class="sheet">
+    <div class="sheetTitle">条目<button class="close" data-close="wbBookSheet">✕</button></div>
+    <div class="field"><label>世界书名字</label><input id="wbBookName"></div>
+    <div id="wbEntryList"></div>
+    <button class="ghostBtn" id="addWbEntry">＋ 新条目</button>
     <div class="hintText">「常驻」条目每次都生效；「关键词」条目只在最近 5 条消息提到关键词时生效。命中的内容会拼在角色设定后面发给 API。</div>
   </div>
 </div>
@@ -615,7 +648,15 @@ if(!apiKeys.length && settings.apiKey){
   settings.apiKey='';
 }
 if(!selKeyId && apiKeys.length) selKeyId=apiKeys[0].id;
-let worldbook = load('xw_worldbook', []);   // {id,title,content,mode:'always'|'keyword',keywords,on}
+let worldbook = load('xw_worldbook', []);   // [{id,name,on,entries:[{id,title,content,mode,keywords,on}]}]
+/* 兼容旧数据：平铺条目 → 装进一本默认世界书 */
+function migrateWb(arr){
+  if(!Array.isArray(arr)) return [];
+  if(arr.length && arr[0] && !arr[0].entries && (arr[0].title!==undefined||arr[0].content!==undefined))
+    return [{id:'wb'+Date.now(),name:'默认世界书',on:true,entries:arr}];
+  return arr;
+}
+worldbook=migrateWb(worldbook);
 let presets = load('xw_presets', []);       // {id,name,prompt,temperature,maxTokens}
 let selPresetId = load('xw_selpreset', null);
 if(selPresetId && !presets.some(p=>p.id===selPresetId)) selPresetId=null;
@@ -697,11 +738,13 @@ function renderHeader(){
     $('headerName').textContent=c.title;
     const names=c.members.map(id=>characters.find(x=>x.id===id)?.name).filter(Boolean).join('、');
     $('headerSub').textContent=(names||'群聊')+(pr?` · ${pr.name}`:'');
+    updateReplyBtn();
     return;
   }
   const ch=curChar(c);
   $('headerName').textContent = c ? c.title : (ch ? ch.name : '小窝');
-  $('headerSub').textContent = (ch ? `${ch.name} · 在线` : '在线') + (pr ? ` · ${pr.name}` : '');
+  $('headerSub').textContent = (ch ? `${ch.name} · ${ch.online?'📱线上':'在线'}` : '在线') + (pr ? ` · ${pr.name}` : '');
+  updateReplyBtn();
 }
 function switchChat(id){ currentId=id; persistAll(); renderChat(); }
 
@@ -724,9 +767,19 @@ function renderChat(){
     area.innerHTML='<div id="empty"><div class="face">₍ᐢ. .ᐢ₎</div><div class="hint">说点什么吧，我听着呢</div></div>';
     return;
   }
+  const online=!(c.members&&c.members.length)&&curChar(c)?.online;
   c.messages.forEach((m,i)=>{
     let ch=null;
     if(m.role!=='user') ch=(m.charId&&characters.find(x=>x.id===m.charId))||curChar(c)||{name:'?'};
+    /* 线上模式：TA 的回复按行拆成一条条小消息 */
+    if(online&&m.role!=='user'&&typeof m.content==='string'&&m.content.includes('\n')){
+      m.content.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
+        const el=bubbleEl(m.role,fmt(line),'',ch);
+        el.querySelector('.bubble').onclick=()=>openMsgActions(i);
+        area.appendChild(el);
+      });
+      return;
+    }
     const el=bubbleEl(m.role,contentHtml(m.content),'',ch);
     el.querySelector('.bubble').onclick=()=>openMsgActions(i);
     area.appendChild(el);
@@ -807,12 +860,15 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   const mems=memories.filter(m=>m.charId===ch?.id);
   if(mems.length) sysParts.push('【记忆】关于用户，你记得这些事：\n'+mems.map(m=>'- '+m.text).join('\n'));
   const recentText=c.messages.slice(-5).map(m=>textOf(m.content)).join('\n');
-  const hits=worldbook.filter(w=>{
-    if(!w.on || !w.content.trim()) return false;
-    if(w.mode==='always') return true;
-    return (w.keywords||'').split(/[,，]/).map(s=>s.trim()).filter(Boolean)
-      .some(k=>recentText.includes(k));
-  });
+  const hits=[];
+  for(const bk of worldbook){
+    if(bk.on===false) continue;
+    for(const w of (bk.entries||[])){
+      if(!w.on || !w.content.trim()) continue;
+      if(w.mode==='always' || (w.keywords||'').split(/[,，]/).map(s=>s.trim()).filter(Boolean).some(k=>recentText.includes(k)))
+        hits.push(w);
+    }
+  }
   if(hits.length) sysParts.push('【世界设定】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
   if(preset && preset.prompt.trim()) sysParts.push(preset.prompt);
   return applyVars(sysParts.join('\n\n'),ch);
@@ -940,6 +996,9 @@ async function runReply(c,api,body,ch){
     c.ts=Date.now(); persistAll();
     const idx=c.messages.length-1;
     bub.onclick=()=>openMsgActions(idx);
+    /* 线上模式：回复完按行拆成小气泡 */
+    if(c.id===currentId && !(c.members&&c.members.length) && curChar(c)?.online && out.acc.includes('\n'))
+      renderChat();
   };
   try{
     await callStream(api,body,bub,area,out);
@@ -971,15 +1030,28 @@ async function generateReply(c,onlyCharId){
       const myName=$('profileName').textContent.trim()||'用户';
       for(const m of members){
         const note=`【群聊】这是一个群聊，成员有：${allNames}，还有用户「${myName}」。你只扮演「${m.name}」，以${m.name}的身份说一条消息，不要替其他任何人发言，也不要在开头加自己的名字。`;
-        const body=baseBody(groupApiMessages(c,m));
+        let gm=c.messages;
+        if(m.ctxOn&&Number(m.ctxN)>0) gm=gm.slice(-Math.min(Number(m.ctxN),516));
+        const am=groupApiMessages({messages:gm},m);
+        while(am.length&&am[0].role!=='user') am.shift();
+        const body=baseBody(am);
+        if(m.temp!=null&&m.temp!=='') body.temperature=Number(m.temp);
         const sys=buildSystem(m.prompt,c,note,m);
         if(sys) body.system=sys;
         if(!await runReply(c,api,body,m)) break;
       }
     }else{
       const ch=curChar(c);
-      const body=baseBody(c.messages.map(m=>({role:m.role,content:m.content})));
-      const sys=buildSystem(ch?ch.prompt:'',c,null,ch);
+      let msgs=c.messages;
+      if(ch?.ctxOn&&Number(ch.ctxN)>0) msgs=msgs.slice(-Math.min(Number(ch.ctxN),516));
+      msgs=msgs.slice();
+      while(msgs.length&&msgs[0].role!=='user') msgs.shift();
+      const body=baseBody(msgs.map(m=>({role:m.role,content:m.content})));
+      if(ch&&ch.temp!=null&&ch.temp!=='') body.temperature=Number(ch.temp);
+      const note=ch?.online
+        ?'【线上聊天】你和{{user}}正在手机上互发消息。用发消息的口吻回复：短句、口语化、像平时发微信那样自然。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。'
+        :null;
+      const sys=buildSystem(ch?ch.prompt:'',c,note,ch);
       if(sys) body.system=sys;
       await runReply(c,api,body,ch);
     }
@@ -1011,7 +1083,23 @@ async function send(){
   input.value=''; input.style.height='auto';
   persistAll(); renderChat();
 
+  /* 线上模式：不自动回，等「让TA回复」 */
+  const solo=!(c.members&&c.members.length);
+  if(solo && curChar(c)?.online) return;
   await generateReply(c);
+}
+
+$('replyBtn').onclick=async()=>{
+  const c=curChat();
+  if(!c||streaming) return;
+  if(!c.messages.length){ toast('先说点什么吧'); return; }
+  await generateReply(c);
+};
+function updateReplyBtn(){
+  const c=curChat();
+  const solo=c&&!(c.members&&c.members.length);
+  const ch=solo?curChar(c):null;
+  $('replyBtn').style.display=(ch&&ch.online&&!streaming)?'block':'none';
 }
 
 /* ================= 弹层通用 ================= */
@@ -1107,7 +1195,7 @@ function renderChars(){
     it.className='charItem'+(ch.id===selCharId?' sel':'');
     const av=ch.avatar?`<img class="avSm" src="${ch.avatar}">`:`<span class="em">${esc(ch.emoji||'☺')}</span>`;
     it.innerHTML=`${av}
-      <div class="info"><div class="nm">${esc(ch.name)}</div><div class="pv">${esc(ch.prompt||'还没写设定')}</div></div>
+      <div class="info"><div class="nm">${esc(ch.name)}</div><div class="pv">${ch.online?'📱线上 · ':''}${esc(ch.prompt||'还没写设定')}</div></div>
       <button class="edit">编辑</button>`;
     it.querySelector('.info').onclick=()=>{ selCharId=ch.id; persistAll(); renderChars(); renderHeader(); toast(`新对话会用「${ch.name}」`); };
     it.querySelector('.edit').onclick=ev=>{ ev.stopPropagation(); openCharEdit(ch); };
@@ -1115,6 +1203,16 @@ function renderChars(){
   });
 }
 $('addChar').onclick=()=>openCharEdit(null);
+let ceCtxOn=false, ceOnlineOn=false;
+$('ceCtxToggle').onclick=()=>{
+  ceCtxOn=!ceCtxOn;
+  $('ceCtxToggle').classList.toggle('on',ceCtxOn);
+  $('ceCtxN').style.display=ceCtxOn?'block':'none';
+};
+$('ceOnline').onclick=()=>{
+  ceOnlineOn=!ceOnlineOn;
+  $('ceOnline').classList.toggle('on',ceOnlineOn);
+};
 function openCharEdit(ch){
   editingChar=ch;
   editingAvatar=ch?.avatar||null;
@@ -1123,6 +1221,13 @@ function openCharEdit(ch){
   $('ceName').value=ch?ch.name:'';
   $('ceEmoji').value=ch?ch.emoji:'';
   $('cePrompt').value=ch?ch.prompt:'';
+  $('ceTemp').value=ch&&ch.temp!=null?ch.temp:'';
+  ceCtxOn=!!ch?.ctxOn;
+  $('ceCtxToggle').classList.toggle('on',ceCtxOn);
+  $('ceCtxN').style.display=ceCtxOn?'block':'none';
+  $('ceCtxN').value=ch?.ctxN||50;
+  ceOnlineOn=!!ch?.online;
+  $('ceOnline').classList.toggle('on',ceOnlineOn);
   $('delChar').style.display=ch&&characters.length>1?'block':'none';
   openSheet('charEditSheet');
 }
@@ -1164,10 +1269,18 @@ $('clearAv').onclick=()=>{ editingAvatar=null; renderAvPreview(); };
 $('saveChar').onclick=()=>{
   const name=$('ceName').value.trim();
   if(!name){ toast('名字不能空着'); return; }
+  const t=$('ceTemp').value.trim();
+  const extra={
+    avatar:editingAvatar,
+    temp: t===''?null:Math.min(1,Math.max(0,Number(t))),
+    ctxOn: ceCtxOn,
+    ctxN: Math.min(516,Math.max(1,Number($('ceCtxN').value)||50)),
+    online: ceOnlineOn,
+  };
   if(editingChar){
-    editingChar.name=name; editingChar.emoji=$('ceEmoji').value.trim(); editingChar.prompt=$('cePrompt').value; editingChar.avatar=editingAvatar;
+    Object.assign(editingChar,{name,emoji:$('ceEmoji').value.trim(),prompt:$('cePrompt').value},extra);
   }else{
-    const nc={id:'c'+Date.now(),name,emoji:$('ceEmoji').value.trim(),prompt:$('cePrompt').value,avatar:editingAvatar};
+    const nc={id:'c'+Date.now(),name,emoji:$('ceEmoji').value.trim(),prompt:$('cePrompt').value,...extra};
     characters.push(nc); selCharId=nc.id;
   }
   persistAll(); closeSheet('charEditSheet'); renderChars(); renderHeader(); toast('存好啦');
@@ -1341,15 +1454,58 @@ $('createGroup').onclick=()=>{
 };
 
 /* ================= 世界书 ================= */
-let editingWb=null, wbMode='always';
+let editingWb=null, wbMode='always', curWbBook=null;
 $('wbBtn').onclick=()=>{ renderWb(); openSheet('wbSheet'); };
 function renderWb(){
   const list=$('wbList'); list.innerHTML='';
   if(!worldbook.length){
+    list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:20px 0">还没有世界书</div>';
+    return;
+  }
+  worldbook.forEach(bk=>{
+    const it=document.createElement('div');
+    it.className='charItem';
+    const n=(bk.entries||[]).length;
+    it.innerHTML=`<button class="wbToggle${bk.on!==false?' on':''}"></button>
+      <div class="info"><div class="nm">📖 ${esc(bk.name||'未命名')}</div><div class="pv">${n} 个条目</div></div>
+      <button class="edit" style="color:var(--ink-soft)">✕</button>`;
+    it.querySelector('.wbToggle').onclick=ev=>{
+      ev.stopPropagation();
+      bk.on=!(bk.on!==false); persistAll();
+      ev.target.classList.toggle('on',bk.on);
+    };
+    it.querySelector('.info').onclick=()=>openWbBook(bk);
+    it.querySelector('.edit').onclick=ev=>{
+      ev.stopPropagation();
+      if(!confirm(`删掉整本「${bk.name}」和里面 ${n} 个条目？`)) return;
+      worldbook=worldbook.filter(x=>x.id!==bk.id);
+      persistAll(); renderWb();
+    };
+    list.appendChild(it);
+  });
+}
+$('addWb').onclick=()=>{
+  const bk={id:'wb'+Date.now(),name:'新世界书',on:true,entries:[]};
+  worldbook.push(bk); persistAll(); renderWb(); openWbBook(bk);
+};
+function openWbBook(bk){
+  curWbBook=bk;
+  $('wbBookName').value=bk.name||'';
+  renderWbEntries(); openSheet('wbBookSheet');
+}
+$('wbBookName').onchange=e=>{
+  if(!curWbBook) return;
+  curWbBook.name=e.target.value.trim()||'未命名';
+  persistAll(); renderWb();
+};
+function renderWbEntries(){
+  const list=$('wbEntryList'); list.innerHTML='';
+  const entries=curWbBook?.entries||[];
+  if(!entries.length){
     list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:20px 0">还没有条目</div>';
     return;
   }
-  worldbook.forEach(w=>{
+  entries.forEach(w=>{
     const it=document.createElement('div');
     it.className='charItem';
     const modeText=w.mode==='keyword'?`关键词：${w.keywords||'（没填）'}`:'常驻';
@@ -1366,7 +1522,7 @@ function renderWb(){
     list.appendChild(it);
   });
 }
-$('addWb').onclick=()=>openWbEdit(null);
+$('addWbEntry').onclick=()=>openWbEdit(null);
 function setWbMode(m){
   wbMode=m;
   document.querySelectorAll('#wbEditSheet .modeTab').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
@@ -1388,13 +1544,13 @@ $('saveWb').onclick=()=>{
   if(!title){ toast('标题不能空着'); return; }
   const data={ title, content:$('wbContent').value, mode:wbMode, keywords:$('wbKeywords').value.trim() };
   if(editingWb) Object.assign(editingWb,data);
-  else worldbook.push({ id:'w'+Date.now(), on:true, ...data });
-  persistAll(); closeSheet('wbEditSheet'); renderWb(); toast('存好啦');
+  else curWbBook.entries.push({ id:'w'+Date.now(), on:true, ...data });
+  persistAll(); closeSheet('wbEditSheet'); renderWbEntries(); renderWb(); toast('存好啦');
 };
 $('delWb').onclick=()=>{
   if(!editingWb||!confirm(`删掉「${editingWb.title}」？`)) return;
-  worldbook=worldbook.filter(w=>w.id!==editingWb.id);
-  persistAll(); closeSheet('wbEditSheet'); renderWb();
+  curWbBook.entries=curWbBook.entries.filter(w=>w.id!==editingWb.id);
+  persistAll(); closeSheet('wbEditSheet'); renderWbEntries(); renderWb();
 };
 
 /* ================= 预设 ================= */
@@ -1472,7 +1628,7 @@ $('importFile').onchange=async e=>{
     const data=JSON.parse(await f.text());
     if(data.characters) characters=data.characters;
     if(data.chats) chats=data.chats;
-    if(data.worldbook) worldbook=data.worldbook;
+    if(data.worldbook) worldbook=migrateWb(data.worldbook);
     if(data.memories) memories=data.memories;
     if(data.presets){
       presets=data.presets;
