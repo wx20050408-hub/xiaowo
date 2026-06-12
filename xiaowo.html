@@ -1606,6 +1606,46 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   return applyVars(sysParts.join('\n\n'),ch);
 }
 
+/* ===== TA的感知（无服务器版 always-here）：电量 + 作息，全本地零成本 ===== */
+let batteryInfo=null;
+if(navigator.getBattery){
+  navigator.getBattery().then(b=>{
+    const up=()=>{ batteryInfo={level:Math.round(b.level*100),charging:b.charging}; };
+    up();
+    b.addEventListener('levelchange',up);
+    b.addEventListener('chargingchange',up);
+  }).catch(()=>{});
+}
+/* 平时几点睡：取每天最后一条消息的小时数（凌晨算 24+），平均一下 */
+function usualSleepHour(){
+  const lastByDay={};
+  for(const c of chats) for(const m of c.messages){
+    if(!m.ts||m.role!=='user') continue;
+    const d=new Date(m.ts);
+    let h=d.getHours()+d.getMinutes()/60;
+    let day=`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    if(h<6){ h+=24; const y=new Date(m.ts-12*3600e3); day=`${y.getFullYear()}-${y.getMonth()}-${y.getDate()}`; }
+    if(!(day in lastByDay)||h>lastByDay[day]) lastByDay[day]=h;
+  }
+  const v=Object.values(lastByDay);
+  if(v.length<3) return null;
+  return v.reduce((a,b)=>a+b,0)/v.length;
+}
+function senseNotes(){
+  const parts=[];
+  if(batteryInfo&&!batteryInfo.charging&&batteryInfo.level<=25)
+    parts.push(`【感知】${userName()}的手机电量只剩 ${batteryInfo.level}% 了，还没插电。合适的时候提醒一句去充电。`);
+  const now=new Date();
+  let h=now.getHours()+now.getMinutes()/60;
+  if(h<6) h+=24;
+  const usual=usualSleepHour();
+  if(h>=23&&usual&&h>usual+1)
+    parts.push(`【感知】${userName()}平时差不多 ${Math.round(usual%24)} 点就不说话了，今天明显熬得比平时晚。可以自然地心疼一下、催TA睡，但别每条都念叨。`);
+  else if(h>=25&&h<29)
+    parts.push(`【感知】现在是深夜${Math.floor(h%24)}点多，${userName()}还没睡。合适的话表达一点心疼，催TA早点休息，但别说教。`);
+  return parts;
+}
+
 /* 动态上下文 = 时间感知 + 关键词命中的世界书（每轮注入，按 1x 计费但不毁缓存） */
 function buildDynamic(c,ch){
   const parts=[];
@@ -1628,6 +1668,8 @@ function buildDynamic(c,ch){
     }
   }
   if(hits.length) parts.push('【世界设定·当前相关】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
+  /* TA的感知：电量 / 熬夜 */
+  for(const n of senseNotes()) parts.push(n);
   /* 自习时间跑来聊天 → TA 知道该催你回去学习 */
   if(studySt&&Date.now()<studySt.start+studySt.min*60e3)
     parts.push(`【自习中】${userName()}本来正在自习（还剩${Math.ceil((studySt.start+studySt.min*60e3-Date.now())/60000)}分钟），现在却来找你聊天——多半是分心了。回应TA，但温柔地催TA回去专注。`);
