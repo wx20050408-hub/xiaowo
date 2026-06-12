@@ -40,6 +40,21 @@
   --shadow:0 6px 24px rgba(90,90,140,.10);
   --danger:#D97B8C;
 }
+[data-theme="night"]{
+  --bg:#201C17;
+  --bg-soft:#2B261F;
+  --card:#2E2822;
+  --ink:#E9DFD0;
+  --ink-soft:#9A8E7E;
+  --accent:#D98E5F;
+  --accent-deep:#E8A87C;
+  --bubble-me:#46362A;
+  --bubble-ta:#2E2822;
+  --line:#3A332A;
+  --shadow:0 6px 24px rgba(0,0,0,.35);
+  --danger:#E08A7B;
+}
+[data-theme="night"] .bubble.err{background:#4A2E28}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
 body{
@@ -605,6 +620,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <span class="ic">🎨</span><span class="grow">主题</span>
       <button class="themeDot" data-theme="cream" style="background:#F6DCC4"></button>
       <button class="themeDot" data-theme="mist" style="background:#DEDEF5"></button>
+      <button class="themeDot" data-theme="night" style="background:#46362A"></button>
     </div>
     <div class="boxRow">
       <span class="ic">🔤</span><span class="grow" id="fontLabel">字体：默认</span>
@@ -612,6 +628,11 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <button id="fontReset" style="color:var(--ink-soft);padding:4px 8px">还原</button>
     </div>
     <input type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2" style="display:none">
+    <button class="boxRow" id="annBtn" style="width:100%"><span class="ic">🗓</span><span class="grow" style="text-align:left">纪念日</span></button>
+    <div class="boxRow"><span class="ic">📄</span><span class="grow">导出当前对话</span>
+      <button id="expTxt" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">txt</button>
+      <button id="expHtml" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">网页</button>
+    </div>
     <button class="boxRow" id="memBtn" style="width:100%"><span class="ic">🧠</span><span class="grow" style="text-align:left">记忆</span></button>
     <button class="boxRow" id="wbBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">世界书</span></button>
     <button class="boxRow" id="presetBtn" style="width:100%"><span class="ic">🎛️</span><span class="grow" style="text-align:left">预设</span></button>
@@ -703,6 +724,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <button class="boxRow" id="editMsg" style="width:100%"><span class="ic">✏️</span><span class="grow" style="text-align:left">编辑</span></button>
     <button class="boxRow" id="regenMsg" style="width:100%"><span class="ic">🎲</span><span class="grow" style="text-align:left">从这里重新生成</span></button>
     <button class="boxRow" id="branchMsg" style="width:100%"><span class="ic">🌿</span><span class="grow" style="text-align:left">从这里开个分支</span></button>
+    <button class="boxRow" id="speakMsg" style="width:100%"><span class="ic">🔊</span><span class="grow" style="text-align:left">朗读这条</span></button>
     <button class="boxRow" id="memMsg" style="width:100%"><span class="ic">🧠</span><span class="grow" style="text-align:left">记进记忆</span></button>
     <button class="boxRow" id="delMsg" style="width:100%;color:var(--danger)"><span class="ic">🗑</span><span class="grow" style="text-align:left">删除这条</span></button>
   </div>
@@ -727,6 +749,19 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <div class="field"><label>添加 / 点上面某条来编辑</label><textarea id="memText" style="min-height:70px" placeholder="比如：用户养了一只叫汤圆的猫"></textarea></div>
     <button class="primaryBtn" id="saveMem">添加</button>
     <div class="hintText">记忆会拼进这个角色的系统提示词，跨对话生效。聊天里点任意一条消息也可以「记进记忆」。</div>
+  </div>
+</div>
+
+<!-- 纪念日弹层 -->
+<div class="sheetScrim" id="annSheet">
+  <div class="sheet">
+    <div class="sheetTitle">纪念日<button class="close" data-close="annSheet">✕</button></div>
+    <div class="field"><label>谁的纪念日</label><select id="annChar"></select></div>
+    <div id="annList"></div>
+    <div class="field"><label>名称</label><input id="annName" placeholder="比如：在一起的日子"></div>
+    <div class="field"><label>日期</label><input type="date" id="annDate"></div>
+    <button class="primaryBtn" id="addAnn">添加</button>
+    <div class="hintText">到了这一天，打开和TA的聊天，TA 会主动提起。填了年份的，TA 还记得是第几年、第几天。平时聊天 TA 也知道这些日子的存在。</div>
   </div>
 </div>
 
@@ -773,6 +808,7 @@ let selPresetId = load('xw_selpreset', null);
 if(selPresetId && !presets.some(p=>p.id===selPresetId)) selPresetId=null;
 let memories = load('xw_memories', []);     // {id,charId,text}
 let moments = load('xw_moments', []);       // {id,charId|null,text,ts,likes:[by],comments:[{by,text,ts}]}  by='me' 或角色id
+let annivs = load('xw_annivs', []);         // {id,charId,name,date:'YYYY-MM-DD',last:'已庆祝的日期'}
 let streaming = false, aborter = null;
 
 const $ = id => document.getElementById(id);
@@ -805,6 +841,14 @@ function fmtAssistant(s){
 }
 /* 折叠块的展开点击别触发消息操作菜单 */
 const wireThink=root=>root.querySelectorAll('.thinkBlock summary').forEach(x=>x.onclick=ev=>ev.stopPropagation());
+/* 去掉思考链，只留正文（朗读、导出、摘要用） */
+const stripThink=s=>s.replace(/<think(?:ing)?>[\s\S]*?(?:<\/think(?:ing)?>|$)/gi,'').trim();
+/* 下载一个文件 */
+function dlFile(name,content,mime){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type:mime}));
+  a.download=name; a.click(); URL.revokeObjectURL(a.href);
+}
 /* 消息 content 可能是字符串，也可能是图文块数组 */
 const textOf = ct => typeof ct==='string' ? ct : ct.filter(b=>b.type==='text').map(b=>b.text).join('\n');
 const contentHtml = ct => typeof ct==='string' ? fmt(ct) :
@@ -821,15 +865,18 @@ const persistAll = ()=>{
   save('xw_current',currentId); save('xw_selchar',selCharId); save('xw_settings',settings);
   save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook);
   save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories);
-  save('xw_moments',moments);
+  save('xw_moments',moments); save('xw_annivs',annivs);
   idbSet('chats',chats).catch(()=>save('xw_chats',chats));
   idbSet('characters',characters).catch(()=>save('xw_characters',characters));
 };
 
 /* ================= 主题 ================= */
 function applyTheme(){
-  document.documentElement.dataset.theme = settings.theme==='mist' ? 'mist' : '';
+  const t=['mist','night'].includes(settings.theme)?settings.theme:'';
+  document.documentElement.dataset.theme=t;
   document.querySelectorAll('.themeDot').forEach(d=>d.classList.toggle('on', d.dataset.theme===settings.theme));
+  const mc=document.querySelector('meta[name="theme-color"]');
+  if(mc) mc.content = t==='night'?'#201C17' : t==='mist'?'#F2F2FA' : '#FBF6EE';
 }
 
 /* ================= 侧边栏 ================= */
@@ -930,10 +977,11 @@ function renderHeader(){
   }
   const ch=curChar(c);
   $('headerName').textContent = c ? c.title : (ch ? ch.name : '小窝');
-  $('headerSub').textContent = (ch ? `${ch.name} · ${ch.online?'📱线上':'在线'}` : '在线') + (pr ? ` · ${pr.name}` : '');
+  $('headerSub').textContent = (ch ? `${ch.name} · ${ch.online?'📱线上':'在线'}` : '在线')
+    + (ch?.sign ? ` · ${ch.sign}` : '') + (pr ? ` · ${pr.name}` : '');
   updateReplyBtn();
 }
-function switchChat(id){ currentId=id; persistAll(); renderChat(); maybeProactive(); }
+function switchChat(id){ currentId=id; persistAll(); renderChat(); maybeAnniversary(); maybeProactive(); maybeUpdateSign(); }
 function renameChat(c){
   const t=prompt('给这段对话改个名字：',c.title);
   if(t==null) return;
@@ -965,7 +1013,9 @@ function renderChat(){
   /* 角色聊天背景（单聊生效，叠一层半透明保证字能看清） */
   const bgCh=(!c||!(c.members&&c.members.length))?curChar(c):null;
   if(bgCh?.bg){
-    area.style.backgroundImage=`linear-gradient(rgba(255,255,255,.4),rgba(255,255,255,.4)),url(${bgCh.bg})`;
+    /* 深夜模式压暗背景图，浅色主题提亮，保证字能看清 */
+    const dim=document.documentElement.dataset.theme==='night'?'rgba(20,17,14,.55)':'rgba(255,255,255,.4)';
+    area.style.backgroundImage=`linear-gradient(${dim},${dim}),url(${bgCh.bg})`;
     area.style.backgroundSize='cover';
     area.style.backgroundPosition='center';
   }else{
@@ -985,6 +1035,14 @@ function renderChat(){
       area.appendChild(td);
     }
     if(m.ts) prevTs=m.ts;
+    /* 系统小字（拍一拍这类） */
+    if(m.role==='sys'){
+      const sl=document.createElement('div');
+      sl.className='timeDiv';
+      sl.textContent=typeof m.content==='string'?m.content:textOf(m.content);
+      area.appendChild(sl);
+      return;
+    }
     let ch=null;
     if(m.role!=='user') ch=(m.charId&&characters.find(x=>x.id===m.charId))||curChar(c)||{name:'?'};
     /* 线上模式：TA 的回复按行拆成一条条小消息（思考块单独一个气泡） */
@@ -999,7 +1057,7 @@ function renderChat(){
         pieces.forEach(html=>{
           const el=bubbleEl(m.role,html,'',ch);
           el.querySelector('.bubble').onclick=()=>openMsgActions(i);
-          wireThink(el);
+          wireThink(el); attachPat(el,ch,c);
           area.appendChild(el);
         });
         return;
@@ -1009,6 +1067,7 @@ function renderChat(){
     const el=bubbleEl(m.role,html,'',ch);
     el.querySelector('.bubble').onclick=()=>openMsgActions(i);
     wireThink(el);
+    if(m.role!=='user') attachPat(el,ch,c);
     area.appendChild(el);
   });
   area.scrollTop=area.scrollHeight;
@@ -1096,6 +1155,8 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   if(groupNote) sysParts.push(groupNote);
   const mems=memories.filter(m=>m.charId===ch?.id);
   if(mems.length) sysParts.push('【记忆】关于用户，你记得这些事：\n'+mems.map(m=>'- '+m.text).join('\n'));
+  const ans=annivs.filter(a=>a.charId===ch?.id);
+  if(ans.length) sysParts.push('【纪念日】对你们很重要的日子，你一直记得：\n'+ans.map(a=>`- ${a.name}：${a.date}`).join('\n'));
   if(c?.summary) sysParts.push('【前情提要】（更早对话的压缩版）\n'+c.summary);
   const always=[];
   for(const bk of worldbook){
@@ -1195,6 +1256,7 @@ function groupApiMessages(c,member){
     else out.push({role,content:blocks});
   };
   c.messages.forEach((m,i)=>{
+    if(m.role==='sys'){ push('user',[{type:'text',text:`（${m.content}）`}]); return; }
     const ct=degradeContent(m,i<c.messages.length-3);
     if(m.role==='assistant'&&m.charId===member.id) push('assistant',toBlocks(ct));
     else if(m.role==='assistant') push('user',prefixed(characters.find(x=>x.id===m.charId)?.name||'某人',ct));
@@ -1361,7 +1423,8 @@ async function summarizeChat(c,ch){
   const cut=c.messages.length-keep;
   if(cut<=done) return;
   const part=c.messages.slice(done,cut)
-    .map(m=>(m.role==='user'?userName():(characters.find(x=>x.id===m.charId)?.name||ch?.name||'TA'))+'：'+textOf(m.content))
+    .filter(m=>m.role!=='sys')
+    .map(m=>(m.role==='user'?userName():(characters.find(x=>x.id===m.charId)?.name||ch?.name||'TA'))+'：'+stripThink(textOf(m.content)))
     .filter(s=>s.split('：').slice(1).join('：').trim())
     .join('\n');
   if(!part) return;
@@ -1417,12 +1480,13 @@ async function generateReply(c,onlyCharId,extraUser){
       /* 连发的几条消息合并成一条发给 API，不然模型容易只看见最后一条 */
       const apiMsgs=[];
       msgs.forEach((m,i)=>{
-        const ct=degradeContent(m,i<msgs.length-3);
+        const role=m.role==='sys'?'user':m.role;   // 拍一拍这类系统小字按用户旁白发
+        const ct=m.role==='sys'?`（${m.content}）`:degradeContent(m,i<msgs.length-3);
         const prev=apiMsgs[apiMsgs.length-1];
-        if(prev&&prev.role===m.role){
+        if(prev&&prev.role===role){
           if(typeof prev.content==='string'&&typeof ct==='string') prev.content+='\n'+ct;
           else prev.content=toBlocks(prev.content).concat(toBlocks(ct));
-        }else apiMsgs.push({role:m.role,content:ct});
+        }else apiMsgs.push({role,content:ct});
       });
       injectIntoLastUser(apiMsgs,buildDynamic(c,ch));
       if(extraUser){
@@ -1476,6 +1540,105 @@ async function send(){
   const solo=!(c.members&&c.members.length);
   if(solo && curChar(c)?.online) return;
   await generateReply(c);
+}
+
+/* ================= 纪念日 ================= */
+$('annBtn').onclick=()=>{
+  if(!characters.length){ toast('先去「角色」里建个角色吧'); return; }
+  const sel=$('annChar');
+  sel.innerHTML=characters.map(ch=>`<option value="${ch.id}">${esc(ch.name)}</option>`).join('');
+  const cur=curChar(curChat()); if(cur) sel.value=cur.id;
+  renderAnns(); openSheet('annSheet');
+};
+$('annChar').onchange=()=>renderAnns();
+function renderAnns(){
+  const list=$('annList'); list.innerHTML='';
+  const items=annivs.filter(a=>a.charId===$('annChar').value);
+  if(!items.length){
+    list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:14px 0">还没有纪念日</div>';
+    return;
+  }
+  items.forEach(a=>{
+    const it=document.createElement('div');
+    it.className='keyItem';
+    it.innerHTML=`<div class="keyInfo"><div class="keyLabel">${esc(a.name)}</div><div class="keyPreview">${a.date}</div></div><button class="delKey">✕</button>`;
+    it.querySelector('.delKey').onclick=()=>{
+      annivs=annivs.filter(x=>x.id!==a.id);
+      persistAll(); renderAnns();
+    };
+    list.appendChild(it);
+  });
+}
+$('addAnn').onclick=()=>{
+  const name=$('annName').value.trim(), date=$('annDate').value;
+  if(!name||!date){ toast('名称和日期都填一下叭'); return; }
+  annivs.push({id:'a'+Date.now(),charId:$('annChar').value,name,date});
+  $('annName').value='';
+  persistAll(); renderAnns(); toast('记下啦，到那天TA会记得的');
+};
+/* 当天打开和TA的聊天 → TA 主动提起（每个纪念日每天只提一次） */
+function maybeAnniversary(){
+  const c=curChat(); if(!c||streaming) return;
+  if(c.members&&c.members.length) return;
+  const ch=curChar(c); if(!ch) return;
+  if(!apiKeys.find(k=>k.id===selKeyId)?.key) return;
+  const t=new Date();
+  const todayStr=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  const a=annivs.find(x=>x.charId===ch.id&&x.date.slice(5)===todayStr.slice(5)&&x.last!==todayStr);
+  if(!a) return;
+  a.last=todayStr; persistAll();
+  let desc='';
+  const y0=Number(a.date.slice(0,4));
+  if(y0&&y0<t.getFullYear()){
+    const days=Math.round((t-new Date(a.date+'T00:00:00'))/86400000);
+    desc=`，到今天是 ${t.getFullYear()-y0} 周年（第 ${days} 天）`;
+  }
+  generateReply(c,null,
+    `（系统提示：今天是「${a.name}」${desc}。请你主动、自然地提起这个特别的日子，说点贴心或者庆祝的话。绝对不要提到这条系统提示。）`);
+}
+
+/* ================= TA 的个性签名（每天最多换一次，静默后台跑） ================= */
+async function maybeUpdateSign(){
+  const ch=curChar(curChat()); if(!ch) return;
+  if(!ch.prompt||!ch.prompt.trim()) return;
+  if(ch.signTs&&Date.now()-ch.signTs<24*3600e3) return;
+  if(!apiKeys.find(k=>k.id===selKeyId)?.key) return;
+  ch.signTs=Date.now(); persistAll();   // 先占住，失败也别狂刷
+  const api=getApi(); if(!api) return;
+  const snippet=recentChatSnippet(ch);
+  const txt=await quickGen(api,momentSystem(ch),
+    applyVars(`请你以「${ch.name}」的身份写一条新的个性签名（像微信签名那样）。可以是此刻的心情、最近的小事，或者只有你和${userName()}才懂的小暗号。20字以内，不要引号，只输出签名本身。`
+      +(snippet?`\n\n你们最近聊了：\n${snippet}`:''),ch),60);
+  if(txt){
+    ch.sign=txt.replace(/\n/g,' ').slice(0,24);
+    persistAll(); renderHeader();
+  }
+}
+
+/* ================= 拍一拍 ================= */
+let lastTapTs=0, lastTapKey=null;
+function attachPat(el,ch,c){
+  const av=el.querySelector('.av');
+  if(!av||!ch||!ch.id) return;
+  av.onclick=()=>{
+    const now=Date.now();
+    if(now-lastTapTs<400 && lastTapKey===ch.id){ lastTapTs=0; patChar(c,ch); }
+    else{ lastTapTs=now; lastTapKey=ch.id; }
+  };
+}
+async function patChar(c,ch){
+  if(streaming) return;
+  c.messages.push({role:'sys',content:`你拍了拍「${ch.name}」`,ts:Date.now()});
+  c.ts=Date.now(); persistAll(); renderChat();
+  if(!apiKeys.find(k=>k.id===selKeyId)?.key) return;
+  const api=getApi(); if(!api) return;
+  const txt=await quickGen(api,momentSystem(ch),
+    applyVars(`${userName()}刚刚在聊天里拍了拍你（就像微信的拍一拍）。请用一句简短的话回应，符合你的性格和你们的关系。只输出这句话本身，不要动作描写。`,ch),80);
+  if(txt){
+    c.messages.push({role:'assistant',charId:ch.id,content:txt.slice(0,200),ts:Date.now()});
+    c.ts=Date.now(); persistAll();
+    if(c.id===currentId) renderChat();
+  }
 }
 
 /* 主动找你：打开/切到聊天时，隔了 2 小时以上 TA 先开口 */
@@ -1794,6 +1957,21 @@ $('branchMsg').onclick=()=>{
   persistAll(); closeSheet('msgActionSheet'); renderChat(); renderHistory();
   toast('已开分支，从这条往后是新故事');
 };
+$('speakMsg').onclick=()=>{
+  const m=curChat().messages[actMsgIdx];
+  const t=stripThink(textOf(m.content));
+  if(!t){ toast('这条没有文字'); return; }
+  if(!('speechSynthesis' in window)){ toast('这台设备不支持朗读'); return; }
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(t);
+    u.lang='zh-CN';
+    const v=speechSynthesis.getVoices().find(v=>/^zh/i.test(v.lang));
+    if(v) u.voice=v;
+    speechSynthesis.speak(u);
+    closeSheet('msgActionSheet');
+  }catch(e){ toast('朗读出了点问题'); }
+};
 $('memMsg').onclick=()=>{
   const c=curChat(); const m=c.messages[actMsgIdx];
   const ch=(m.charId&&characters.find(x=>x.id===m.charId))||curChar(c);
@@ -1988,6 +2166,8 @@ function momentSystem(ch){
   if(ch.prompt&&ch.prompt.trim()) parts.push(ch.prompt);
   const mems=memories.filter(m=>m.charId===ch.id);
   if(mems.length) parts.push(`【记忆】关于${userName()}，你记得这些事：\n`+mems.map(m=>'- '+m.text).join('\n'));
+  const ans=annivs.filter(a=>a.charId===ch.id);
+  if(ans.length) parts.push('【纪念日】对你们很重要的日子：\n'+ans.map(a=>`- ${a.name}：${a.date}`).join('\n'));
   return applyVars(parts.join('\n\n'),ch);
 }
 /* 最近一次和TA的聊天片段，给动态当素材 */
@@ -2313,11 +2493,60 @@ $('fontReset').onclick=()=>{
   toast('回到默认字体');
 };
 
+/* ================= 导出当前对话 ================= */
+function exportableChat(){
+  const c=curChat();
+  if(!c||!c.messages.length){ toast('先打开一段有内容的对话'); return null; }
+  return c;
+}
+function msgAuthor(m,c){
+  return m.role==='user'?userName():(characters.find(x=>x.id===m.charId)?.name||curChar(c)?.name||'TA');
+}
+$('expTxt').onclick=()=>{
+  const c=exportableChat(); if(!c) return;
+  const lines=c.messages.map(m=>{
+    if(m.role==='sys') return `—— ${m.content} ——`;
+    const t=stripThink(typeof m.content==='string'?m.content:m.content.map(b=>b.type==='image'?'[图片]':(b.text||'')).join(' '));
+    return `[${m.ts?fmtMsgTime(m.ts):'--'}] ${msgAuthor(m,c)}：${t}`;
+  });
+  dlFile(`${c.title}.txt`,`《${c.title}》\n\n`+lines.join('\n'),'text/plain;charset=utf-8');
+  closeSheet('boxSheet'); toast('导出好啦');
+};
+$('expHtml').onclick=()=>{
+  const c=exportableChat(); if(!c) return;
+  const rows=c.messages.map(m=>{
+    if(m.role==='sys') return `<div class="s">${esc(String(m.content))}</div>`;
+    const me=m.role==='user';
+    let inner;
+    if(typeof m.content==='string') inner=fmt(stripThink(m.content));
+    else inner=m.content.map(b=>b.type==='image'?`<img src="data:${b.source.media_type};base64,${b.source.data}">`:fmt(b.text||'')).join('');
+    return `<div class="m ${me?'me':'ta'}"><div class="w">${esc(msgAuthor(m,c))}${m.ts?' · '+fmtMsgTime(m.ts):''}</div><div class="b">${inner}</div></div>`;
+  }).join('\n');
+  const d=new Date();
+  const doc=`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(c.title)}</title><style>
+body{font-family:"PingFang SC","HarmonyOS Sans SC",system-ui,sans-serif;background:#FBF6EE;color:#4A4036;max-width:680px;margin:0 auto;padding:24px 16px 40px;line-height:1.65}
+h1{font-size:18px;text-align:center;margin:0 0 4px}
+.sub{text-align:center;font-size:12px;color:#9A8E80;margin-bottom:22px}
+.m{display:flex;flex-direction:column;margin:14px 0;max-width:86%}
+.m.me{margin-left:auto;align-items:flex-end}
+.w{font-size:11px;color:#9A8E80;margin:0 6px 4px}
+.b{padding:11px 15px;border-radius:20px;background:#fff;box-shadow:0 4px 16px rgba(120,95,60,.08);white-space:pre-wrap;word-break:break-word}
+.m.me .b{background:#F6DCC4;border-bottom-right-radius:8px}
+.m.ta .b{border-bottom-left-radius:8px}
+.b img{max-width:200px;border-radius:12px;display:block;margin:4px 0}
+.s{text-align:center;font-size:11px;color:#9A8E80;margin:10px 0}
+code{background:#F3EBDD;border-radius:6px;padding:1px 6px;font-size:13px}
+</style></head><body><h1>${esc(c.title)}</h1><div class="sub">小窝 · ${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 导出</div>
+${rows}</body></html>`;
+  dlFile(`${c.title}.html`,doc,'text/html;charset=utf-8');
+  closeSheet('boxSheet'); toast('导出好啦，用浏览器打开就能看');
+};
+
 /* ================= 百宝箱 ================= */
 $('boxBtn').onclick=()=>{ applyTheme(); openSheet('boxSheet'); };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -2335,6 +2564,7 @@ $('importFile').onchange=async e=>{
     if(data.worldbook) worldbook=migrateWb(data.worldbook);
     if(data.memories) memories=data.memories;
     if(data.moments) moments=data.moments;
+    if(data.annivs) annivs=data.annivs;
     if(data.presets){
       presets=data.presets;
       selPresetId=presets.some(p=>p.id===data.selPresetId)?data.selPresetId:null;
@@ -2364,7 +2594,9 @@ renderHistory();
     else await idbSet('characters',characters);
     try{ localStorage.removeItem('xw_chats'); localStorage.removeItem('xw_characters'); }catch(e){}
     if(changed){ renderChat(); renderHistory(); }
-    maybeProactive();   // 打开 app：TA 可能先开口
+    maybeAnniversary(); // 打开 app：今天是不是特别的日子
+    maybeProactive();   // TA 可能先开口
+    maybeUpdateSign();  // TA 可能换了签名
   }catch(e){ /* 没有 IndexedDB 就继续用 localStorage */ }
 })();
 
