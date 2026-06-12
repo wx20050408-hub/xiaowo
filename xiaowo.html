@@ -943,13 +943,33 @@ function applyVars(s,ch){
           .replace(/\{\{time\}\}/gi,`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
 }
 
-/* 系统提示词 = 角色设定 + 群聊须知 + 记忆 + 命中的世界书 + 预设附加词 */
+/* ===== 缓存策略（见 claude-cache-tutorial）=====
+   system 只放静态内容整体吃缓存；每轮变化的（时间、关键词世界书）
+   在发请求时注入最后一条 user 消息，不进数据库、不毁前缀 */
+
+/* 静态系统提示词 = 人设 + 群聊须知 + 记忆 + 前情提要 + 常驻世界书 + 预设 */
 function buildSystem(personaPrompt,c,groupNote,ch){
   const preset=presets.find(p=>p.id===selPresetId);
   const sysParts=[];
   if(personaPrompt && personaPrompt.trim()) sysParts.push(personaPrompt);
   if(groupNote) sysParts.push(groupNote);
-  /* 时间感知：现在几点 + 距上条消息多久 */
+  const mems=memories.filter(m=>m.charId===ch?.id);
+  if(mems.length) sysParts.push('【记忆】关于用户，你记得这些事：\n'+mems.map(m=>'- '+m.text).join('\n'));
+  if(c?.summary) sysParts.push('【前情提要】（更早对话的压缩版）\n'+c.summary);
+  const always=[];
+  for(const bk of worldbook){
+    if(bk.on===false) continue;
+    for(const w of (bk.entries||[]))
+      if(w.on && w.content.trim() && w.mode==='always') always.push(w);
+  }
+  if(always.length) sysParts.push('【世界设定】\n'+always.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
+  if(preset && preset.prompt.trim()) sysParts.push(preset.prompt);
+  return applyVars(sysParts.join('\n\n'),ch);
+}
+
+/* 动态上下文 = 时间感知 + 关键词命中的世界书（每轮注入，按 1x 计费但不毁缓存） */
+function buildDynamic(c,ch){
+  const parts=[];
   const now=new Date();
   const wd=['日','一','二','三','四','五','六'][now.getDay()];
   let timeNote=`【时间】现在是${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${wd} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -957,23 +977,53 @@ function buildSystem(personaPrompt,c,groupNote,ch){
     const prev=c.messages[c.messages.length-2];
     if(prev.ts && Date.now()-prev.ts>30*60e3) timeNote+=`。距离上一条消息已经过去${fmtGap(Date.now()-prev.ts)}了`;
   }
-  sysParts.push(timeNote+'。');
-  const mems=memories.filter(m=>m.charId===ch?.id);
-  if(mems.length) sysParts.push('【记忆】关于用户，你记得这些事：\n'+mems.map(m=>'- '+m.text).join('\n'));
-  if(c?.summary) sysParts.push('【前情提要】（更早对话的压缩版）\n'+c.summary);
+  parts.push(timeNote+'。');
   const recentText=c.messages.slice(-5).map(m=>textOf(m.content)).join('\n');
   const hits=[];
   for(const bk of worldbook){
     if(bk.on===false) continue;
     for(const w of (bk.entries||[])){
-      if(!w.on || !w.content.trim()) continue;
-      if(w.mode==='always' || (w.keywords||'').split(/[,，]/).map(s=>s.trim()).filter(Boolean).some(k=>recentText.includes(k)))
+      if(!w.on || !w.content.trim() || w.mode!=='keyword') continue;
+      if((w.keywords||'').split(/[,，]/).map(s=>s.trim()).filter(Boolean).some(k=>recentText.includes(k)))
         hits.push(w);
     }
   }
-  if(hits.length) sysParts.push('【世界设定】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
-  if(preset && preset.prompt.trim()) sysParts.push(preset.prompt);
-  return applyVars(sysParts.join('\n\n'),ch);
+  if(hits.length) parts.push('【世界设定·当前相关】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
+  return applyVars(parts.join('\n\n'),ch);
+}
+
+/* 把动态文本注入最后一条 user 消息的开头（只改 payload，不动存储） */
+function injectIntoLastUser(apiMsgs,text){
+  if(!text) return;
+  const wrapped=`[系统自动注入的实时上下文，不是${userName()}发的消息]\n${text}\n[实时上下文结束，以下是正文]`;
+  const last=apiMsgs[apiMsgs.length-1];
+  if(!last||last.role!=='user'){ apiMsgs.push({role:'user',content:wrapped}); return; }
+  if(typeof last.content==='string') last.content=wrapped+'\n\n'+last.content;
+  else last.content=[{type:'text',text:wrapped},...last.content];
+}
+
+/* 历史里 3 条以前的图片降级成文字描述（描述后台预生成） */
+function degradeContent(m,isOld){
+  const ct=m.content;
+  if(!isOld||typeof ct==='string'||!ct.some(b=>b.type==='image')) return ct;
+  const texts=ct.filter(b=>b.type==='text').map(b=>b.text).join(' ');
+  return (`[图片${m.imgDesc?'：'+m.imgDesc:''}] `+texts).trim();
+}
+
+/* 缓存断点：system 整体一个，messages 倒数第二条一个（仅 Anthropic 格式） */
+function addCacheControl(body){
+  if(body.system) body.system=[{type:'text',text:body.system,cache_control:{type:'ephemeral'}}];
+  const ms=body.messages;
+  if(ms.length>=2){
+    const t=ms[ms.length-2];
+    const blocks=typeof t.content==='string'
+      ?[{type:'text',text:t.content}]
+      :t.content.map(b=>({...b}));
+    if(blocks.length){
+      blocks[blocks.length-1]={...blocks[blocks.length-1],cache_control:{type:'ephemeral'}};
+      ms[ms.length-2]={role:t.role,content:blocks};
+    }
+  }
 }
 function baseBody(messages){
   const preset=presets.find(p=>p.id===selPresetId);
@@ -1003,11 +1053,12 @@ function groupApiMessages(c,member){
     if(out.length&&out[out.length-1].role===role) out[out.length-1].content=out[out.length-1].content.concat(blocks);
     else out.push({role,content:blocks});
   };
-  for(const m of c.messages){
-    if(m.role==='assistant'&&m.charId===member.id) push('assistant',toBlocks(m.content));
-    else if(m.role==='assistant') push('user',prefixed(characters.find(x=>x.id===m.charId)?.name||'某人',m.content));
-    else push('user',prefixed(myName,m.content));
-  }
+  c.messages.forEach((m,i)=>{
+    const ct=degradeContent(m,i<c.messages.length-3);
+    if(m.role==='assistant'&&m.charId===member.id) push('assistant',toBlocks(ct));
+    else if(m.role==='assistant') push('user',prefixed(characters.find(x=>x.id===m.charId)?.name||'某人',ct));
+    else push('user',prefixed(myName,ct));
+  });
   return out;
 }
 
@@ -1052,6 +1103,7 @@ function apiHeaders(api){
 
 async function callStream(api,body,bub,area,out){
   const isOA=api.fmt==='openai';
+  if(!isOA) addCacheControl(body);
   const res=await fetch(api.apiUrl,{
     method:'POST',
     signal:aborter.signal,
@@ -1135,13 +1187,37 @@ async function runReply(c,api,body,ch){
   }
 }
 
+/* 图片描述预生成：发图后后台跑一次，存 m.imgDesc，
+   等图片滑出最近 3 条后用文字描述顶替 base64（教程第六幕） */
+async function genImgDescs(c){
+  const api=getApi(); if(!api) return;
+  for(const m of c.messages){
+    if(m.imgDesc!==undefined) continue;
+    if(typeof m.content==='string'||!m.content.some(b=>b.type==='image')) continue;
+    const body={model:settings.model,max_tokens:200,stream:false,messages:[{role:'user',content:[
+      ...m.content.filter(b=>b.type==='image'),
+      {type:'text',text:'用中文客观描述图片，80字以内。保留界面文字和数字、人物动作、物品、场景。只输出描述本身。'}
+    ]}]};
+    try{
+      const isOA=api.fmt==='openai';
+      const res=await fetch(api.apiUrl,{method:'POST',headers:apiHeaders(api),body:JSON.stringify(isOA?toOpenAI(body):body)});
+      if(!res.ok) continue;
+      const j=await res.json();
+      const txt=isOA ? j.choices?.[0]?.message?.content : j.content?.[0]?.text;
+      if(txt){ m.imgDesc=txt.trim().slice(0,120); persistAll(); }
+    }catch(e){ /* 失败下次再试 */ }
+  }
+}
+
 /* 自动摘要：上下文限制裁掉的旧消息，后台压成「前情提要」存进 c.summary */
 async function summarizeChat(c,ch){
   const api=getApi(); if(!api) return;
   const N=Math.min(Number(ch.ctxN),516);
-  const cut=c.messages.length-N;
   const done=c.summarizedUpTo||0;
-  if(cut-done<8) return;   // 攒够 8 条被裁掉的新消息才压一次，省 API 调用
+  if(c.messages.length-done<=N) return;          // 锚定窗口还没超出 N
+  const keep=Math.max(4,Math.floor(N/2));        // 压完窗口回到约一半，留出增长空间
+  const cut=c.messages.length-keep;
+  if(cut<=done) return;
   const part=c.messages.slice(done,cut)
     .map(m=>(m.role==='user'?userName():(characters.find(x=>x.id===m.charId)?.name||ch?.name||'TA'))+'：'+textOf(m.content))
     .filter(s=>s.split('：').slice(1).join('：').trim())
@@ -1178,6 +1254,7 @@ async function generateReply(c,onlyCharId,extraUser){
         if(m.ctxOn&&Number(m.ctxN)>0) gm=gm.slice(-Math.min(Number(m.ctxN),516));
         const am=groupApiMessages({messages:gm},m);
         while(am.length&&am[0].role!=='user') am.shift();
+        injectIntoLastUser(am,buildDynamic(c,m));
         const body=baseBody(am);
         if(m.temp!=null&&m.temp!=='') body.temperature=Number(m.temp);
         const sys=buildSystem(m.prompt,c,note,m);
@@ -1187,10 +1264,16 @@ async function generateReply(c,onlyCharId,extraUser){
     }else{
       const ch=curChar(c);
       let msgs=c.messages;
-      if(ch?.ctxOn&&Number(ch.ctxN)>0) msgs=msgs.slice(-Math.min(Number(ch.ctxN),516));
+      if(ch?.ctxOn&&Number(ch.ctxN)>0){
+        const N=Math.min(Number(ch.ctxN),516);
+        /* 锚定窗口：起点钉在压缩游标上，只在摘要推进时移动，不随新消息滑动 */
+        msgs=c.messages.slice(Math.min(c.summarizedUpTo||0,c.messages.length));
+        if(msgs.length>N) msgs=msgs.slice(-N);   // 压缩没跟上时的保险帽
+      }
       msgs=msgs.slice();
       while(msgs.length&&msgs[0].role!=='user') msgs.shift();
-      const apiMsgs=msgs.map(m=>({role:m.role,content:m.content}));
+      const apiMsgs=msgs.map((m,i)=>({role:m.role,content:degradeContent(m,i<msgs.length-3)}));
+      injectIntoLastUser(apiMsgs,buildDynamic(c,ch));
       if(extraUser){
         const last=apiMsgs[apiMsgs.length-1];
         if(last&&last.role==='user'){
@@ -1206,8 +1289,8 @@ async function generateReply(c,onlyCharId,extraUser){
       const sys=buildSystem(ch?ch.prompt:'',c,note,ch);
       if(sys) body.system=sys;
       await runReply(c,api,body,ch);
-      /* 上下文限制开着且已超长 → 后台压前情提要（不等待） */
-      if(ch?.ctxOn&&Number(ch.ctxN)>0&&c.messages.length>Number(ch.ctxN)) summarizeChat(c,ch);
+      /* 窗口超出 N → 后台压前情提要并推进锚点（不等待） */
+      if(ch?.ctxOn&&Number(ch.ctxN)>0) summarizeChat(c,ch);
     }
   }finally{
     streaming=false; aborter=null;
@@ -1236,6 +1319,7 @@ async function send(){
   pendingImgs=[]; renderImgPreview();
   input.value=''; input.style.height='auto';
   persistAll(); renderChat();
+  if(typeof content!=='string') genImgDescs(c);   // 带图：后台生成文字描述
 
   /* 线上模式：不自动回，等「让TA回复」 */
   const solo=!(c.members&&c.members.length);
