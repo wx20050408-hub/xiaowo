@@ -361,6 +361,42 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   box-shadow:var(--shadow);
 }
 #replyBtn:active{background:var(--accent-deep)}
+
+/* ============ 朋友圈 ============ */
+#momentsPage{
+  position:fixed;inset:0;z-index:55;background:var(--bg);
+  display:none;flex-direction:column;
+  max-width:760px;margin:0 auto;
+}
+#momentsPage.show{display:flex}
+#momentsHeader{
+  display:flex;align-items:center;gap:6px;
+  padding:calc(env(safe-area-inset-top) + 12px) 14px 12px;
+  border-bottom:1px solid var(--line);flex-shrink:0;
+}
+#momentsTitle{flex:1;text-align:center;font-weight:600;font-size:16px}
+#momentsFeed{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px calc(env(safe-area-inset-bottom) + 20px)}
+.momentCard{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:14px 16px;margin-bottom:12px;animation:rise .25s ease both}
+.mHead{display:flex;align-items:center;gap:10px}
+.mHead .info{flex:1;min-width:0}
+.mName{font-weight:600;font-size:14px;color:var(--accent-deep)}
+.mTime{font-size:11px;color:var(--ink-soft)}
+.mDel{color:var(--ink-soft);font-size:13px;padding:4px 6px;flex-shrink:0}
+.mDel:active{color:var(--danger)}
+.mText{margin:10px 2px 4px;white-space:pre-wrap;word-break:break-word}
+.mActs{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.mActs button{font-size:13px;color:var(--accent-deep);padding:5px 12px;border-radius:12px;background:var(--bg-soft)}
+.mActs button:active{opacity:.8}
+.mSocial{background:var(--bg-soft);border-radius:12px;padding:4px 12px;margin-top:8px;font-size:13px}
+.mLikeLine{padding:6px 0;color:var(--accent-deep)}
+.mLikeLine + .mCmt,.mCmt + .mCmt{border-top:1px solid var(--line)}
+.mCmt{padding:6px 0;line-height:1.55}
+.mCmt b{color:var(--accent-deep);font-weight:600}
+.mCmtRow{display:flex;gap:8px;margin-top:10px}
+.mCmtRow input{flex:1;min-width:0;background:var(--bg-soft);border:none;border-radius:14px;padding:9px 13px;font-size:14px}
+.mCmtRow button{padding:8px 15px;border-radius:14px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;flex-shrink:0}
+#momentsEmpty{text-align:center;color:var(--ink-soft);font-size:13px;padding:50px 20px;line-height:2}
+.mPosting{display:flex;align-items:center;gap:10px;color:var(--ink-soft);font-size:13px;padding:4px 4px 14px}
 </style>
 </head>
 <body>
@@ -415,9 +451,31 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   <div id="historyList"></div>
   <div id="drawerFoot">
     <button class="footBtn" id="charBtn"><span class="ic">☺</span>角色</button>
+    <button class="footBtn" id="momentsBtn"><span class="ic">🌸</span>朋友圈</button>
     <button class="footBtn" id="boxBtn"><span class="ic">✧</span>百宝箱</button>
   </div>
 </aside>
+
+<!-- 朋友圈页 -->
+<div id="momentsPage">
+  <header id="momentsHeader">
+    <button class="iconBtn" id="momentsBack" aria-label="返回">‹</button>
+    <div id="momentsTitle">朋友圈</div>
+    <button class="iconBtn" id="nudgeMoment" title="让TA发条动态">✨</button>
+    <button class="iconBtn" id="postMomentBtn" title="我也发一条">✎</button>
+  </header>
+  <div id="momentsFeed"></div>
+</div>
+
+<!-- 发动态弹层 -->
+<div class="sheetScrim" id="postSheet">
+  <div class="sheet">
+    <div class="sheetTitle">发条动态<button class="close" data-close="postSheet">✕</button></div>
+    <div class="field"><textarea id="postText" placeholder="这一刻的想法…"></textarea></div>
+    <button class="primaryBtn" id="confirmPost">发表</button>
+    <div class="hintText">发出去之后，TA 看到会来点赞、评论的。</div>
+  </div>
+</div>
 
 <!-- 设置弹层 -->
 <div class="sheetScrim" id="settingsSheet">
@@ -690,6 +748,7 @@ let presets = load('xw_presets', []);       // {id,name,prompt,temperature,maxTo
 let selPresetId = load('xw_selpreset', null);
 if(selPresetId && !presets.some(p=>p.id===selPresetId)) selPresetId=null;
 let memories = load('xw_memories', []);     // {id,charId,text}
+let moments = load('xw_moments', []);       // {id,charId|null,text,ts,likes:[by],comments:[{by,text,ts}]}  by='me' 或角色id
 let streaming = false, aborter = null;
 
 const $ = id => document.getElementById(id);
@@ -713,6 +772,7 @@ const persistAll = ()=>{
   save('xw_current',currentId); save('xw_selchar',selCharId); save('xw_settings',settings);
   save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook);
   save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories);
+  save('xw_moments',moments);
   idbSet('chats',chats).catch(()=>save('xw_chats',chats));
   idbSet('characters',characters).catch(()=>save('xw_characters',characters));
 };
@@ -1738,6 +1798,194 @@ $('createGroup').onclick=()=>{
   toast('群建好啦，说点什么吧');
 };
 
+/* ================= 朋友圈 ================= */
+const charOf=id=>characters.find(c=>c.id===id);
+const momentName=by=>by==='me'?userName():(charOf(by)?.name||'TA');
+function momentAv(by){
+  const im=src=>`<img class="avSm" src="${src}">`;
+  const em=t=>`<div class="avSm" style="background:var(--bubble-me);display:flex;align-items:center;justify-content:center;font-size:${t.length>2?'11px':'17px'}">${esc(t)}</div>`;
+  if(by==='me') return settings.myAvatar?im(settings.myAvatar):em('₍ᵔ·̫ᵔ₎');
+  const ch=charOf(by);
+  return ch?.avatar?im(ch.avatar):em(ch?.emoji||'☺');
+}
+
+let cmtOpenId=null, postingFor=null, autoPosting=false;
+function renderMoments(){
+  const feed=$('momentsFeed'); feed.innerHTML='';
+  if(postingFor){
+    const d=document.createElement('div');
+    d.className='mPosting';
+    d.innerHTML=`${momentAv(postingFor)}<span>${esc(momentName(postingFor))} 正在编辑动态<span class="typingDot">…</span></span>`;
+    feed.appendChild(d);
+  }
+  const items=moments.slice().sort((a,b)=>b.ts-a.ts);
+  if(!items.length&&!postingFor){
+    feed.innerHTML='<div id="momentsEmpty">还没有动态。<br>点右上角 ✨ 让TA发一条，或 ✎ 自己发一条～</div>';
+    return;
+  }
+  items.forEach(m=>feed.appendChild(momentCard(m)));
+}
+function momentCard(m){
+  const card=document.createElement('div');
+  card.className='momentCard';
+  const likes=m.likes||[], cmts=m.comments||[];
+  let social='';
+  if(likes.length) social+=`<div class="mLikeLine">♡ ${likes.map(b=>esc(momentName(b))).join('、')}</div>`;
+  social+=cmts.map(c=>`<div class="mCmt"><b>${esc(momentName(c.by))}</b>：${fmt(c.text)}</div>`).join('');
+  card.innerHTML=`
+    <div class="mHead">${momentAv(m.charId||'me')}
+      <div class="info"><div class="mName">${esc(momentName(m.charId||'me'))}</div><div class="mTime">${fmtMsgTime(m.ts)}</div></div>
+      <button class="mDel">✕</button></div>
+    <div class="mText">${fmt(m.text)}</div>
+    <div class="mActs">
+      <button class="likeBtn">${likes.includes('me')?'❤️ 已赞':'♡ 赞'}</button>
+      <button class="cmtBtn">💬 评论</button>
+    </div>
+    ${social?`<div class="mSocial">${social}</div>`:''}
+    ${cmtOpenId===m.id?'<div class="mCmtRow"><input placeholder="评论…" maxlength="500"><button>发送</button></div>':''}`;
+  card.querySelector('.mDel').onclick=()=>{
+    if(!confirm('删掉这条动态？')) return;
+    moments=moments.filter(x=>x.id!==m.id);
+    persistAll(); renderMoments();
+  };
+  card.querySelector('.likeBtn').onclick=()=>{
+    m.likes=m.likes||[];
+    const i=m.likes.indexOf('me');
+    if(i>=0) m.likes.splice(i,1); else m.likes.push('me');
+    persistAll(); renderMoments();
+  };
+  card.querySelector('.cmtBtn').onclick=()=>{
+    cmtOpenId=cmtOpenId===m.id?null:m.id;
+    renderMoments();
+    if(cmtOpenId===m.id) $('momentsFeed').querySelector('.mCmtRow input')?.focus();
+  };
+  const row=card.querySelector('.mCmtRow');
+  if(row){
+    const inp=row.querySelector('input');
+    const sendCmt=()=>{ const t=inp.value.trim(); if(t){ inp.value=''; addComment(m,t); } };
+    row.querySelector('button').onclick=sendCmt;
+    inp.onkeydown=e=>{ if(e.key==='Enter') sendCmt(); };
+  }
+  return card;
+}
+
+/* 一次性小请求（不流式）：发动态、回评论用 */
+async function quickGen(api,system,userText,maxTok){
+  const body={model:settings.model,max_tokens:maxTok||300,stream:false,messages:[{role:'user',content:userText}]};
+  if(system) body.system=system;
+  try{
+    const isOA=api.fmt==='openai';
+    const res=await fetch(api.apiUrl,{method:'POST',headers:apiHeaders(api),body:JSON.stringify(isOA?toOpenAI(body):body)});
+    if(!res.ok) return null;
+    const j=await res.json();
+    const txt=isOA?j.choices?.[0]?.message?.content:j.content?.[0]?.text;
+    return txt?txt.trim():null;
+  }catch(e){ return null }
+}
+/* 朋友圈用的轻量系统提示词：人设 + 记忆（不带预设和世界书，省 token） */
+function momentSystem(ch){
+  const parts=[];
+  if(ch.prompt&&ch.prompt.trim()) parts.push(ch.prompt);
+  const mems=memories.filter(m=>m.charId===ch.id);
+  if(mems.length) parts.push(`【记忆】关于${userName()}，你记得这些事：\n`+mems.map(m=>'- '+m.text).join('\n'));
+  return applyVars(parts.join('\n\n'),ch);
+}
+/* 最近一次和TA的聊天片段，给动态当素材 */
+function recentChatSnippet(ch){
+  const c=chats.filter(x=>!(x.members&&x.members.length)&&x.charId===ch.id&&x.messages.length).sort((a,b)=>b.ts-a.ts)[0];
+  if(!c) return '';
+  return c.messages.slice(-8)
+    .map(m=>(m.role==='user'?userName():ch.name)+'：'+textOf(m.content).slice(0,80))
+    .filter(s=>s.split('：').slice(1).join('：').trim())
+    .join('\n');
+}
+async function genMoment(ch){
+  const api=getApi(); if(!api) return false;
+  postingFor=ch.id; renderMoments();
+  const now=new Date();
+  const snippet=recentChatSnippet(ch);
+  const ask=`现在是${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}。`
+    +`请你以「${ch.name}」的身份发一条朋友圈动态。`
+    +(snippet?`\n\n你和${userName()}最近的聊天片段（当背景参考，别照搬）：\n${snippet}`:'')
+    +`\n\n要求：像真人发朋友圈——1~3句话，口语化，可以写日常、心情、看到的东西，也可以含蓄地表达对${userName()}的在意。不要加引号、不要署名、不要解释，直接输出动态文字本身。`;
+  const txt=await quickGen(api,momentSystem(ch),applyVars(ask,ch),300);
+  postingFor=null;
+  if(txt){
+    moments.push({id:'mo'+Date.now(),charId:ch.id,text:txt.slice(0,500),ts:Date.now(),likes:[],comments:[]});
+    persistAll();
+  }
+  renderMoments();
+  return !!txt;
+}
+/* 用户评论 → TA 回评论（TA的动态由TA回，用户自己的动态由当前选中角色回） */
+async function addComment(m,text){
+  m.comments=m.comments||[];
+  m.comments.push({by:'me',text,ts:Date.now()});
+  persistAll(); renderMoments();
+  const ch=m.charId?charOf(m.charId):(charOf(selCharId)||characters[0]);
+  if(!ch) return;
+  const api=getApi(); if(!api) return;
+  const thread=m.comments.map(c=>momentName(c.by)+'：'+c.text).join('\n');
+  const ask=(m.charId===ch.id
+      ?`你（${ch.name}）之前发了一条朋友圈：「${m.text}」。`
+      :`${momentName(m.charId||'me')}发了一条朋友圈：「${m.text}」。`)
+    +`\n评论区目前是：\n${thread}\n\n${userName()}刚刚发了最后那条评论。请你以「${ch.name}」的身份回复一条评论：口语化、一两句话，符合你们的关系。直接输出评论内容本身，不要署名。`;
+  const txt=await quickGen(api,momentSystem(ch),applyVars(ask,ch),200);
+  if(txt){
+    m.comments.push({by:ch.id,text:txt.slice(0,300),ts:Date.now()});
+    persistAll(); renderMoments();
+  }
+}
+/* 自动发动态：打开朋友圈时，有人设、且 6 小时没发过的角色发一条（最多两个，没配 Key 安静跳过） */
+async function autoPostMoments(){
+  if(autoPosting||postingFor) return;
+  if(!apiKeys.find(k=>k.id===selKeyId)?.key) return;
+  autoPosting=true;
+  try{
+    const due=characters.filter(ch=>{
+      if(!ch.prompt||!ch.prompt.trim()) return false;
+      const last=Math.max(0,...moments.filter(m=>m.charId===ch.id).map(m=>m.ts));
+      return Date.now()-last>6*3600e3;
+    }).slice(0,2);
+    for(const ch of due){
+      if(!$('momentsPage').classList.contains('show')) break;
+      if(await genMoment(ch)) toast(`${ch.name}发了条新动态`);
+    }
+  }finally{ autoPosting=false; }
+}
+$('momentsBtn').onclick=()=>{
+  openDrawer(false); cmtOpenId=null;
+  renderMoments(); $('momentsPage').classList.add('show');
+  autoPostMoments();
+};
+$('momentsBack').onclick=()=>$('momentsPage').classList.remove('show');
+$('nudgeMoment').onclick=async()=>{
+  if(postingFor) return;
+  const ch=charOf(selCharId)||characters[0];
+  if(!ch){ toast('先去「角色」里建个角色吧'); return; }
+  if(await genMoment(ch)) toast(`${ch.name}发了条新动态`);
+  else toast('TA这会儿没灵感，过会儿再试试');
+};
+$('postMomentBtn').onclick=()=>{ $('postText').value=''; openSheet('postSheet'); };
+$('confirmPost').onclick=async()=>{
+  const t=$('postText').value.trim();
+  if(!t){ toast('写点什么吧'); return; }
+  closeSheet('postSheet');
+  const m={id:'mo'+Date.now(),charId:null,text:t,ts:Date.now(),likes:[],comments:[]};
+  moments.push(m); persistAll(); renderMoments();
+  /* TA 看到了：点个赞 + 评论 */
+  const ch=charOf(selCharId)||characters[0];
+  const api=ch?getApi():null; if(!ch||!api) return;
+  const ask=`${userName()}刚刚发了一条朋友圈：「${t}」。请你以「${ch.name}」的身份在评论区评论这条动态：口语化、一两句话，符合你们的关系。直接输出评论内容本身，不要署名。`;
+  const txt=await quickGen(api,momentSystem(ch),applyVars(ask,ch),200);
+  if(txt){
+    m.likes=m.likes||[]; m.likes.push(ch.id);
+    m.comments=m.comments||[]; m.comments.push({by:ch.id,text:txt.slice(0,300),ts:Date.now()});
+    persistAll(); renderMoments();
+    toast(`${ch.name}赞了你的动态，还评论了`);
+  }
+};
+
 /* ================= 世界书 ================= */
 let editingWb=null, wbMode='always', curWbBook=null;
 $('wbBtn').onclick=()=>{ renderWb(); openSheet('wbSheet'); };
@@ -1969,7 +2217,7 @@ $('fontReset').onclick=()=>{
 $('boxBtn').onclick=()=>{ applyTheme(); openSheet('boxSheet'); };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -1986,6 +2234,7 @@ $('importFile').onchange=async e=>{
     if(data.chats) chats=data.chats;
     if(data.worldbook) worldbook=migrateWb(data.worldbook);
     if(data.memories) memories=data.memories;
+    if(data.moments) moments=data.moments;
     if(data.presets){
       presets=data.presets;
       selPresetId=presets.some(p=>p.id===data.selPresetId)?data.selPresetId:null;
