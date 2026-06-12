@@ -387,6 +387,12 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 /* 消息时间分隔 */
 .timeDiv{text-align:center;font-size:11px;color:var(--ink-soft);margin:0;opacity:.8}
 
+/* token 统计小字 */
+.msgStats{
+  font-size:10px;color:var(--ink-soft);opacity:.75;
+  align-self:flex-start;margin:-10px 0 0 44px;
+}
+
 /* 线上模式回复按钮 */
 #replyBtn{
   display:none;align-self:flex-end;margin:0 14px 6px;flex-shrink:0;
@@ -632,6 +638,10 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <button class="themeDot" data-theme="cream" style="background:#F6DCC4"></button>
       <button class="themeDot" data-theme="mist" style="background:#DEDEF5"></button>
       <button class="themeDot" data-theme="night" style="background:#46362A"></button>
+    </div>
+    <div class="boxRow">
+      <span class="ic">📊</span><span class="grow">显示 token 统计</span>
+      <button class="wbToggle" id="statsToggle"></button>
     </div>
     <div class="boxRow">
       <span class="ic">🔤</span><span class="grow" id="fontLabel">字体：默认</span>
@@ -1118,6 +1128,7 @@ function renderChat(){
           wireThink(el); attachPat(el,ch,c);
           area.appendChild(el);
         });
+        if(m.stats&&showStats()) area.appendChild(statsEl(m.stats));
         return;
       }
     }
@@ -1127,6 +1138,7 @@ function renderChat(){
     wireThink(el);
     if(m.role!=='user') attachPat(el,ch,c);
     area.appendChild(el);
+    if(m.role!=='user'&&m.stats&&showStats()) area.appendChild(statsEl(m.stats));
   });
   area.scrollTop=area.scrollHeight;
 }
@@ -1391,8 +1403,19 @@ function toOpenAI(body){
     )});
   }
   const o={model:body.model,max_tokens:body.max_tokens,stream:body.stream!==false,messages:msgs};
+  if(o.stream) o.stream_options={include_usage:true};   // 让流式响应带 token 用量
   if(body.temperature!=null) o.temperature=body.temperature;
   return o;
+}
+
+/* token 统计：开关 + 格式化 */
+const showStats=()=>settings.showStats!==false;
+const fmtTok=n=>n==null?'?':n>=10000?Math.round(n/1000)+'k':n>=1000?(n/1000).toFixed(1)+'k':String(n);
+function statsEl(s){
+  const d=document.createElement('div');
+  d.className='msgStats';
+  d.textContent=`↑${fmtTok(s.in)}${s.cached?`(缓存${fmtTok(s.cached)})`:''} ↓${fmtTok(s.out)} · ${s.secs}s`;
+  return d;
 }
 
 function apiHeaders(api){
@@ -1442,6 +1465,19 @@ async function callStream(api,body,bub,area,out){
           bub.innerHTML=fmtAssistant(out.acc);
           area.scrollTop=area.scrollHeight;
         }
+        /* 捞 token 用量 */
+        out.usage=out.usage||{};
+        if(!isOA&&ev.type==='message_start'&&ev.message?.usage){
+          const u=ev.message.usage;
+          out.usage.in=(u.input_tokens||0)+(u.cache_read_input_tokens||0)+(u.cache_creation_input_tokens||0);
+          out.usage.cached=u.cache_read_input_tokens||0;
+        }
+        if(!isOA&&ev.type==='message_delta'&&ev.usage) out.usage.out=ev.usage.output_tokens||0;
+        if(isOA&&ev.usage){
+          out.usage.in=ev.usage.prompt_tokens??out.usage.in;
+          out.usage.out=ev.usage.completion_tokens??out.usage.out;
+          out.usage.cached=ev.usage.prompt_tokens_details?.cached_tokens||out.usage.cached||0;
+        }
         if(ev.type==='error') throw new Error(ev.error?.message||'流式出错');
         if(ev.error) throw new Error(ev.error.message||'流式出错');
       }catch(e){ if(e instanceof SyntaxError) continue; throw e; }
@@ -1470,7 +1506,10 @@ async function runReply(c,api,body,ch){
       bub.innerHTML=out.acc?fmtAssistant(out.acc):'<i>（TA 默默记了笔记）</i>';
       if(!out.acc){ persistAll(); return; }
     }
-    c.messages.push({role:'assistant',charId:ch?.id,content:out.acc,ts:Date.now()});
+    const stats=(out.usage&&(out.usage.in!=null||out.usage.out!=null))
+      ?{in:out.usage.in,out:out.usage.out,cached:out.usage.cached||0,secs:out.t0?Math.round((Date.now()-out.t0)/100)/10:null}
+      :null;
+    c.messages.push({role:'assistant',charId:ch?.id,content:out.acc,ts:Date.now(),...(stats?{stats}:{})});
     c.ts=Date.now(); persistAll();
     const idx=c.messages.length-1;
     bub.onclick=()=>openMsgActions(idx);
@@ -1478,6 +1517,7 @@ async function runReply(c,api,body,ch){
     /* 线上模式：回复完按行拆成小气泡 */
     if(c.id===currentId && !(c.members&&c.members.length) && curChar(c)?.online && out.acc.includes('\n'))
       renderChat();
+    else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
   };
   try{
     /* 线上模式：先「正在输入…」一会儿，更像真人 */
@@ -1486,6 +1526,7 @@ async function runReply(c,api,body,ch){
       $('headerSub').textContent=(ch?.name||'')+' · 正在输入…';
       await new Promise(r=>setTimeout(r,600+Math.random()*1400));
     }
+    out.t0=Date.now();
     await callStream(api,body,bub,area,out);
     if(out.acc) saveMsg();
     else bub.innerHTML='<i>（空回复）</i>';
@@ -2745,7 +2786,13 @@ ${rows}</body></html>`;
 };
 
 /* ================= 百宝箱 ================= */
-$('boxBtn').onclick=()=>{ applyTheme(); openSheet('boxSheet'); };
+$('boxBtn').onclick=()=>{ applyTheme(); $('statsToggle').classList.toggle('on',showStats()); openSheet('boxSheet'); };
+$('statsToggle').onclick=()=>{
+  settings.showStats=!showStats();
+  persistAll();
+  $('statsToggle').classList.toggle('on',showStats());
+  renderChat();
+};
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
   const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,injections},null,2)],{type:'application/json'});
