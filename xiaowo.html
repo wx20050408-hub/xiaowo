@@ -410,6 +410,12 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <div class="field" style="margin-bottom:10px"><label>备注名</label><input id="newKeyLabel" placeholder="主号、备用……"></div>
       <div class="field" style="margin-bottom:10px"><label>API Key</label><input type="password" id="newKeyVal" placeholder="sk-ant-…" autocomplete="off"></div>
       <div class="field" style="margin-bottom:10px"><label>API 地址（留空 = 官方 Anthropic）</label><input id="newKeyUrl" placeholder="https://api.某中转站.com"></div>
+      <div class="field" style="margin-bottom:10px"><label>API 格式</label>
+        <div class="modeTabs">
+          <button class="modeTab on" data-fmt="anthropic">Anthropic</button>
+          <button class="modeTab" data-fmt="openai">OpenAI 兼容</button>
+        </div>
+      </div>
       <div style="display:flex;gap:8px">
         <button class="primaryBtn" id="confirmAddKey" style="margin-top:0">确认添加</button>
         <button class="ghostBtn" id="cancelAddKey" style="margin-top:0;flex:1">取消</button>
@@ -473,6 +479,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <button class="themeDot" data-theme="cream" style="background:#F6DCC4"></button>
       <button class="themeDot" data-theme="mist" style="background:#DEDEF5"></button>
     </div>
+    <button class="boxRow" id="memBtn" style="width:100%"><span class="ic">🧠</span><span class="grow" style="text-align:left">记忆</span></button>
     <button class="boxRow" id="wbBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">世界书</span></button>
     <button class="boxRow" id="presetBtn" style="width:100%"><span class="ic">🎛️</span><span class="grow" style="text-align:left">预设</span></button>
     <button class="boxRow" id="exportBtn" style="width:100%"><span class="ic">📦</span><span class="grow" style="text-align:left">备份所有数据（导出 JSON）</span></button>
@@ -545,6 +552,40 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   </div>
 </div>
 
+<!-- 消息操作弹层 -->
+<div class="sheetScrim" id="msgActionSheet">
+  <div class="sheet">
+    <div class="sheetTitle">这条消息<button class="close" data-close="msgActionSheet">✕</button></div>
+    <button class="boxRow" id="editMsg" style="width:100%"><span class="ic">✏️</span><span class="grow" style="text-align:left">编辑</span></button>
+    <button class="boxRow" id="regenMsg" style="width:100%"><span class="ic">🎲</span><span class="grow" style="text-align:left">从这里重新生成</span></button>
+    <button class="boxRow" id="branchMsg" style="width:100%"><span class="ic">🌿</span><span class="grow" style="text-align:left">从这里开个分支</span></button>
+    <button class="boxRow" id="memMsg" style="width:100%"><span class="ic">🧠</span><span class="grow" style="text-align:left">记进记忆</span></button>
+    <button class="boxRow" id="delMsg" style="width:100%;color:var(--danger)"><span class="ic">🗑</span><span class="grow" style="text-align:left">删除这条</span></button>
+  </div>
+</div>
+
+<!-- 消息编辑弹层 -->
+<div class="sheetScrim" id="msgEditSheet">
+  <div class="sheet">
+    <div class="sheetTitle">编辑消息<button class="close" data-close="msgEditSheet">✕</button></div>
+    <div class="field"><label>消息内容（图片会保留，只改文字）</label><textarea id="meText"></textarea></div>
+    <button class="primaryBtn" id="saveMsg">保存</button>
+    <button class="ghostBtn" id="saveRegenMsg">保存并从这里重新生成</button>
+  </div>
+</div>
+
+<!-- 记忆弹层 -->
+<div class="sheetScrim" id="memSheet">
+  <div class="sheet">
+    <div class="sheetTitle">记忆<button class="close" data-close="memSheet">✕</button></div>
+    <div class="field"><label>谁的记忆</label><select id="memChar"></select></div>
+    <div id="memList"></div>
+    <div class="field"><label>添加 / 点上面某条来编辑</label><textarea id="memText" style="min-height:70px" placeholder="比如：用户养了一只叫汤圆的猫"></textarea></div>
+    <button class="primaryBtn" id="saveMem">添加</button>
+    <div class="hintText">记忆会拼进这个角色的系统提示词，跨对话生效。聊天里点任意一条消息也可以「记进记忆」。</div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -578,6 +619,7 @@ let worldbook = load('xw_worldbook', []);   // {id,title,content,mode:'always'|'
 let presets = load('xw_presets', []);       // {id,name,prompt,temperature,maxTokens}
 let selPresetId = load('xw_selpreset', null);
 if(selPresetId && !presets.some(p=>p.id===selPresetId)) selPresetId=null;
+let memories = load('xw_memories', []);     // {id,charId,text}
 let streaming = false, aborter = null;
 
 const $ = id => document.getElementById(id);
@@ -595,7 +637,7 @@ const contentHtml = ct => typeof ct==='string' ? fmt(ct) :
   }).join('');
 
 function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
-const persistAll = ()=>{ save('xw_chats',chats); save('xw_current',currentId); save('xw_characters',characters); save('xw_selchar',selCharId); save('xw_settings',settings); save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook); save('xw_presets',presets); save('xw_selpreset',selPresetId); };
+const persistAll = ()=>{ save('xw_chats',chats); save('xw_current',currentId); save('xw_characters',characters); save('xw_selchar',selCharId); save('xw_settings',settings); save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook); save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories); };
 
 /* ================= 主题 ================= */
 function applyTheme(){
@@ -682,10 +724,12 @@ function renderChat(){
     area.innerHTML='<div id="empty"><div class="face">₍ᐢ. .ᐢ₎</div><div class="hint">说点什么吧，我听着呢</div></div>';
     return;
   }
-  c.messages.forEach(m=>{
+  c.messages.forEach((m,i)=>{
     let ch=null;
     if(m.role!=='user') ch=(m.charId&&characters.find(x=>x.id===m.charId))||curChar(c)||{name:'?'};
-    area.appendChild(bubbleEl(m.role,contentHtml(m.content),'',ch));
+    const el=bubbleEl(m.role,contentHtml(m.content),'',ch);
+    el.querySelector('.bubble').onclick=()=>openMsgActions(i);
+    area.appendChild(el);
   });
   area.scrollTop=area.scrollHeight;
 }
@@ -744,12 +788,24 @@ function renderImgPreview(){
 $('sendBtn').onclick=()=>{ streaming ? stopStream() : send(); };
 function stopStream(){ if(aborter) aborter.abort(); }
 
-/* 系统提示词 = 角色设定 + 群聊须知 + 命中的世界书 + 预设附加词 */
-function buildSystem(personaPrompt,c,groupNote){
+/* 提示词变量：{{user}} {{char}} {{date}} {{time}} */
+function applyVars(s,ch){
+  const now=new Date();
+  const myName=$('profileName').textContent.trim()||'用户';
+  return s.replace(/\{\{user\}\}/gi,myName)
+          .replace(/\{\{char\}\}/gi,ch?.name||'')
+          .replace(/\{\{date\}\}/gi,`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`)
+          .replace(/\{\{time\}\}/gi,`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
+}
+
+/* 系统提示词 = 角色设定 + 群聊须知 + 记忆 + 命中的世界书 + 预设附加词 */
+function buildSystem(personaPrompt,c,groupNote,ch){
   const preset=presets.find(p=>p.id===selPresetId);
   const sysParts=[];
   if(personaPrompt && personaPrompt.trim()) sysParts.push(personaPrompt);
   if(groupNote) sysParts.push(groupNote);
+  const mems=memories.filter(m=>m.charId===ch?.id);
+  if(mems.length) sysParts.push('【记忆】关于用户，你记得这些事：\n'+mems.map(m=>'- '+m.text).join('\n'));
   const recentText=c.messages.slice(-5).map(m=>textOf(m.content)).join('\n');
   const hits=worldbook.filter(w=>{
     if(!w.on || !w.content.trim()) return false;
@@ -759,7 +815,7 @@ function buildSystem(personaPrompt,c,groupNote){
   });
   if(hits.length) sysParts.push('【世界设定】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
   if(preset && preset.prompt.trim()) sysParts.push(preset.prompt);
-  return sysParts.join('\n\n');
+  return applyVars(sysParts.join('\n\n'),ch);
 }
 function baseBody(messages){
   const preset=presets.find(p=>p.id===selPresetId);
@@ -797,17 +853,48 @@ function groupApiMessages(c,member){
   return out;
 }
 
-async function callStream(apiUrl,key,body,bub,area,out){
-  const res=await fetch(apiUrl,{
+/* 当前选中 Key → {apiUrl, key, fmt}，没配好就提示并返回 null */
+function getApi(){
+  const curKey=apiKeys.find(k=>k.id===selKeyId);
+  if(!curKey?.key){ toast('先去 ⚙ 里添加并选中一个 API Key'); openSheet('settingsSheet'); return null; }
+  const fmt=curKey.fmt==='openai'?'openai':'anthropic';
+  let apiUrl=(curKey.url||'').trim()||'https://api.anthropic.com';
+  if(!apiUrl.includes('/v1/'))
+    apiUrl=apiUrl.replace(/\/+$/,'')+(fmt==='openai'?'/v1/chat/completions':'/v1/messages');
+  return {apiUrl,key:curKey.key,fmt};
+}
+
+/* Anthropic 格式请求体 → OpenAI 格式 */
+function toOpenAI(body){
+  const msgs=[];
+  if(body.system) msgs.push({role:'system',content:body.system});
+  for(const m of body.messages){
+    if(typeof m.content==='string'){ msgs.push({role:m.role,content:m.content}); continue; }
+    msgs.push({role:m.role,content:m.content.map(b=>
+      b.type==='image'
+        ?{type:'image_url',image_url:{url:`data:${b.source.media_type};base64,${b.source.data}`}}
+        :{type:'text',text:b.text}
+    )});
+  }
+  const o={model:body.model,max_tokens:body.max_tokens,stream:true,messages:msgs};
+  if(body.temperature!=null) o.temperature=body.temperature;
+  return o;
+}
+
+async function callStream(api,body,bub,area,out){
+  const isOA=api.fmt==='openai';
+  const headers={'content-type':'application/json'};
+  if(isOA) headers['authorization']='Bearer '+api.key;
+  else{
+    headers['x-api-key']=api.key;
+    headers['anthropic-version']='2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access']='true';
+  }
+  const res=await fetch(api.apiUrl,{
     method:'POST',
     signal:aborter.signal,
-    headers:{
-      'content-type':'application/json',
-      'x-api-key':key,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-direct-browser-access':'true',
-    },
-    body:JSON.stringify(body),
+    headers,
+    body:JSON.stringify(isOA?toOpenAI(body):body),
   });
   if(!res.ok){
     const errText=await res.text();
@@ -827,32 +914,41 @@ async function callStream(apiUrl,key,body,bub,area,out){
       if(!payload||payload==='[DONE]') continue;
       try{
         const ev=JSON.parse(payload);
-        if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.text){
-          out.acc+=ev.delta.text;
+        const piece=isOA ? ev.choices?.[0]?.delta?.content
+                         : (ev.type==='content_block_delta'?ev.delta?.text:null);
+        if(piece){
+          out.acc+=piece;
           bub.innerHTML=fmt(out.acc);
           area.scrollTop=area.scrollHeight;
         }
         if(ev.type==='error') throw new Error(ev.error?.message||'流式出错');
+        if(ev.error) throw new Error(ev.error.message||'流式出错');
       }catch(e){ if(e instanceof SyntaxError) continue; throw e; }
     }
   }
 }
 
 /* 跑一条回复（单聊一条 / 群聊每个成员一条），返回 false 表示中断或出错 */
-async function runReply(c,apiUrl,key,body,ch){
+async function runReply(c,api,body,ch){
   const area=$('msgArea');
   const holder=bubbleEl('assistant','<span class="typingDot">…</span>','',ch);
   area.appendChild(holder); area.scrollTop=area.scrollHeight;
   const bub=holder.querySelector('.bubble');
   const out={acc:''};
+  const saveMsg=()=>{
+    c.messages.push({role:'assistant',charId:ch?.id,content:out.acc});
+    c.ts=Date.now(); persistAll();
+    const idx=c.messages.length-1;
+    bub.onclick=()=>openMsgActions(idx);
+  };
   try{
-    await callStream(apiUrl,key,body,bub,area,out);
-    if(out.acc){ c.messages.push({role:'assistant',charId:ch?.id,content:out.acc}); c.ts=Date.now(); persistAll(); }
+    await callStream(api,body,bub,area,out);
+    if(out.acc) saveMsg();
     else bub.innerHTML='<i>（空回复）</i>';
     return true;
   }catch(e){
     if(e.name==='AbortError'){
-      if(out.acc){ c.messages.push({role:'assistant',charId:ch?.id,content:out.acc}); persistAll(); }
+      if(out.acc) saveMsg();
       else holder.remove();
     }else{
       bub.classList.add('err');
@@ -862,14 +958,42 @@ async function runReply(c,apiUrl,key,body,ch){
   }
 }
 
+/* 生成回复：单聊一条 / 群聊一轮；onlyCharId 只让群里某一个人重说 */
+async function generateReply(c,onlyCharId){
+  const api=getApi(); if(!api) return;
+  streaming=true; $('sendBtn').textContent='■'; $('sendBtn').classList.add('stop');
+  aborter=new AbortController();
+  try{
+    if(c.members && c.members.length){
+      let members=c.members.map(id=>characters.find(x=>x.id===id)).filter(Boolean);
+      if(onlyCharId) members=members.filter(m=>m.id===onlyCharId);
+      const allNames=c.members.map(id=>characters.find(x=>x.id===id)?.name).filter(Boolean).join('、');
+      const myName=$('profileName').textContent.trim()||'用户';
+      for(const m of members){
+        const note=`【群聊】这是一个群聊，成员有：${allNames}，还有用户「${myName}」。你只扮演「${m.name}」，以${m.name}的身份说一条消息，不要替其他任何人发言，也不要在开头加自己的名字。`;
+        const body=baseBody(groupApiMessages(c,m));
+        const sys=buildSystem(m.prompt,c,note,m);
+        if(sys) body.system=sys;
+        if(!await runReply(c,api,body,m)) break;
+      }
+    }else{
+      const ch=curChar(c);
+      const body=baseBody(c.messages.map(m=>({role:m.role,content:m.content})));
+      const sys=buildSystem(ch?ch.prompt:'',c,null,ch);
+      if(sys) body.system=sys;
+      await runReply(c,api,body,ch);
+    }
+  }finally{
+    streaming=false; aborter=null;
+    $('sendBtn').textContent='➤'; $('sendBtn').classList.remove('stop');
+    renderHeader(); renderHistory();
+  }
+}
+
 async function send(){
   const text=input.value.trim();
   if(!text && !pendingImgs.length) return;
-  const curKey = apiKeys.find(k=>k.id===selKeyId);
-  const activeKey = curKey?.key||'';
-  if(!activeKey){ toast('先去 ⚙ 里添加并选中一个 API Key'); openSheet('settingsSheet'); return; }
-  let apiUrl=(curKey.url||'').trim()||'https://api.anthropic.com';
-  if(!/\/v1\/messages\/?$/.test(apiUrl)) apiUrl=apiUrl.replace(/\/+$/,'')+'/v1/messages';
+  if(!getApi()) return;
 
   let c=curChat();
   if(!c){
@@ -887,33 +1011,7 @@ async function send(){
   input.value=''; input.style.height='auto';
   persistAll(); renderChat();
 
-  streaming=true; $('sendBtn').textContent='■'; $('sendBtn').classList.add('stop');
-  aborter=new AbortController();
-  try{
-    if(c.members && c.members.length){
-      /* 群聊：成员按顺序轮流回复 */
-      const members=c.members.map(id=>characters.find(x=>x.id===id)).filter(Boolean);
-      const allNames=members.map(m=>m.name).join('、');
-      const myName=$('profileName').textContent.trim()||'用户';
-      for(const m of members){
-        const note=`【群聊】这是一个群聊，成员有：${allNames}，还有用户「${myName}」。你只扮演「${m.name}」，以${m.name}的身份说一条消息，不要替其他任何人发言，也不要在开头加自己的名字。`;
-        const body=baseBody(groupApiMessages(c,m));
-        const sys=buildSystem(m.prompt,c,note);
-        if(sys) body.system=sys;
-        if(!await runReply(c,apiUrl,activeKey,body,m)) break;
-      }
-    }else{
-      const ch=curChar(c);
-      const body=baseBody(c.messages.map(m=>({role:m.role,content:m.content})));
-      const sys=buildSystem(ch?ch.prompt:'',c);
-      if(sys) body.system=sys;
-      await runReply(c,apiUrl,activeKey,body,ch);
-    }
-  }finally{
-    streaming=false; aborter=null;
-    $('sendBtn').textContent='➤'; $('sendBtn').classList.remove('stop');
-    renderHeader(); renderHistory();
-  }
+  await generateReply(c);
 }
 
 /* ================= 弹层通用 ================= */
@@ -936,7 +1034,7 @@ function renderKeyList(){
     it.innerHTML=`<div class="selMark">${k.id===selKeyId?'✓':''}</div>
       <div class="keyInfo">
         <div class="keyLabel">${esc(k.label||'未命名')}</div>
-        <div class="keyPreview">${maskKey(k.key)}${k.url?' · '+esc(k.url.replace(/^https?:\/\//,'').split('/')[0]):''}</div>
+        <div class="keyPreview">${maskKey(k.key)}${k.url?' · '+esc(k.url.replace(/^https?:\/\//,'').split('/')[0]):''}${k.fmt==='openai'?' · OpenAI格式':''}</div>
       </div>
       <button class="delKey" title="删除">✕</button>`;
     it.onclick=ev=>{
@@ -954,10 +1052,17 @@ function renderKeyList(){
     list.appendChild(it);
   });
 }
+let newKeyFmt='anthropic';
+document.querySelectorAll('#addKeyForm .modeTab').forEach(b=>b.onclick=()=>{
+  newKeyFmt=b.dataset.fmt;
+  document.querySelectorAll('#addKeyForm .modeTab').forEach(x=>x.classList.toggle('on',x.dataset.fmt===newKeyFmt));
+});
 $('addKeyBtn').onclick=()=>{
   $('addKeyForm').style.display='block';
   $('addKeyBtn').style.display='none';
   $('newKeyLabel').value=''; $('newKeyVal').value=''; $('newKeyUrl').value='';
+  newKeyFmt='anthropic';
+  document.querySelectorAll('#addKeyForm .modeTab').forEach(x=>x.classList.toggle('on',x.dataset.fmt==='anthropic'));
   setTimeout(()=>$('newKeyLabel').focus(),50);
 };
 $('cancelAddKey').onclick=()=>{ $('addKeyForm').style.display='none'; $('addKeyBtn').style.display='block'; };
@@ -965,7 +1070,7 @@ $('confirmAddKey').onclick=()=>{
   const label=$('newKeyLabel').value.trim();
   const key=$('newKeyVal').value.trim();
   if(!key){ toast('Key 不能空着'); return; }
-  const nk={id:'k'+Date.now(),label:label||'未命名',key,url:$('newKeyUrl').value.trim()};
+  const nk={id:'k'+Date.now(),label:label||'未命名',key,url:$('newKeyUrl').value.trim(),fmt:newKeyFmt};
   apiKeys.push(nk);
   if(!selKeyId) selKeyId=nk.id;
   persistAll(); renderKeyList();
@@ -1072,6 +1177,127 @@ $('delChar').onclick=()=>{
   characters=characters.filter(c=>c.id!==editingChar.id);
   if(selCharId===editingChar.id) selCharId=characters[0]?.id||null;
   persistAll(); closeSheet('charEditSheet'); renderChars();
+};
+
+/* ================= 消息操作 ================= */
+let actMsgIdx=null;
+function openMsgActions(i){
+  if(streaming) return;
+  const c=curChat(); if(!c||!c.messages[i]) return;
+  actMsgIdx=i;
+  openSheet('msgActionSheet');
+}
+async function regenFrom(i){
+  const c=curChat(); if(!c||streaming) return;
+  const m=c.messages[i];
+  let onlyChar=null;
+  if(m.role==='assistant'){
+    if(c.members&&c.members.length&&m.charId) onlyChar=m.charId;
+    c.messages=c.messages.slice(0,i);      // 重抽：这条和后面的都不要了
+  }else{
+    c.messages=c.messages.slice(0,i+1);    // 用户消息：保留它，重新生成后面的
+  }
+  persistAll(); renderChat();
+  await generateReply(c,onlyChar);
+}
+function applyMsgEdit(){
+  const c=curChat(); const m=c.messages[actMsgIdx];
+  const t=$('meText').value;
+  if(typeof m.content==='string') m.content=t;
+  else{
+    m.content=m.content.filter(b=>b.type!=='text');
+    if(t.trim()) m.content.push({type:'text',text:t});
+  }
+  persistAll(); renderChat();
+}
+$('editMsg').onclick=()=>{
+  const m=curChat().messages[actMsgIdx];
+  $('meText').value=textOf(m.content);
+  $('saveRegenMsg').style.display=m.role==='user'?'block':'none';
+  closeSheet('msgActionSheet'); openSheet('msgEditSheet');
+};
+$('saveMsg').onclick=()=>{ applyMsgEdit(); closeSheet('msgEditSheet'); toast('改好啦'); };
+$('saveRegenMsg').onclick=async()=>{
+  applyMsgEdit(); closeSheet('msgEditSheet');
+  await regenFrom(actMsgIdx);
+};
+$('regenMsg').onclick=async()=>{
+  closeSheet('msgActionSheet');
+  await regenFrom(actMsgIdx);
+};
+$('branchMsg').onclick=()=>{
+  const c=curChat();
+  const nc=JSON.parse(JSON.stringify(c));
+  nc.id='t'+Date.now();
+  nc.title=(c.title+'·分支').slice(0,20);
+  nc.ts=Date.now();
+  nc.messages=nc.messages.slice(0,actMsgIdx+1);
+  chats.push(nc); currentId=nc.id;
+  persistAll(); closeSheet('msgActionSheet'); renderChat(); renderHistory();
+  toast('已开分支，从这条往后是新故事');
+};
+$('memMsg').onclick=()=>{
+  const c=curChat(); const m=c.messages[actMsgIdx];
+  const ch=(m.charId&&characters.find(x=>x.id===m.charId))||curChar(c);
+  if(!ch){ toast('没有角色可以记'); return; }
+  const t=textOf(m.content).trim().slice(0,500);
+  if(!t){ toast('这条没有文字内容'); return; }
+  memories.push({id:'m'+Date.now(),charId:ch.id,text:t});
+  persistAll(); closeSheet('msgActionSheet');
+  toast(`「${ch.name}」记住了`);
+};
+$('delMsg').onclick=()=>{
+  const c=curChat();
+  c.messages.splice(actMsgIdx,1);
+  persistAll(); closeSheet('msgActionSheet'); renderChat();
+};
+
+/* ================= 记忆 ================= */
+let editingMemId=null;
+$('memBtn').onclick=()=>{
+  if(!characters.length){ toast('先去「角色」里建个角色吧'); return; }
+  buildMemCharSel(); resetMemForm(); renderMems();
+  openSheet('memSheet');
+};
+function buildMemCharSel(){
+  const sel=$('memChar');
+  sel.innerHTML=characters.map(ch=>`<option value="${ch.id}">${esc(ch.name)}</option>`).join('');
+  const cur=curChar(curChat());
+  if(cur) sel.value=cur.id;
+}
+function resetMemForm(){ editingMemId=null; $('memText').value=''; $('saveMem').textContent='添加'; }
+$('memChar').onchange=()=>{ resetMemForm(); renderMems(); };
+function renderMems(){
+  const list=$('memList'); list.innerHTML='';
+  const cid=$('memChar').value;
+  const items=memories.filter(m=>m.charId===cid);
+  if(!items.length){
+    list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:14px 0">还没有记忆</div>';
+    return;
+  }
+  items.forEach(m=>{
+    const it=document.createElement('div');
+    it.className='keyItem'+(m.id===editingMemId?' sel':'');
+    it.innerHTML=`<div class="keyInfo"><div class="keyPreview" style="white-space:normal">${esc(m.text)}</div></div><button class="delKey">✕</button>`;
+    it.onclick=ev=>{
+      if(ev.target.classList.contains('delKey')) return;
+      editingMemId=m.id; $('memText').value=m.text; $('saveMem').textContent='保存修改';
+      renderMems();
+    };
+    it.querySelector('.delKey').onclick=()=>{
+      memories=memories.filter(x=>x.id!==m.id);
+      if(editingMemId===m.id) resetMemForm();
+      persistAll(); renderMems();
+    };
+    list.appendChild(it);
+  });
+}
+$('saveMem').onclick=()=>{
+  const t=$('memText').value.trim();
+  if(!t){ toast('写点什么吧'); return; }
+  if(editingMemId){ const m=memories.find(x=>x.id===editingMemId); if(m) m.text=t; }
+  else memories.push({id:'m'+Date.now(),charId:$('memChar').value,text:t});
+  resetMemForm(); persistAll(); renderMems(); toast('记住啦');
 };
 
 /* ================= 群聊 ================= */
@@ -1231,7 +1457,7 @@ $('delPreset').onclick=()=>{
 $('boxBtn').onclick=()=>{ applyTheme(); openSheet('boxSheet'); };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -1247,6 +1473,7 @@ $('importFile').onchange=async e=>{
     if(data.characters) characters=data.characters;
     if(data.chats) chats=data.chats;
     if(data.worldbook) worldbook=data.worldbook;
+    if(data.memories) memories=data.memories;
     if(data.presets){
       presets=data.presets;
       selPresetId=presets.some(p=>p.id===data.selPresetId)?data.selPresetId:null;
