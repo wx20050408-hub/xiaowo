@@ -395,6 +395,75 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .tAmt{font-size:20px;font-weight:600}
 .tNote{font-size:12px;opacity:.92;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tFoot{font-size:10px;opacity:.8;border-top:1px solid rgba(255,255,255,.35);margin-top:8px;padding-top:4px}
+
+/* 语音条 */
+.voiceMsg{position:relative}
+.voiceBar{
+  display:flex;align-items:center;gap:8px;cursor:pointer;
+  min-width:90px;padding:10px 14px;border-radius:16px;
+  background:var(--bubble-ta);box-shadow:var(--shadow);font-size:13px;color:var(--ink);
+}
+.msg.me .voiceBar{background:var(--bubble-me);flex-direction:row-reverse}
+.voiceBar .vWave{display:flex;align-items:center;gap:2px;height:14px}
+.voiceBar .vWave i{width:2.5px;border-radius:2px;background:currentColor;opacity:.65}
+.voiceBar .vWave i:nth-child(1){height:6px}.voiceBar .vWave i:nth-child(2){height:11px}
+.voiceBar .vWave i:nth-child(3){height:8px}.voiceBar .vWave i:nth-child(4){height:13px}
+.voiceBar .vWave i:nth-child(5){height:7px}
+.voiceMsg.playing .vWave i{animation:vJump .7s ease-in-out infinite alternate}
+.voiceMsg.playing .vWave i:nth-child(2){animation-delay:.12s}
+.voiceMsg.playing .vWave i:nth-child(3){animation-delay:.24s}
+.voiceMsg.playing .vWave i:nth-child(4){animation-delay:.36s}
+.voiceMsg.playing .vWave i:nth-child(5){animation-delay:.48s}
+@keyframes vJump{from{transform:scaleY(.5)}to{transform:scaleY(1.3)}}
+.voiceMsg .vDot{
+  position:absolute;top:-2px;right:-6px;width:8px;height:8px;border-radius:50%;
+  background:#E5484D;display:none;
+}
+.voiceMsg.unread .vDot{display:block}
+.voiceMsg .vTxt{
+  display:none;margin-top:6px;padding:8px 12px;border-radius:12px;
+  background:var(--card);box-shadow:var(--shadow);font-size:13px;color:var(--ink-soft);
+  max-width:230px;line-height:1.55;
+}
+.voiceMsg.expanded .vTxt{display:block}
+
+/* 宝丽来照片（TA拍的） */
+.polaroid{
+  width:200px;background:#fff;border-radius:6px;padding:8px 8px 10px;
+  box-shadow:0 3px 14px rgba(0,0,0,.13);transform:rotate(-1.2deg);
+}
+[data-theme=night] .polaroid{background:#3A332B}
+.polaroid .pImg{
+  border-radius:4px;min-height:120px;padding:14px 12px;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  color:#fff;font-size:13px;line-height:1.6;text-shadow:0 1px 3px rgba(0,0,0,.25);
+}
+.polaroid .pCap{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:10px;color:var(--ink-soft);margin-top:7px;padding:0 2px;
+}
+/* 相册 */
+#albumGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;padding:4px 2px}
+#albumGrid .polaroid{width:auto;transform:rotate(0deg);position:relative}
+#albumGrid .polaroid:nth-child(odd){transform:rotate(-1.5deg)}
+#albumGrid .polaroid:nth-child(even){transform:rotate(1.3deg)}
+#albumGrid .pImg{min-height:100px;font-size:12px}
+#albumGrid .pDel{
+  position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;
+  background:var(--ink);color:var(--bg);font-size:11px;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* 小游戏卡片 */
+.gameCard{
+  display:flex;align-items:center;gap:12px;width:100%;
+  background:var(--card);border-radius:14px;box-shadow:var(--shadow);
+  padding:13px 14px;margin-bottom:10px;text-align:left;
+}
+.gameCard:active{transform:scale(.98)}
+.gameCard .gIc{font-size:26px;flex-shrink:0}
+.gameCard .gName{font-size:14px;font-weight:600;color:var(--ink)}
+.gameCard .gDesc{font-size:11px;color:var(--ink-soft);margin-top:2px;line-height:1.45}
 .bubble.plain{background:none;box-shadow:none;padding:0}
 .fchip{
   display:flex;align-items:center;height:56px;padding:0 12px;
@@ -594,6 +663,9 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <button class="ppItem" id="ppFile"><span class="ppIc">📎</span>文件</button>
     <button class="ppItem" id="ppSticker"><span class="ppIc">😝</span>表情包</button>
     <button class="ppItem" id="ppTransfer"><span class="ppIc">💸</span>转账</button>
+    <button class="ppItem" id="ppVoice"><span class="ppIc">🎤</span>语音</button>
+    <button class="ppItem" id="ppAlbum"><span class="ppIc">📷</span>相册</button>
+    <button class="ppItem" id="ppGame"><span class="ppIc">🎮</span>小游戏</button>
     <button class="ppItem" id="ppStudy"><span class="ppIc">📚</span>自习</button>
   </div>
 </div>
@@ -834,6 +906,10 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <button class="wbToggle" id="statsToggle"></button>
     </div>
     <div class="boxRow">
+      <span class="ic">🕐</span><span class="grow">缓存1小时（Claude官方接口省钱）</span>
+      <button class="wbToggle" id="cacheToggle"></button>
+    </div>
+    <div class="boxRow">
       <span class="ic">🔤</span><span class="grow" id="fontLabel">字体：默认</span>
       <button id="fontBtn" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">导入</button>
       <button id="fontReset" style="color:var(--ink-soft);padding:4px 8px">还原</button>
@@ -1003,6 +1079,36 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   </div>
 </div>
 
+<!-- 语音弹层 -->
+<div class="sheetScrim" id="voiceSheet">
+  <div class="sheet">
+    <div class="sheetTitle">发条语音<button class="close" data-close="voiceSheet">✕</button></div>
+    <div class="field"><label>想说的话（对方点开语音条才能听到）</label><textarea id="vcText" placeholder="比如：今天有点想你"></textarea></div>
+    <button class="primaryBtn" id="confirmVoice">按住说完了，发送</button>
+    <div class="hintText">会以语音条的样子发出去，TA 也会偶尔给你发语音哦。</div>
+  </div>
+</div>
+
+<!-- 相册弹层 -->
+<div class="sheetScrim" id="albumSheet">
+  <div class="sheet">
+    <div class="sheetTitle">你们的相册<button class="close" data-close="albumSheet">✕</button></div>
+    <div id="albumGrid"></div>
+    <div class="hintText">TA 在聊天里随手拍的照片都会攒在这里，一张张翻，像翻你们的回忆。</div>
+  </div>
+</div>
+
+<!-- 小游戏弹层 -->
+<div class="sheetScrim" id="gameSheet">
+  <div class="sheet">
+    <div class="sheetTitle">一起玩点什么<button class="close" data-close="gameSheet">✕</button></div>
+    <button class="gameCard" data-game="truth"><span class="gIc">🎲</span><span><span class="gName">真心话大冒险</span><div class="gDesc">一人一轮，真心话要诚实答，大冒险要敢做</div></span></button>
+    <button class="gameCard" data-game="tacit"><span class="gIc">💞</span><span><span class="gName">默契问答</span><div class="gDesc">TA出关于你们俩的题，看看你们多有默契</div></span></button>
+    <button class="gameCard" data-game="emoji"><span class="gIc">🧩</span><span><span class="gName">emoji你画我猜</span><div class="gDesc">用一串emoji猜词，猜对了换你出题</div></span></button>
+    <div class="hintText">点一个就开局，TA 会陪你玩。玩过的局数会记进小窝档案。</div>
+  </div>
+</div>
+
 <!-- 注入列表弹层 -->
 <div class="sheetScrim" id="injSheet">
   <div class="sheet">
@@ -1098,6 +1204,8 @@ let studyLog = load('xw_study_log', []);    // {date,min,charId}
 let studySt = load('xw_study_state', null); // {start,min,charId} 进行中的专注
 let calNotes = load('xw_cal_notes', []);    // {id,date:'YYYY-MM-DD',text}
 let periods = load('xw_periods', []);       // ['YYYY-MM-DD',...] 标记为经期的日子
+let photos = load('xw_photos', []);         // {id,charId,text,ts} TA随手拍的照片（文字描述）
+let gamesLog = load('xw_games', []);        // {charId,type,ts} 一起玩过的小游戏
 const persistStickers=()=>idbSet('stickers',stickers).catch(()=>{ try{save('xw_stickers',stickers)}catch(e){} });
 let streaming = false, aborter = null;
 
@@ -1154,13 +1262,54 @@ function findSticker(name){
 function transferHtml(amt,note,received){
   return `<div class="transferCard${received?' done':''}"><div class="tAmt">¥${amt.toFixed(2)}</div><div class="tNote">${esc(note||'转账')}</div><div class="tFoot">${received?'✓ 已收款':'小窝转账'}</div></div>`;
 }
+/* 语音条：时长按字数估，点开才显示文字（顺带朗读出来） */
+function voiceHtml(text,msg){
+  const secs=Math.min(60,Math.max(2,Math.round(text.replace(/\s/g,'').length/2.5)));
+  const unread=msg&&msg.role!=='user'&&!msg.voiceRead;
+  return `<div class="voiceMsg${unread?' unread':''}"><div class="voiceBar"><span>▶</span><span class="vWave"><i></i><i></i><i></i><i></i><i></i></span><span>${secs}″</span></div><span class="vDot"></span><div class="vTxt">${fmt(text)}</div></div>`;
+}
+/* 宝丽来照片：没有真图，用渐变底+文字描述当"照片"，色调由内容定（同一张永远同色） */
+const PHOTO_GRADS=['linear-gradient(135deg,#FFB88C,#DE6262)','linear-gradient(135deg,#A1C4FD,#7F9CF5)','linear-gradient(135deg,#FBC2EB,#A6C1EE)','linear-gradient(135deg,#5EC9A0,#8FD3F4)','linear-gradient(135deg,#FCCB90,#D57EEB)','linear-gradient(135deg,#B8A9F7,#8EC5FC)'];
+function photoHtml(text,msg){
+  let h=0; for(const ch of text) h=(h*31+ch.codePointAt(0))%997;
+  const d=msg&&msg.ts?new Date(msg.ts):new Date();
+  return `<div class="polaroid"><div class="pImg" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]}">${fmt(text)}</div><div class="pCap"><span>📷 随手拍</span><span>${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}</span></div></div>`;
+}
 /* 整行是特殊消息 → 返回特殊气泡的 html，否则 null */
-function specialHtml(line,received){
+function specialHtml(line,msg){
   let m=line.match(/^<表情包[:：]\s*(.+?)\s*>$/);
   if(m){ const st=findSticker(m[1]); return st?`<img class="stickerImg" src="${st.data}">`:null; }
   m=line.match(/^<转账[:：]\s*([\d.]+)\s*(?:[:：]\s*(.*?))?\s*>$/);
-  if(m&&Number(m[1])>0) return transferHtml(Number(m[1]),m[2]||'',received);
+  if(m&&Number(m[1])>0) return transferHtml(Number(m[1]),m[2]||'',msg?.received);
+  m=line.match(/^<语音[:：]\s*([\s\S]+?)\s*>$/);
+  if(m) return voiceHtml(m[1],msg);
+  m=line.match(/^<拍照[:：]\s*([\s\S]+?)\s*>$/);
+  if(m) return photoHtml(m[1],msg);
   return null;
+}
+/* 语音条：点一下展开文字并朗读，再点一下收起 */
+function wireVoice(el,m){
+  el.querySelectorAll('.voiceMsg').forEach(v=>{
+    v.querySelector('.voiceBar').onclick=ev=>{
+      ev.stopPropagation();
+      v.classList.toggle('expanded');
+      v.classList.remove('unread');
+      if(m&&m.role!=='user'&&!m.voiceRead){ m.voiceRead=true; persistAll(); }
+      if(!('speechSynthesis' in window)) return;
+      try{
+        speechSynthesis.cancel();
+        document.querySelectorAll('.voiceMsg.playing').forEach(x=>x.classList.remove('playing'));
+        if(!v.classList.contains('expanded')) return;
+        const u=new SpeechSynthesisUtterance(v.querySelector('.vTxt').textContent);
+        u.lang='zh-CN';
+        const vo=speechSynthesis.getVoices().find(x=>/^zh/i.test(x.lang));
+        if(vo) u.voice=vo;
+        v.classList.add('playing');
+        u.onend=u.onerror=()=>v.classList.remove('playing');
+        speechSynthesis.speak(u);
+      }catch(e){}
+    };
+  });
 }
 /* 收款：TA 转来的钱，点一下收下 */
 function wireTransfer(el,m){
@@ -1196,6 +1345,7 @@ const persistAll = ()=>{
   save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories);
   save('xw_moments',moments); save('xw_annivs',annivs); save('xw_injections',injections);
   save('xw_diaries',diaries); save('xw_cal_notes',calNotes); save('xw_periods',periods);
+  save('xw_photos',photos); save('xw_games',gamesLog);
   idbSet('chats',chats).catch(()=>save('xw_chats',chats));
   idbSet('characters',characters).catch(()=>save('xw_characters',characters));
 };
@@ -1424,28 +1574,28 @@ function renderChat(){
       const pieces=[];
       if(thinks.length) pieces.push({html:thinks.map(t=>thinkHtml(t.text,t.closed)).join(''),plain:''});
       text.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
-        const sp=specialHtml(line,m.received);
+        const sp=specialHtml(line,m);
         pieces.push(sp?{html:sp,plain:'plain'}:{html:fmt(line),plain:''});
       });
       if(pieces.length>1||thinks.length){
         pieces.forEach(p=>{
           const el=bubbleEl(m.role,p.html,p.plain,ch);
           el.querySelector('.bubble').onclick=()=>openMsgActions(i);
-          wireThink(el); attachPat(el,ch,c); wireTransfer(el,m);
+          wireThink(el); attachPat(el,ch,c); wireTransfer(el,m); wireVoice(el,m);
           area.appendChild(el);
         });
         if(m.stats&&showStats()) area.appendChild(statsEl(m.stats));
         return;
       }
     }
-    const spWhole=typeof m.content==='string'?specialHtml(m.content.trim(),m.received):null;
+    const spWhole=typeof m.content==='string'?specialHtml(m.content.trim(),m):null;
     const html=spWhole??((m.role!=='user'&&typeof m.content==='string')?fmtAssistant(m.content):contentHtml(m.content));
     const ooc=m.role==='user'&&typeof m.content==='string'&&/^[（(][\s\S]*[)）]$/.test(m.content.trim());
     const el=bubbleEl(m.role,html,spWhole?'plain':(ooc?'ooc':''),ch);
     el.querySelector('.bubble').onclick=()=>openMsgActions(i);
     wireThink(el);
     if(m.role!=='user') attachPat(el,ch,c);
-    wireTransfer(el,m);
+    wireTransfer(el,m); wireVoice(el,m);
     area.appendChild(el);
     if(m.role!=='user'&&m.stats&&showStats()) area.appendChild(statsEl(m.stats));
   });
@@ -1469,6 +1619,7 @@ function togglePlus(open){
   if(show){
     $('ppSticker').classList.toggle('dis',!curOnline());
     $('ppTransfer').classList.toggle('dis',!curOnline());
+    $('ppVoice').classList.toggle('dis',!curOnline());
   }
 }
 $('plusBtn').onclick=()=>togglePlus();
@@ -1484,6 +1635,72 @@ $('ppTransfer').onclick=()=>{
   $('tfAmt').value=''; $('tfNote').value='';
   openSheet('transferSheet');
 };
+$('ppVoice').onclick=()=>{
+  if(!curOnline()){ toast('语音条是线上专属哦，先把TA切到线上'); return; }
+  togglePlus(false);
+  $('vcText').value='';
+  openSheet('voiceSheet');
+};
+$('confirmVoice').onclick=()=>{
+  const t=$('vcText').value.trim();
+  if(!t){ toast('总得说点什么叭'); return; }
+  closeSheet('voiceSheet');
+  sendRaw(`<语音:${t.replace(/[<>]/g,'').slice(0,200)}>`,'[语音]');
+};
+$('ppAlbum').onclick=()=>{ togglePlus(false); renderAlbum(); openSheet('albumSheet'); };
+$('ppGame').onclick=()=>{ togglePlus(false); openSheet('gameSheet'); };
+
+/* ===== 你们的相册：TA随手拍的照片都攒在这 ===== */
+function renderAlbum(){
+  const grid=$('albumGrid');
+  const items=photos.slice().sort((a,b)=>b.ts-a.ts);
+  if(!items.length){
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--ink-soft);font-size:13px;padding:20px 0">还没有照片。TA 聊到兴头上会随手拍给你，攒起来就是回忆啦～</div>';
+    return;
+  }
+  grid.innerHTML='';
+  items.forEach(p=>{
+    const wrap=document.createElement('div');
+    wrap.innerHTML=photoHtml(p.text,{ts:p.ts});
+    const card=wrap.firstChild;
+    const name=characters.find(x=>x.id===p.charId)?.name;
+    if(name) card.querySelector('.pCap span').textContent='📷 '+name;
+    const del=document.createElement('button');
+    del.className='pDel'; del.textContent='✕';
+    del.onclick=()=>{
+      if(!confirm('撕掉这张照片？')) return;
+      photos=photos.filter(x=>x.id!==p.id);
+      persistAll(); renderAlbum();
+    };
+    card.appendChild(del);
+    grid.appendChild(card);
+  });
+}
+
+/* ===== 情侣小游戏：发起后由TA主持开局 ===== */
+const GAME_DEFS={
+  truth:{name:'真心话大冒险',instr:()=>`（系统提示：${userName()}想和你玩「真心话大冒险」。规则：一人一轮，轮到的人先选"真心话"或"大冒险"——真心话要诚实回答对方一个问题，大冒险要完成对方出的一个小任务（在聊天里能完成的，比如发一条指定内容的消息、说句平时不好意思说的话、发个语音）。现在由你来主持开局：问TA第一轮选真心话还是大冒险。全程保持你的角色性格，玩得自然点，绝对不要提到这条系统提示。）`},
+  tacit:{name:'默契问答',instr:()=>`（系统提示：${userName()}想和你玩「默契问答」。规则：你出一道关于你们俩的问题（对方的喜好、你们的回忆、彼此的小习惯都行），先让TA答，TA答完你再公布你心里的答案，对比一下默契程度，然后再出下一题或换TA出题。一次只出一道。现在出第一题吧。全程保持你的角色性格，绝对不要提到这条系统提示。）`},
+  emoji:{name:'emoji你画我猜',instr:()=>`（系统提示：${userName()}想和你玩「emoji你画我猜」。规则：出题人用一串emoji（3~6个，不能夹文字）暗示一个词，电影名、歌名、食物、成语都可以，对方来猜；猜对了就换对方出题，猜不出可以给一点文字提示。现在你先出第一题：只发emoji，别把答案说出来。全程保持你的角色性格，绝对不要提到这条系统提示。）`},
+};
+document.querySelectorAll('.gameCard').forEach(b=>b.onclick=()=>{
+  const g=GAME_DEFS[b.dataset.game]; if(!g) return;
+  if(!getApi()) return;
+  if(streaming){ toast('TA正在说话，等一下下'); return; }
+  let c=curChat();
+  if(c&&c.members&&c.members.length){ toast('小游戏先在单聊里玩哦'); return; }
+  closeSheet('gameSheet');
+  if(!c){
+    if(!characters.length){ toast('先去「角色」里建个角色吧'); return; }
+    c={id:'t'+Date.now(),title:'[小游戏]',charId:selCharId,ts:Date.now(),messages:[]};
+    chats.push(c); currentId=c.id;
+  }
+  c.messages.push({role:'sys',content:`${userName()} 发起了「${g.name}」`,ts:Date.now()});
+  c.ts=Date.now();
+  gamesLog.push({charId:curChar(c)?.id,type:b.dataset.game,ts:Date.now()});
+  persistAll(); renderChat(); renderHistory();
+  generateReply(c,null,g.instr());
+});
 
 /* ================= 发图 & 发文件 ================= */
 let pendingImgs=[];   // {media_type,data}
@@ -1583,27 +1800,31 @@ function extraPromptOf(ch,isOnline){
 
 /* 静态系统提示词 = 人设 + 群聊须知 + 记忆 + 前情提要 + 常驻世界书 + 预设 */
 const injActive=pos=>injections.filter(i=>i.on&&i.pos===pos&&(i.content||'').trim());
+/* system 分成两段打缓存断点：慢区（人设/世界书/预设，几个月不变）+ 快区（记忆/前情提要，隔几轮变一次）。
+   快区变了只重写快区，慢区照样命中缓存 */
+const CACHE_BP='\n<<CACHE_BP>>\n';
 function buildSystem(personaPrompt,c,groupNote,ch){
   const preset=presets.find(p=>p.id===selPresetId);
-  const sysParts=[];
-  for(const i of injActive('sys_start')) sysParts.push(i.content);
-  if(personaPrompt && personaPrompt.trim()) sysParts.push(personaPrompt);
-  if(groupNote) sysParts.push(groupNote);
-  const mems=memories.filter(m=>m.charId===ch?.id);
-  if(mems.length) sysParts.push('【记忆】关于用户，你记得这些事：\n'+mems.map(m=>'- '+m.text).join('\n'));
-  const ans=annivs.filter(a=>a.charId===ch?.id);
-  if(ans.length) sysParts.push('【纪念日】对你们很重要的日子，你一直记得：\n'+ans.map(a=>`- ${a.name}：${a.date}`).join('\n'));
-  if(c?.summary) sysParts.push('【前情提要】（更早对话的压缩版）\n'+c.summary);
+  const slow=[],fast=[];
+  for(const i of injActive('sys_start')) slow.push(i.content);
+  if(personaPrompt && personaPrompt.trim()) slow.push(personaPrompt);
   const always=[];
   for(const bk of worldbook){
     if(bk.on===false) continue;
     for(const w of (bk.entries||[]))
       if(w.on && w.content.trim() && w.mode==='always') always.push(w);
   }
-  if(always.length) sysParts.push('【世界设定】\n'+always.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
-  if(preset && preset.prompt.trim()) sysParts.push(preset.prompt);
-  for(const i of injActive('sys_end')) sysParts.push(i.content);
-  return applyVars(sysParts.join('\n\n'),ch);
+  if(always.length) slow.push('【世界设定】\n'+always.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
+  if(preset && preset.prompt.trim()) slow.push(preset.prompt);
+  if(groupNote) fast.push(groupNote);
+  const mems=memories.filter(m=>m.charId===ch?.id);
+  if(mems.length) fast.push('【记忆】关于用户，你记得这些事：\n'+mems.map(m=>'- '+m.text).join('\n'));
+  const ans=annivs.filter(a=>a.charId===ch?.id);
+  if(ans.length) fast.push('【纪念日】对你们很重要的日子，你一直记得：\n'+ans.map(a=>`- ${a.name}：${a.date}`).join('\n'));
+  if(c?.summary) fast.push('【前情提要】（更早对话的压缩版）\n'+c.summary);
+  for(const i of injActive('sys_end')) fast.push(i.content);
+  const s1=applyVars(slow.join('\n\n'),ch), s2=applyVars(fast.join('\n\n'),ch);
+  return s1&&s2 ? s1+CACHE_BP+s2 : (s1||s2);
 }
 
 /* ===== TA的感知（无服务器版 always-here）：电量 + 作息，全本地零成本 ===== */
@@ -1717,9 +1938,13 @@ function degradeContent(m,isOld){
   return (`[图片${m.imgDesc?'：'+m.imgDesc:''}] `+texts).trim();
 }
 
-/* 缓存断点：system 整体一个，messages 倒数第二条一个（仅 Anthropic 格式） */
+/* 缓存断点（仅 Anthropic 格式）：system 慢区/快区各一个 + messages 倒数第二条一个，共3个（上限4）。
+   默认 1 小时 TTL：写入贵一点（2x），但隔多久回来聊重复部分都按一折读，伴侣场景稳赚 */
+const cache1h=()=>settings.cache1h!==false;
 function addCacheControl(body){
-  if(body.system) body.system=[{type:'text',text:body.system,cache_control:{type:'ephemeral'}}];
+  const cc=()=>cache1h()?{type:'ephemeral',ttl:'1h'}:{type:'ephemeral'};
+  if(body.system)
+    body.system=body.system.split(CACHE_BP).filter(s=>s.trim()).map(s=>({type:'text',text:s,cache_control:cc()}));
   const ms=body.messages;
   if(ms.length>=2){
     const t=ms[ms.length-2];
@@ -1727,7 +1952,7 @@ function addCacheControl(body){
       ?[{type:'text',text:t.content}]
       :t.content.map(b=>({...b}));
     if(blocks.length){
-      blocks[blocks.length-1]={...blocks[blocks.length-1],cache_control:{type:'ephemeral'}};
+      blocks[blocks.length-1]={...blocks[blocks.length-1],cache_control:cc()};
       ms[ms.length-2]={role:t.role,content:blocks};
     }
   }
@@ -1784,7 +2009,7 @@ function getApi(){
 /* Anthropic 格式请求体 → OpenAI 格式 */
 function toOpenAI(body){
   const msgs=[];
-  if(body.system) msgs.push({role:'system',content:body.system});
+  if(body.system) msgs.push({role:'system',content:body.system.split(CACHE_BP).join('\n\n')});
   for(const m of body.messages){
     if(typeof m.content==='string'){ msgs.push({role:m.role,content:m.content}); continue; }
     msgs.push({role:m.role,content:m.content.map(b=>
@@ -1816,6 +2041,7 @@ function apiHeaders(api){
     headers['x-api-key']=api.key;
     headers['anthropic-version']='2023-06-01';
     headers['anthropic-dangerous-direct-browser-access']='true';
+    if(cache1h()) headers['anthropic-beta']='extended-cache-ttl-2025-04-11';
   }
   return headers;
 }
@@ -1897,6 +2123,9 @@ async function runReply(c,api,body,ch){
       bub.innerHTML=out.acc?fmtAssistant(out.acc):'<i>（TA 默默记了笔记）</i>';
       if(!out.acc){ persistAll(); return; }
     }
+    /* TA随手拍的照片 → 存进相册 */
+    for(const pm of out.acc.matchAll(/<拍照[:：]\s*([\s\S]+?)\s*>/g))
+      photos.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,text:pm[1].slice(0,100),ts:Date.now()});
     const stats=(out.usage&&(out.usage.in!=null||out.usage.out!=null))
       ?{in:out.usage.in,out:out.usage.out,cached:out.usage.cached||0,secs:out.t0?Math.round((Date.now()-out.t0)/100)/10:null}
       :null;
@@ -1905,9 +2134,9 @@ async function runReply(c,api,body,ch){
     const idx=c.messages.length-1;
     bub.onclick=()=>openMsgActions(idx);
     wireThink(bub);
-    /* 线上模式：回复完按行拆成小气泡 */
+    /* 线上模式：回复完按行拆成小气泡；含特殊卡片（语音/拍照等）也重渲染成卡片 */
     const onlineNow=c.members&&c.members.length?!!c.online:curChar(c)?.online;
-    if(c.id===currentId && onlineNow && out.acc.includes('\n'))
+    if(c.id===currentId && ((onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照)[:：]/.test(out.acc)))
       renderChat();
     else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
   };
@@ -2220,6 +2449,8 @@ function charStats(ch){
     moments:moments.filter(m=>m.charId===ch.id).length,
     anns:annivs.filter(a=>a.charId===ch.id).length,
     money:`${tin.toFixed(0)}/${tout.toFixed(0)}`,
+    photos:photos.filter(p=>p.charId===ch.id).length,
+    games:gamesLog.filter(g=>g.charId===ch.id).length,
   };
 }
 function renderDiary(){
@@ -2228,6 +2459,7 @@ function renderDiary(){
   $('statGrid').innerHTML=[
     [s.days||'—','认识天数'],[s.msgs,'聊过的话'],[s.mems,'TA记住的事'],
     [s.moments,'TA发的动态'],[s.anns,'纪念日'],[s.money,'转账 收/出 ¥'],
+    [s.photos,'TA拍的照片'],[s.games,'玩过的游戏'],
   ].map(([n,l])=>`<div class="statCard"><div class="statNum">${n}</div><div class="statLbl">${l}</div></div>`).join('');
   const list=$('diaryList'); list.innerHTML='';
   if(diaryWriting){
@@ -2638,6 +2870,8 @@ function onlineExtraNote(){
   const parts=[];
   if(stickers.length) parts.push(`【表情包】你可以发表情包，可用的有：${stickers.map(s=>s.name).join('、')}。想发时单独占一行写 <表情包:名字>，那一行不要有别的字。偶尔发一个就好，别刷屏。`);
   parts.push(`【转账】合适的情境下你可以给${userName()}转账：单独占一行写 <转账:金额:备注>，金额是数字。别频繁用，重要时刻才有意义。`);
+  parts.push(`【语音条】偶尔可以发语音：单独占一行写 <语音:想说的话>，对方要点开才能听。适合撒娇、哄人、或者有点害羞打字说不出口的话。别频繁用。`);
+  parts.push(`【随手拍】你可以"拍张照片"分享你的此刻：单独占一行写 <拍照:照片画面的描述>，描述照片里拍到了什么（你在哪、看到什么），像随手拍的配文，40字以内。偶尔分享一张就好，照片会存进你们共同的相册。`);
   return parts.join('\n\n');
 }
 
@@ -3755,6 +3989,7 @@ ${rows}</body></html>`;
 $('boxBtn').onclick=()=>{
   applyTheme();
   $('statsToggle').classList.toggle('on',showStats());
+  $('cacheToggle').classList.toggle('on',cache1h());
   if(settings.bubbleMe) $('bubMe').value=settings.bubbleMe;
   if(settings.bubbleTa) $('bubTa').value=settings.bubbleTa;
   openSheet('boxSheet');
@@ -3765,9 +4000,15 @@ $('statsToggle').onclick=()=>{
   $('statsToggle').classList.toggle('on',showStats());
   renderChat();
 };
+$('cacheToggle').onclick=()=>{
+  settings.cache1h=!cache1h();
+  persistAll();
+  $('cacheToggle').classList.toggle('on',cache1h());
+  toast(cache1h()?'缓存改成存1小时啦':'已换回5分钟短缓存');
+};
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,injections,stickers,diaries,studyLog,calNotes,periods},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,injections,stickers,diaries,studyLog,calNotes,periods,photos,gamesLog},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -3792,6 +4033,8 @@ $('importFile').onchange=async e=>{
     if(data.studyLog) studyLog=data.studyLog;
     if(data.calNotes) calNotes=data.calNotes;
     if(data.periods) periods=data.periods;
+    if(data.photos) photos=data.photos;
+    if(data.gamesLog) gamesLog=data.gamesLog;
     if(data.presets){
       presets=data.presets;
       selPresetId=presets.some(p=>p.id===data.selPresetId)?data.selPresetId:null;
