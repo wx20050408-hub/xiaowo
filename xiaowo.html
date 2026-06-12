@@ -454,6 +454,13 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   display:flex;align-items:center;justify-content:center;
 }
 
+/* 搜索小芯片 */
+.searchChip{
+  display:inline-flex;align-items:center;gap:4px;margin:2px 0;
+  font-size:12px;color:var(--ink-soft);background:var(--card);
+  border-radius:99px;padding:5px 12px;box-shadow:var(--shadow);
+}
+
 /* 小游戏卡片 */
 .gameCard{
   display:flex;align-items:center;gap:12px;width:100%;
@@ -910,6 +917,12 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <button class="wbToggle" id="cacheToggle"></button>
     </div>
     <div class="boxRow">
+      <span class="ic">🌤</span><input id="cityInput" placeholder="你的城市（填了TA就能感知天气）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
+    </div>
+    <div class="boxRow">
+      <span class="ic">🔍</span><input id="tavilyInput" type="password" placeholder="Tavily Key（填了TA就能联网搜索）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
+    </div>
+    <div class="boxRow">
       <span class="ic">🔤</span><span class="grow" id="fontLabel">字体：默认</span>
       <button id="fontBtn" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">导入</button>
       <button id="fontReset" style="color:var(--ink-soft);padding:4px 8px">还原</button>
@@ -1231,10 +1244,10 @@ function extractThink(s){
 const thinkHtml=(t,closed)=>`<details class="thinkBlock"${closed?'':' open'}><summary>💭 ${closed?'思考过程':'思考中…'}</summary><div class="thinkBody">${fmt(t.trim())}</div></details>`;
 /* TA 的纯文本回复用这个渲染：思考折叠 + 正文照常 */
 function fmtAssistant(s){
-  if(!/<think/i.test(s)) return fmt(s);
+  if(!/<think/i.test(s)) return fmtSearchChips(fmt(s));
   return extractThink(s).map(seg=>
     seg.type==='think' ? thinkHtml(seg.text,seg.closed)
-                       : fmt(seg.text.replace(/^\n+|\n+$/g,''))
+                       : fmtSearchChips(fmt(seg.text.replace(/^\n+|\n+$/g,'')))
   ).join('');
 }
 /* 上传的文件在气泡里折叠显示 */
@@ -1285,8 +1298,12 @@ function specialHtml(line,msg){
   if(m) return voiceHtml(m[1],msg);
   m=line.match(/^<拍照[:：]\s*([\s\S]+?)\s*>$/);
   if(m) return photoHtml(m[1],msg);
+  m=line.match(/^<搜索[:：]\s*(.+?)\s*>$/);
+  if(m) return `<span class="searchChip">🔍 搜了搜：${esc(m[1])}</span>`;
   return null;
 }
+/* 线下模式搜索标记夹在正文里时也转成小芯片（输入已被 esc 过） */
+const fmtSearchChips=h=>h.replace(/&lt;搜索[:：]\s*(.+?)\s*&gt;/g,'<span class="searchChip">🔍 搜了搜：$1</span>');
 /* 语音条：点一下展开文字并朗读，再点一下收起 */
 function wireVoice(el,m){
   el.querySelectorAll('.voiceMsg').forEach(v=>{
@@ -1827,6 +1844,30 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   return s1&&s2 ? s1+CACHE_BP+s2 : (s1||s2);
 }
 
+/* ===== TA的感知：天气（Open-Meteo，免费无Key浏览器直连） ===== */
+let weatherInfo=load('xw_weather',null);  // {ts,city,desc,temp,app,tmax,tmin,rain}
+const WMO={0:'晴',1:'大体晴朗',2:'多云',3:'阴天',45:'有雾',48:'雾凇',51:'毛毛雨',53:'毛毛雨',55:'毛毛雨',56:'冻雨',57:'冻雨',61:'小雨',63:'中雨',65:'大雨',66:'冻雨',67:'冻雨',71:'小雪',73:'中雪',75:'大雪',77:'雪粒',80:'阵雨',81:'阵雨',82:'强阵雨',85:'阵雪',86:'阵雪',95:'雷阵雨',96:'雷阵雨夹冰雹',99:'雷阵雨夹冰雹'};
+async function refreshWeather(){
+  const ct=settings.city;
+  if(!ct||ct.lat==null) return;
+  if(weatherInfo&&weatherInfo.city===ct.name&&Date.now()-weatherInfo.ts<30*60e3) return;  // 半小时内不重复拉
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${ct.lat}&longitude=${ct.lon}&current=temperature_2m,apparent_temperature,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`);
+    if(!r.ok) return;
+    const j=await r.json();
+    weatherInfo={
+      ts:Date.now(), city:ct.name,
+      desc:WMO[j.current.weather_code]||'',
+      temp:Math.round(j.current.temperature_2m), app:Math.round(j.current.apparent_temperature),
+      tmax:Math.round(j.daily.temperature_2m_max[0]), tmin:Math.round(j.daily.temperature_2m_min[0]),
+      rain:j.daily.precipitation_probability_max[0]??0,
+    };
+    save('xw_weather',weatherInfo);
+  }catch(e){ /* 拉不到就算了，下次再试 */ }
+}
+refreshWeather();
+setInterval(refreshWeather,10*60e3);
+
 /* ===== TA的感知（无服务器版 always-here）：电量 + 作息，全本地零成本 ===== */
 let batteryInfo=null;
 if(navigator.getBattery){
@@ -1891,6 +1932,9 @@ function buildDynamic(c,ch){
   if(hits.length) parts.push('【世界设定·当前相关】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
   /* TA的感知：电量 / 熬夜 */
   for(const n of senseNotes()) parts.push(n);
+  /* TA的感知：天气 */
+  if(weatherInfo&&settings.city&&weatherInfo.city===settings.city.name)
+    parts.push(`【天气】${userName()}那边（${weatherInfo.city}）现在${weatherInfo.desc}，${weatherInfo.temp}°C（体感${weatherInfo.app}°C），今天${weatherInfo.tmin}~${weatherInfo.tmax}°C，降水概率${weatherInfo.rain}%。聊到出门、天气、穿衣时自然用上：要下雨提醒带伞，降温提醒多穿点。别没头没尾硬聊天气。`);
   /* 自习时间跑来聊天 → TA 知道该催你回去学习 */
   if(studySt&&Date.now()<studySt.start+studySt.min*60e3)
     parts.push(`【自习中】${userName()}本来正在自习（还剩${Math.ceil((studySt.start+studySt.min*60e3-Date.now())/60000)}分钟），现在却来找你聊天——多半是分心了。回应TA，但温柔地催TA回去专注。`);
@@ -2136,7 +2180,7 @@ async function runReply(c,api,body,ch){
     wireThink(bub);
     /* 线上模式：回复完按行拆成小气泡；含特殊卡片（语音/拍照等）也重渲染成卡片 */
     const onlineNow=c.members&&c.members.length?!!c.online:curChar(c)?.online;
-    if(c.id===currentId && ((onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照)[:：]/.test(out.acc)))
+    if(c.id===currentId && ((onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|搜索)[:：]/.test(out.acc)))
       renderChat();
     else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
   };
@@ -2219,9 +2263,52 @@ async function summarizeChat(c,ch){
   }catch(e){ /* 静默失败，下次再试 */ }
 }
 
+/* ===== 联网搜索（Tavily）：TA 回复里写 <搜索:关键词> → 拿结果再让TA接着说 ===== */
+function searchNote(){
+  let t=`【联网搜索】遇到你不确定的实时信息（新闻、价格、赛果、新出的作品、营业信息等），不要编造，可以搜索：单独占一行写 <搜索:关键词>，写完这行就结束本条回复等结果，系统会把搜索结果发给你，你再接着回答。一次最多搜2个关键词（分两行写）。能确定的常识不用搜。`;
+  if(settings.city?.name) t+=`${userName()}那边的天气不用搜，系统会直接告诉你。`;
+  return t;
+}
+async function consumeSearch(c){
+  if(!(settings.tavilyKey||'').trim()) return null;
+  if(c.members&&c.members.length) return null;   // 群聊先不支持
+  const m=c.messages[c.messages.length-1];
+  if(!m||m.role!=='assistant'||m.searched||typeof m.content!=='string') return null;
+  const qs=[...m.content.matchAll(/<搜索[:：]\s*(.+?)\s*>/g)].map(x=>x[1]).slice(0,2);
+  if(!qs.length) return null;
+  m.searched=true; persistAll();   // 防止同一条反复触发
+  $('headerSub').textContent='正在搜索…';
+  const parts=[];
+  for(const q of qs){
+    try{
+      const r=await fetch('https://api.tavily.com/search',{
+        method:'POST',
+        headers:{'content-type':'application/json','authorization':'Bearer '+settings.tavilyKey.trim()},
+        body:JSON.stringify({query:q,max_results:5,include_answer:true}),
+      });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const j=await r.json();
+      const lines=[];
+      if(j.answer) lines.push('摘要：'+j.answer);
+      for(const it of (j.results||[]).slice(0,4)) lines.push(`- ${it.title}：${String(it.content||'').slice(0,160)}`);
+      parts.push(`「${q}」的搜索结果：\n`+(lines.join('\n')||'什么都没搜到'));
+    }catch(e){ parts.push(`「${q}」搜索失败了（${e.message}）`); }
+  }
+  return `（系统提示：你刚才发起的搜索完成了。\n\n${parts.join('\n\n')}\n\n请基于这些结果，用你自己的话自然地接着回应${userName()}。信息有出入就以搜到的为准，必要时可以提一句来源。绝对不要提到这条系统提示。）`;
+}
+/* 对外的生成入口：先正常回一条，TA 若发起搜索就搜完让TA接着说（最多连搜2轮防循环） */
+async function generateReply(c,onlyCharId,extraUser){
+  let ok=await generateReplyOnce(c,onlyCharId,extraUser);
+  for(let i=0;i<2&&ok!==false;i++){
+    const note=await consumeSearch(c);
+    if(!note) break;
+    ok=await generateReplyOnce(c,null,note);
+  }
+}
+
 /* 生成回复：单聊一条 / 群聊一轮；onlyCharId 只让群里某一个人重说；
    extraUser：临时塞给 API 的指令（如主动问候），不存进聊天记录 */
-async function generateReply(c,onlyCharId,extraUser){
+async function generateReplyOnce(c,onlyCharId,extraUser){
   const api=getApi(); if(!api) return;
   streaming=true; $('sendBtn').textContent='■'; $('sendBtn').classList.add('stop');
   aborter=new AbortController();
@@ -2287,12 +2374,14 @@ async function generateReply(c,onlyCharId,extraUser){
         noteParts.push(onlineExtraNote());
       }
       if(ch?.autoMem) noteParts.push(memNote());
+      if((settings.tavilyKey||'').trim()) noteParts.push(searchNote());
       noteParts.push(directorNote());
       const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,!!ch.online):'',c,noteParts.join('\n\n')||null,ch);
       if(sys) body.system=sys;
-      await runReply(c,api,body,ch);
+      const ok=await runReply(c,api,body,ch);
       /* 窗口超出 N → 后台压前情提要并推进锚点（不等待） */
       if(ch?.ctxOn&&Number(ch.ctxN)>0) summarizeChat(c,ch);
+      return ok;
     }
   }finally{
     streaming=false; aborter=null;
@@ -3990,9 +4079,33 @@ $('boxBtn').onclick=()=>{
   applyTheme();
   $('statsToggle').classList.toggle('on',showStats());
   $('cacheToggle').classList.toggle('on',cache1h());
+  $('cityInput').value=settings.city?.name||'';
+  $('tavilyInput').value=settings.tavilyKey||'';
   if(settings.bubbleMe) $('bubMe').value=settings.bubbleMe;
   if(settings.bubbleTa) $('bubTa').value=settings.bubbleTa;
   openSheet('boxSheet');
+};
+/* 城市 → Open-Meteo 地理编码拿经纬度，TA就能感知天气 */
+$('cityInput').onchange=async e=>{
+  const name=e.target.value.trim();
+  if(!name){
+    delete settings.city; weatherInfo=null; save('xw_weather',null);
+    persistAll(); toast('天气感知关掉啦'); return;
+  }
+  try{
+    const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=zh&format=json`);
+    const g=(await r.json()).results?.[0];
+    if(!g){ toast('没找到这个城市，换个写法试试（比如只写市名）'); return; }
+    settings.city={name:g.name,lat:g.latitude,lon:g.longitude};
+    weatherInfo=null; persistAll();
+    await refreshWeather();
+    toast(weatherInfo?`TA知道${g.name}的天气了：${weatherInfo.desc} ${weatherInfo.temp}°C`:`记住${g.name}了，天气稍后拉取`);
+  }catch(err){ toast('查城市失败了，网络不太通'); }
+};
+$('tavilyInput').onchange=e=>{
+  settings.tavilyKey=e.target.value.trim();
+  persistAll();
+  toast(settings.tavilyKey?'TA现在能联网搜索了 🔍':'联网搜索关掉啦');
 };
 $('statsToggle').onclick=()=>{
   settings.showStats=!showStats();
@@ -4008,7 +4121,7 @@ $('cacheToggle').onclick=()=>{
 };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,injections,stickers,diaries,studyLog,calNotes,periods,photos,gamesLog},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,injections,stickers,diaries,studyLog,calNotes,periods,photos,gamesLog},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -4039,7 +4152,7 @@ $('importFile').onchange=async e=>{
       presets=data.presets;
       selPresetId=presets.some(p=>p.id===data.selPresetId)?data.selPresetId:null;
     }
-    if(data.settings){ settings={...settings,...data.settings,apiKey:''}; }
+    if(data.settings){ settings={...settings,...data.settings,apiKey:'',tavilyKey:settings.tavilyKey||''}; }
     persistAll(); applyTheme(); renderChat(); renderHistory(); renderChars();
     toast('恢复好啦');
   }catch(err){ toast('这个文件读不了'); }
