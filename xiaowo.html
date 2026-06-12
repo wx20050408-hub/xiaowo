@@ -682,6 +682,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
         <option value="custom">自己填……</option>
       </select>
       <input id="setModelCustom" placeholder="模型名" style="display:none;margin-top:8px">
+      <button class="ghostBtn" id="fetchModels" style="margin-top:8px;font-size:13px">🔄 从当前选中的 Key 拉取模型列表</button>
     </div>
     <div class="field">
       <label>单次回复上限（max_tokens）</label>
@@ -2508,16 +2509,48 @@ $('confirmAddKey').onclick=()=>{
 };
 
 /* ================= 设置 ================= */
-$('gearBtn').onclick=()=>{
-  renderKeyList();
-  $('addKeyForm').style.display='none'; $('addKeyBtn').style.display='block';
+/* 模型下拉 = 内置常用 + 当前 Key 拉取到的列表 */
+function buildModelSelect(){
+  const base=['claude-sonnet-4-6','claude-opus-4-8','claude-haiku-4-5-20251001'];
+  const fetched=apiKeys.find(k=>k.id===selKeyId)?.models||[];
+  const all=[...new Set([...base,...fetched])];
+  $('setModel').innerHTML=all.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('')
+    +'<option value="custom">自己填……</option>';
+}
+function syncModelSelect(){
   const sel=$('setModel');
   const known=[...sel.options].some(o=>o.value===settings.model);
   sel.value=known?settings.model:'custom';
   $('setModelCustom').style.display=known?'none':'block';
   $('setModelCustom').value=known?'':settings.model;
+}
+$('gearBtn').onclick=()=>{
+  renderKeyList();
+  $('addKeyForm').style.display='none'; $('addKeyBtn').style.display='block';
+  buildModelSelect();
+  syncModelSelect();
   $('setMaxTokens').value=settings.maxTokens;
   openSheet('settingsSheet');
+};
+$('fetchModels').onclick=async()=>{
+  const api=getApi(); if(!api) return;
+  const btn=$('fetchModels');
+  btn.textContent='拉取中…';
+  try{
+    const url=api.apiUrl.includes('/v1/')
+      ?api.apiUrl.replace(/\/v1\/.*$/,'/v1/models')
+      :api.apiUrl.replace(/\/+$/,'')+'/v1/models';
+    const res=await fetch(url,{headers:apiHeaders(api)});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const j=await res.json();
+    const ids=(j.data||[]).map(m=>m.id).filter(Boolean).sort();
+    if(!ids.length) throw new Error('返回的列表是空的');
+    const curKey=apiKeys.find(k=>k.id===selKeyId);
+    if(curKey){ curKey.models=ids; persistAll(); }
+    buildModelSelect(); syncModelSelect();
+    toast(`拉到 ${ids.length} 个模型 ✓ 去下拉里挑`);
+  }catch(e){ toast('拉取失败：'+(e.message||'').slice(0,60)); }
+  btn.textContent='🔄 从当前选中的 Key 拉取模型列表';
 };
 $('setModel').onchange=e=>{ $('setModelCustom').style.display=e.target.value==='custom'?'block':'none'; };
 $('saveSettings').onclick=()=>{
