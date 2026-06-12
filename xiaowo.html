@@ -636,6 +636,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <button class="boxRow" id="memBtn" style="width:100%"><span class="ic">🧠</span><span class="grow" style="text-align:left">记忆</span></button>
     <button class="boxRow" id="wbBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">世界书</span></button>
     <button class="boxRow" id="presetBtn" style="width:100%"><span class="ic">🎛️</span><span class="grow" style="text-align:left">预设</span></button>
+    <button class="boxRow" id="injBtn" style="width:100%"><span class="ic">💉</span><span class="grow" style="text-align:left">注入</span></button>
     <button class="boxRow" id="exportBtn" style="width:100%"><span class="ic">📦</span><span class="grow" style="text-align:left">备份所有数据（导出 JSON）</span></button>
     <button class="boxRow" id="importBtn" style="width:100%"><span class="ic">📥</span><span class="grow" style="text-align:left">从备份恢复</span></button>
     <input type="file" id="importFile" accept=".json" style="display:none">
@@ -752,6 +753,37 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   </div>
 </div>
 
+<!-- 注入列表弹层 -->
+<div class="sheetScrim" id="injSheet">
+  <div class="sheet">
+    <div class="sheetTitle">注入<button class="close" data-close="injSheet">✕</button></div>
+    <div id="injList"></div>
+    <button class="ghostBtn" id="addInj">＋ 新注入</button>
+    <div class="hintText">把内容悄悄塞进发给 API 的请求里。每条单独开关，对所有角色生效，支持 {{user}} {{char}} 等变量。</div>
+  </div>
+</div>
+
+<!-- 注入编辑弹层 -->
+<div class="sheetScrim" id="injEditSheet">
+  <div class="sheet">
+    <div class="sheetTitle" id="injEditTitle">新注入<button class="close" data-close="injEditSheet">✕</button></div>
+    <div class="field"><label>名称</label><input id="ijName" placeholder="比如：文风要求"></div>
+    <div class="field"><label>注入内容</label><textarea id="ijContent" placeholder="想塞进去的内容…"></textarea></div>
+    <div class="field"><label>注入位置</label>
+      <div class="modeTabs">
+        <button class="modeTab" data-ipos="sys_start">系统开头</button>
+        <button class="modeTab" data-ipos="sys_end">系统末尾</button>
+        <button class="modeTab" data-ipos="chat_end">对话末尾</button>
+        <button class="modeTab" data-ipos="depth">自定深度</button>
+      </div>
+      <input type="number" id="ijDepth" min="1" max="100" value="3" style="display:none;margin-top:8px">
+      <div class="hintText" id="ijPosHint"></div>
+    </div>
+    <button class="primaryBtn" id="saveInj">保存</button>
+    <button class="ghostBtn" id="delInj" style="color:var(--danger);display:none">删除这个注入</button>
+  </div>
+</div>
+
 <!-- 纪念日弹层 -->
 <div class="sheetScrim" id="annSheet">
   <div class="sheet">
@@ -809,6 +841,7 @@ if(selPresetId && !presets.some(p=>p.id===selPresetId)) selPresetId=null;
 let memories = load('xw_memories', []);     // {id,charId,text}
 let moments = load('xw_moments', []);       // {id,charId|null,text,ts,likes:[by],comments:[{by,text,ts}]}  by='me' 或角色id
 let annivs = load('xw_annivs', []);         // {id,charId,name,date:'YYYY-MM-DD',last:'已庆祝的日期'}
+let injections = load('xw_injections', []); // {id,name,content,on,pos:'sys_start|sys_end|chat_end|depth',depth}
 let streaming = false, aborter = null;
 
 const $ = id => document.getElementById(id);
@@ -865,7 +898,7 @@ const persistAll = ()=>{
   save('xw_current',currentId); save('xw_selchar',selCharId); save('xw_settings',settings);
   save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook);
   save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories);
-  save('xw_moments',moments); save('xw_annivs',annivs);
+  save('xw_moments',moments); save('xw_annivs',annivs); save('xw_injections',injections);
   idbSet('chats',chats).catch(()=>save('xw_chats',chats));
   idbSet('characters',characters).catch(()=>save('xw_characters',characters));
 };
@@ -1148,9 +1181,11 @@ function extraPromptOf(ch,isOnline){
 }
 
 /* 静态系统提示词 = 人设 + 群聊须知 + 记忆 + 前情提要 + 常驻世界书 + 预设 */
+const injActive=pos=>injections.filter(i=>i.on&&i.pos===pos&&(i.content||'').trim());
 function buildSystem(personaPrompt,c,groupNote,ch){
   const preset=presets.find(p=>p.id===selPresetId);
   const sysParts=[];
+  for(const i of injActive('sys_start')) sysParts.push(i.content);
   if(personaPrompt && personaPrompt.trim()) sysParts.push(personaPrompt);
   if(groupNote) sysParts.push(groupNote);
   const mems=memories.filter(m=>m.charId===ch?.id);
@@ -1166,6 +1201,7 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   }
   if(always.length) sysParts.push('【世界设定】\n'+always.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
   if(preset && preset.prompt.trim()) sysParts.push(preset.prompt);
+  for(const i of injActive('sys_end')) sysParts.push(i.content);
   return applyVars(sysParts.join('\n\n'),ch);
 }
 
@@ -1191,7 +1227,23 @@ function buildDynamic(c,ch){
     }
   }
   if(hits.length) parts.push('【世界设定·当前相关】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
+  const ce=injActive('chat_end');
+  if(ce.length) parts.push(ce.map(i=>i.content).join('\n\n'));
   return applyVars(parts.join('\n\n'),ch);
+}
+
+/* 深度注入：把内容塞进倒数第 N 条附近的 user 消息开头 */
+function applyDepthInjections(apiMsgs,ch){
+  for(const inj of injActive('depth')){
+    const d=Math.max(1,Number(inj.depth)||1);
+    let idx=Math.max(0,apiMsgs.length-d);
+    while(idx>0&&apiMsgs[idx].role!=='user') idx--;
+    while(idx<apiMsgs.length&&apiMsgs[idx].role!=='user') idx++;
+    const m=apiMsgs[idx]; if(!m) continue;
+    const t=applyVars(`[注入内容]\n${inj.content}`,ch);
+    if(typeof m.content==='string') m.content=t+'\n\n'+m.content;
+    else m.content=[{type:'text',text:t},...m.content];
+  }
 }
 
 /* 把动态文本注入最后一条 user 消息的开头（只改 payload，不动存储） */
@@ -1459,6 +1511,7 @@ async function generateReply(c,onlyCharId,extraUser){
         if(m.ctxOn&&Number(m.ctxN)>0) gm=gm.slice(-Math.min(Number(m.ctxN),516));
         const am=groupApiMessages({messages:gm},m);
         while(am.length&&am[0].role!=='user') am.shift();
+        applyDepthInjections(am,m);
         injectIntoLastUser(am,buildDynamic(c,m));
         const body=baseBody(am);
         if(m.temp!=null&&m.temp!=='') body.temperature=Number(m.temp);
@@ -1488,6 +1541,7 @@ async function generateReply(c,onlyCharId,extraUser){
           else prev.content=toBlocks(prev.content).concat(toBlocks(ct));
         }else apiMsgs.push({role,content:ct});
       });
+      applyDepthInjections(apiMsgs,ch);
       injectIntoLastUser(apiMsgs,buildDynamic(c,ch));
       if(extraUser){
         const last=apiMsgs[apiMsgs.length-1];
@@ -2422,6 +2476,75 @@ $('delPreset').onclick=()=>{
   persistAll(); closeSheet('presetEditSheet'); renderPresets(); renderHeader();
 };
 
+/* ================= 注入 ================= */
+let editingInj=null, ijPos='sys_end';
+const IJ_POS_NAME={sys_start:'系统开头',sys_end:'系统末尾',chat_end:'对话末尾',depth:'自定深度'};
+const IJ_POS_HINT={
+  sys_start:'拼在系统提示词的最前面，比人设还靠前。',
+  sys_end:'拼在系统提示词的最后（预设之后），适合放优先级最高的要求。',
+  chat_end:'跟着实时上下文注入最后一条消息，每轮都在最新位置，而且不影响缓存省钱。',
+  depth:'注入到倒数第 N 条消息的位置，数字越小离 TA 要说的话越近、越受重视。会让缓存少省一点钱。',
+};
+$('injBtn').onclick=()=>{ renderInjs(); openSheet('injSheet'); };
+function renderInjs(){
+  const list=$('injList'); list.innerHTML='';
+  if(!injections.length){
+    list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:20px 0">还没有注入条目</div>';
+    return;
+  }
+  injections.forEach(j=>{
+    const it=document.createElement('div');
+    it.className='charItem';
+    const posTxt=j.pos==='depth'?`倒数第 ${j.depth||1} 条`:(IJ_POS_NAME[j.pos]||'');
+    it.innerHTML=`<button class="wbToggle${j.on?' on':''}"></button>
+      <div class="info"><div class="nm">${esc(j.name||'未命名')}</div><div class="pv">${esc(posTxt)} · ${esc((j.content||'').slice(0,30))}</div></div>
+      <button class="edit">编辑</button>`;
+    it.querySelector('.wbToggle').onclick=ev=>{
+      ev.stopPropagation();
+      j.on=!j.on; persistAll();
+      ev.target.classList.toggle('on',j.on);
+    };
+    it.querySelector('.info').onclick=()=>openInjEdit(j);
+    it.querySelector('.edit').onclick=()=>openInjEdit(j);
+    list.appendChild(it);
+  });
+}
+function setIjPos(p){
+  ijPos=p;
+  document.querySelectorAll('#injEditSheet .modeTab').forEach(b=>b.classList.toggle('on',b.dataset.ipos===p));
+  $('ijDepth').style.display=p==='depth'?'block':'none';
+  $('ijPosHint').textContent=IJ_POS_HINT[p]||'';
+}
+document.querySelectorAll('#injEditSheet .modeTab').forEach(b=>b.onclick=()=>setIjPos(b.dataset.ipos));
+$('addInj').onclick=()=>openInjEdit(null);
+function openInjEdit(j){
+  editingInj=j;
+  $('injEditTitle').childNodes[0].textContent=j?'编辑注入':'新注入';
+  $('ijName').value=j?j.name:'';
+  $('ijContent').value=j?j.content:'';
+  $('ijDepth').value=j?.depth||3;
+  setIjPos(j?.pos||'sys_end');
+  $('delInj').style.display=j?'block':'none';
+  openSheet('injEditSheet');
+}
+$('saveInj').onclick=()=>{
+  const content=$('ijContent').value;
+  if(!content.trim()){ toast('内容不能空着'); return; }
+  const data={
+    name:$('ijName').value.trim()||'未命名',
+    content, pos:ijPos,
+    depth:Math.max(1,Number($('ijDepth').value)||1),
+  };
+  if(editingInj) Object.assign(editingInj,data);
+  else injections.push({id:'ij'+Date.now(),on:true,...data});
+  persistAll(); closeSheet('injEditSheet'); renderInjs(); toast('存好啦');
+};
+$('delInj').onclick=()=>{
+  if(!editingInj||!confirm(`删掉「${editingInj.name}」？`)) return;
+  injections=injections.filter(x=>x.id!==editingInj.id);
+  persistAll(); closeSheet('injEditSheet'); renderInjs();
+};
+
 /* ================= 字体（存 IndexedDB，localStorage 装不下大字体） ================= */
 function idbOpen(){
   return new Promise((res,rej)=>{
@@ -2546,7 +2669,7 @@ ${rows}</body></html>`;
 $('boxBtn').onclick=()=>{ applyTheme(); openSheet('boxSheet'); };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,injections},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -2565,6 +2688,7 @@ $('importFile').onchange=async e=>{
     if(data.memories) memories=data.memories;
     if(data.moments) moments=data.moments;
     if(data.annivs) annivs=data.annivs;
+    if(data.injections) injections=data.injections;
     if(data.presets){
       presets=data.presets;
       selPresetId=presets.some(p=>p.id===data.selPresetId)?data.selPresetId:null;
