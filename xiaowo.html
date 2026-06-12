@@ -451,6 +451,30 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .dText{font-size:14px;line-height:1.85;white-space:pre-wrap;word-break:break-word}
 .dDel{position:absolute;top:10px;right:12px;color:var(--ink-soft);font-size:12px;padding:4px}
 
+/* 自习室 */
+#studyPage{position:fixed;inset:0;z-index:55;background:var(--bg);display:none;flex-direction:column;max-width:760px;margin:0 auto}
+#studyPage.show{display:flex}
+#studyHeader{
+  display:flex;align-items:center;gap:6px;
+  padding:calc(env(safe-area-inset-top) + 12px) 14px 12px;
+  border-bottom:1px solid var(--line);flex-shrink:0;
+}
+#studyTitle{flex:1;text-align:center;font-weight:600;font-size:16px}
+#studyBody{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px}
+#studyAvatar .avSm{width:64px;height:64px;font-size:28px}
+#studyTimer{font-size:56px;font-weight:600;letter-spacing:2px;font-variant-numeric:tabular-nums}
+#studyLine{font-size:14px;color:var(--ink-soft);text-align:center;max-width:80%;line-height:1.7}
+#studyDurs{display:flex;gap:10px}
+.durChip{padding:8px 16px;border-radius:14px;background:var(--card);box-shadow:var(--shadow);font-size:13px}
+.durChip.on{background:var(--accent);color:#fff;font-weight:600}
+#studyStart{max-width:240px}
+
+/* 旁白指令气泡（导演模式） */
+.bubble.ooc{background:var(--bg-soft);color:var(--ink-soft);font-style:italic;box-shadow:none}
+
+/* 气泡颜色选择 */
+.colorDot{width:26px;height:26px;border:2px solid var(--line);border-radius:50%;padding:0;background:none;cursor:pointer}
+
 /* token 统计小字 */
 .msgStats{
   font-size:10px;color:var(--ink-soft);opacity:.75;
@@ -546,6 +570,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <button class="ppItem" id="ppFile"><span class="ppIc">📎</span>文件</button>
     <button class="ppItem" id="ppSticker"><span class="ppIc">😝</span>表情包</button>
     <button class="ppItem" id="ppTransfer"><span class="ppIc">💸</span>转账</button>
+    <button class="ppItem" id="ppStudy"><span class="ppIc">📚</span>自习</button>
   </div>
 </div>
 
@@ -580,6 +605,38 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <button class="iconBtn" id="postMomentBtn" title="我也发一条">✎</button>
   </header>
   <div id="momentsFeed"></div>
+</div>
+
+<!-- 自习室页 -->
+<div id="studyPage">
+  <header id="studyHeader">
+    <button class="iconBtn" id="studyBack" aria-label="返回">‹</button>
+    <div id="studyTitle">自习室</div>
+    <div style="width:38px"></div>
+  </header>
+  <div id="studyBody">
+    <div id="studyAvatar"></div>
+    <div id="studyLine">今天也一起加油叭</div>
+    <div id="studyTimer">25:00</div>
+    <div id="studyDurs">
+      <button class="durChip on" data-min="25">25分钟</button>
+      <button class="durChip" data-min="45">45分钟</button>
+      <button class="durChip" data-min="60">60分钟</button>
+    </div>
+    <button class="primaryBtn" id="studyStart">开始专注</button>
+    <div id="studyStats" class="hintText"></div>
+  </div>
+</div>
+
+<!-- 时光机弹层 -->
+<div class="sheetScrim" id="timeSheet">
+  <div class="sheet">
+    <div class="sheetTitle">时光机<button class="close" data-close="timeSheet">✕</button></div>
+    <div id="timeCard"></div>
+    <button class="ghostBtn" id="timeAgain">🎲 再转一次</button>
+    <button class="primaryBtn" id="timeGo">去看看那天</button>
+    <div class="hintText">随机翻出一段三天以前的聊天。回忆这东西，攒得越久越好喝。</div>
+  </div>
 </div>
 
 <!-- 发动态弹层 -->
@@ -712,6 +769,13 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <button class="themeDot" data-theme="mist" style="background:#DEDEF5"></button>
       <button class="themeDot" data-theme="night" style="background:#46362A"></button>
     </div>
+    <div class="boxRow">
+      <span class="ic">🎈</span><span class="grow">气泡颜色 我 / TA</span>
+      <input type="color" id="bubMe" class="colorDot" value="#F6DCC4">
+      <input type="color" id="bubTa" class="colorDot" value="#FFFFFF">
+      <button id="bubReset" style="color:var(--ink-soft);padding:4px 8px">还原</button>
+    </div>
+    <button class="boxRow" id="timeBtn" style="width:100%"><span class="ic">⏳</span><span class="grow" style="text-align:left">时光机</span></button>
     <div class="boxRow">
       <span class="ic">📊</span><span class="grow">显示 token 统计</span>
       <button class="wbToggle" id="statsToggle"></button>
@@ -973,6 +1037,8 @@ let annivs = load('xw_annivs', []);         // {id,charId,name,date:'YYYY-MM-DD'
 let injections = load('xw_injections', []); // {id,name,content,on,pos:'sys_start|sys_end|chat_end|depth',depth}
 let stickers = load('xw_stickers', []);     // {id,name,data:dataURL}（正式存 IndexedDB）
 let diaries = load('xw_diaries', []);       // {id,charId,date:'YYYY-MM-DD',text,ts}
+let studyLog = load('xw_study_log', []);    // {date,min,charId}
+let studySt = load('xw_study_state', null); // {start,min,charId} 进行中的专注
 const persistStickers=()=>idbSet('stickers',stickers).catch(()=>{ try{save('xw_stickers',stickers)}catch(e){} });
 let streaming = false, aborter = null;
 
@@ -1082,7 +1148,17 @@ function applyTheme(){
   document.querySelectorAll('.themeDot').forEach(d=>d.classList.toggle('on', d.dataset.theme===settings.theme));
   const mc=document.querySelector('meta[name="theme-color"]');
   if(mc) mc.content = t==='night'?'#201C17' : t==='mist'?'#F2F2FA' : '#FBF6EE';
+  /* 自定义气泡颜色盖在主题上面 */
+  const root=document.documentElement.style;
+  if(settings.bubbleMe) root.setProperty('--bubble-me',settings.bubbleMe); else root.removeProperty('--bubble-me');
+  if(settings.bubbleTa) root.setProperty('--bubble-ta',settings.bubbleTa); else root.removeProperty('--bubble-ta');
 }
+$('bubMe').oninput=e=>{ settings.bubbleMe=e.target.value; persistAll(); applyTheme(); };
+$('bubTa').oninput=e=>{ settings.bubbleTa=e.target.value; persistAll(); applyTheme(); };
+$('bubReset').onclick=()=>{
+  delete settings.bubbleMe; delete settings.bubbleTa;
+  persistAll(); applyTheme(); toast('气泡回到默认色');
+};
 
 /* ================= 侧边栏 ================= */
 function openDrawer(o){ $('drawer').classList.toggle('open',o); $('scrim').classList.toggle('show',o); }
@@ -1183,7 +1259,7 @@ function renderHeader(){
   }
   const ch=curChar(c);
   $('headerName').textContent = c ? c.title : (ch ? ch.name : '小窝');
-  $('headerSub').textContent = (ch ? `${ch.name} · ${ch.online?'📱线上':'在线'}` : '在线')
+  $('headerSub').textContent = (ch ? `${ch.name} · ${ch.online?'📱':''}${nowAct(ch)}` : '在线')
     + (ch?.sign ? ` · ${ch.sign}` : '') + (pr ? ` · ${pr.name}` : '');
   updateReplyBtn();
 }
@@ -1217,7 +1293,7 @@ function renderMemberBar(){
   };
   bar.appendChild(tg);
 }
-function switchChat(id){ currentId=id; persistAll(); renderChat(); maybeAnniversary(); maybeProactive(); maybeUpdateSign(); }
+function switchChat(id){ currentId=id; persistAll(); renderChat(); maybeAnniversary(); maybeGreeting(); maybeProactive(); maybeUpdateSign(); }
 function renameChat(c){
   const t=prompt('给这段对话改个名字：',c.title);
   if(t==null) return;
@@ -1305,7 +1381,8 @@ function renderChat(){
     }
     const spWhole=typeof m.content==='string'?specialHtml(m.content.trim(),m.received):null;
     const html=spWhole??((m.role!=='user'&&typeof m.content==='string')?fmtAssistant(m.content):contentHtml(m.content));
-    const el=bubbleEl(m.role,html,spWhole?'plain':'',ch);
+    const ooc=m.role==='user'&&typeof m.content==='string'&&/^[（(][\s\S]*[)）]$/.test(m.content.trim());
+    const el=bubbleEl(m.role,html,spWhole?'plain':(ooc?'ooc':''),ch);
     el.querySelector('.bubble').onclick=()=>openMsgActions(i);
     wireThink(el);
     if(m.role!=='user') attachPat(el,ch,c);
@@ -1431,6 +1508,9 @@ function applyVars(s,ch){
    system 只放静态内容整体吃缓存；每轮变化的（时间、关键词世界书）
    在发请求时注入最后一条 user 消息，不进数据库、不毁前缀 */
 
+/* 导演模式说明书：()包住的消息是旁白指令 */
+const directorNote=()=>`【旁白指令】如果${userName()}的某条消息整条被()或（）包住，那是写给剧本的舞台指示，不是TA本人说的话：按指示调整剧情、状态或你接下来的行为，但角色本人意识不到指令的存在，绝对不要直接回应或提及指令内容。`;
+
 /* TA 自己记笔记的说明书 */
 const memNote=()=>`【记笔记】当你从对话里得知关于${userName()}的重要新信息（喜好、习惯、约定、TA的近况），在回复的最末尾另起一行用 <记住>一句话概括</记住> 记下来，可以写多条；没有新信息就别写。这个标记会被系统悄悄收走，${userName()}看不到。`;
 
@@ -1489,6 +1569,9 @@ function buildDynamic(c,ch){
     }
   }
   if(hits.length) parts.push('【世界设定·当前相关】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
+  /* 自习时间跑来聊天 → TA 知道该催你回去学习 */
+  if(studySt&&Date.now()<studySt.start+studySt.min*60e3)
+    parts.push(`【自习中】${userName()}本来正在自习（还剩${Math.ceil((studySt.start+studySt.min*60e3-Date.now())/60000)}分钟），现在却来找你聊天——多半是分心了。回应TA，但温柔地催TA回去专注。`);
   const ce=injActive('chat_end');
   if(ce.length) parts.push(ce.map(i=>i.content).join('\n\n'));
   return applyVars(parts.join('\n\n'),ch);
@@ -1814,7 +1897,8 @@ async function generateReply(c,onlyCharId,extraUser){
       for(const m of members){
         const note=`【群聊】这是一个群聊，成员有：${allNames}，还有用户「${myName}」。你只扮演「${m.name}」，以${m.name}的身份说一条消息，不要替其他任何人发言，也不要在开头加自己的名字。`
           +(c.online?'\n\n【线上群聊】大家在手机群里发消息。用发消息的口吻：短句、口语化、像平时在微信群里那样。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。\n\n'+onlineExtraNote():'')
-          +(m.autoMem?'\n\n'+memNote():'');
+          +(m.autoMem?'\n\n'+memNote():'')
+          +'\n\n'+directorNote();
         let gm=c.messages;
         if(m.ctxOn&&Number(m.ctxN)>0) gm=gm.slice(-Math.min(Number(m.ctxN),516));
         const am=groupApiMessages({messages:gm},m);
@@ -1866,6 +1950,7 @@ async function generateReply(c,onlyCharId,extraUser){
         noteParts.push(onlineExtraNote());
       }
       if(ch?.autoMem) noteParts.push(memNote());
+      noteParts.push(directorNote());
       const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,!!ch.online):'',c,noteParts.join('\n\n')||null,ch);
       if(sys) body.system=sys;
       await runReply(c,api,body,ch);
@@ -2092,6 +2177,154 @@ $('genDiary').onclick=async()=>{
   if(diaries.some(d=>d.charId===ch.id&&d.date===todayStr())){ toast('今天这页已经写过啦，明天再来翻'); return; }
   if(!await genDiary(ch)) toast('TA这会儿没在写日记，过会儿再来');
 };
+
+/* ================= 自习室 ================= */
+let studyTick=null, studyMin=25;
+const studyEnd=()=>studySt?studySt.start+studySt.min*60e3:0;
+function renderStudyTimer(){
+  if(studySt){
+    const left=Math.max(0,studyEnd()-Date.now());
+    $('studyTimer').textContent=`${String(Math.floor(left/60000)).padStart(2,'0')}:${String(Math.floor(left%60000/1000)).padStart(2,'0')}`;
+  }else $('studyTimer').textContent=`${String(studyMin).padStart(2,'0')}:00`;
+}
+function updateStudyUI(){
+  const ch=charOf(studySt?.charId)||curChar(curChat());
+  $('studyAvatar').innerHTML=ch?(ch.avatar?`<img class="avSm" src="${ch.avatar}">`:`<div class="avSm" style="background:var(--bubble-me);display:flex;align-items:center;justify-content:center">${esc(ch.emoji||'☺')}</div>`):'';
+  $('studyDurs').style.opacity=studySt?'.4':'1';
+  $('studyStart').textContent=studySt?'提前结束':'开始专注';
+  const today=studyLog.filter(l=>l.date===todayStr()).reduce((a,l)=>a+l.min,0);
+  const total=studyLog.reduce((a,l)=>a+l.min,0);
+  $('studyStats').textContent=`今天 ${today} 分钟 · 一共攒了 ${total} 分钟`;
+  renderStudyTimer();
+}
+function startStudyTick(){
+  if(studyTick) return;
+  studyTick=setInterval(()=>{
+    if(!studySt){ clearInterval(studyTick); studyTick=null; return; }
+    renderStudyTimer();
+    if(Date.now()>=studyEnd()) endStudy(true);
+  },1000);
+}
+function endStudy(done){
+  if(!studySt) return;
+  const min=done?studySt.min:Math.floor((Date.now()-studySt.start)/60000);
+  const charId=studySt.charId;
+  if(done||min>=5) studyLog.push({date:todayStr(),min:Math.max(1,min),charId});
+  studySt=null;
+  save('xw_study_state',studySt); save('xw_study_log',studyLog);
+  if(studyTick){ clearInterval(studyTick); studyTick=null; }
+  updateStudyUI();
+  if(done){
+    $('studyLine').textContent='完成啦！喝口水，看看远处休息下眼睛～';
+    toast('专注完成 ✓');
+    studyPraise(min,charId);
+  }else toast(min>=5?`提前下课，这 ${min} 分钟也给你记上了`:'好叭，下次再来');
+}
+async function studyCheer(ch){
+  if(!ch||!apiKeys.find(k=>k.id===selKeyId)?.key) return;
+  const api=getApi(); if(!api) return;
+  const txt=await quickGen(api,momentSystem(ch),
+    applyVars(`${userName()}现在要开始${studySt?.min||25}分钟的专注学习（最近在备考）。请说一句简短的鼓励，10~25字，符合你的性格。只输出这句话。`,ch),60);
+  if(txt&&studySt) $('studyLine').textContent=txt.replace(/\n/g,' ').slice(0,50);
+}
+async function studyPraise(min,charId){
+  const ch=charOf(charId); if(!ch) return;
+  if(!apiKeys.find(k=>k.id===selKeyId)?.key) return;
+  const api=getApi(); if(!api) return;
+  const txt=await quickGen(api,momentSystem(ch),
+    applyVars(`${userName()}刚完成了${min}分钟的专注自习（在备考）。请夸夸TA、心疼TA两句，提醒TA休息眼睛、喝口水。两三句话，口语化。`,ch),150);
+  if(!txt) return;
+  const c=chats.filter(x=>!(x.members&&x.members.length)&&x.charId===ch.id).sort((a,b)=>b.ts-a.ts)[0];
+  if(c){
+    c.messages.push({role:'assistant',charId:ch.id,content:txt,ts:Date.now()});
+    c.ts=Date.now(); persistAll();
+    if(c.id===currentId) renderChat();
+  }
+  if($('studyPage').classList.contains('show')) $('studyLine').textContent=txt.split('\n')[0].slice(0,50);
+}
+$('ppStudy').onclick=()=>{ togglePlus(false); $('studyPage').classList.add('show'); updateStudyUI(); if(studySt) startStudyTick(); };
+$('studyBack').onclick=()=>$('studyPage').classList.remove('show');
+document.querySelectorAll('.durChip').forEach(b=>b.onclick=()=>{
+  if(studySt) return;
+  studyMin=Number(b.dataset.min);
+  document.querySelectorAll('.durChip').forEach(x=>x.classList.toggle('on',x===b));
+  renderStudyTimer();
+});
+$('studyStart').onclick=()=>{
+  if(studySt){ if(confirm('提前结束这次专注？')) endStudy(false); return; }
+  const ch=curChar(curChat());
+  studySt={start:Date.now(),min:studyMin,charId:ch?.id};
+  save('xw_study_state',studySt);
+  $('studyLine').textContent='专注开始，我在这儿陪着你';
+  updateStudyUI(); startStudyTick(); studyCheer(ch);
+};
+
+/* ================= 时光机 ================= */
+let timePick=null;
+function spinTime(){
+  const pool=[];
+  for(const c of chats) c.messages.forEach((m,i)=>{
+    if(m.ts&&Date.now()-m.ts>3*864e5&&m.role!=='sys') pool.push({c,i});
+  });
+  if(!pool.length){
+    $('timeCard').innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:20px 0">回忆还不够厚，过几天再来转～</div>';
+    timePick=null; return;
+  }
+  timePick=pool[Math.floor(Math.random()*pool.length)];
+  const {c,i}=timePick;
+  const days=Math.floor((Date.now()-c.messages[i].ts)/864e5);
+  const ex=c.messages.slice(i,i+3).filter(m=>m.role!=='sys').map(m=>{
+    const name=m.role==='user'?userName():(characters.find(x=>x.id===m.charId)?.name||'TA');
+    return `<div class="mCmt"><b>${esc(name)}</b>：${esc(stripThink(textOf(m.content)).slice(0,60)||'[图片/表情]')}</div>`;
+  }).join('');
+  $('timeCard').innerHTML=`<div class="diaryCard"><div class="dDate">⏳ ${days} 天前 · ${esc(c.title)}</div>${ex}</div>`;
+}
+$('timeBtn').onclick=()=>{ spinTime(); openSheet('timeSheet'); };
+$('timeAgain').onclick=spinTime;
+$('timeGo').onclick=()=>{
+  if(!timePick) return;
+  closeSheet('timeSheet'); closeSheet('boxSheet');
+  switchChat(timePick.c.id); openDrawer(false);
+};
+
+/* ================= TA的此刻（按时段的小日常，零成本） ================= */
+const NOW_ACTS={
+  dawn:['睡得正香','做了个梦，好像有你','枕头掉地上了也没醒'],
+  morning:['刚醒，有点迷糊','在晨跑','在做早餐','闹钟响第三遍才起'],
+  forenoon:['在忙正事','埋头干活中','效率拉满中'],
+  noon:['在吃午饭','饭后犯困中','纠结中午吃什么'],
+  afternoon:['在忙，但摸鱼想了你三次','下午茶时间','盯着窗外发了会儿呆'],
+  evening:['在吃晚饭','刚到家，瘫着','在散步'],
+  night:['闲下来了，在等你','在看书，心不在焉','刚洗完澡'],
+  late:['还没睡，在想你','数羊数到第108只','夜猫子营业中'],
+};
+function nowAct(ch){
+  const h=new Date().getHours();
+  const slot=h<6?'dawn':h<9?'morning':h<12?'forenoon':h<14?'noon':h<18?'afternoon':h<20?'evening':h<23?'night':'late';
+  const list=NOW_ACTS[slot];
+  let seed=0; const s=(ch.id||'')+todayStr()+h;
+  for(const c of s) seed=(seed*31+c.charCodeAt(0))>>>0;
+  return list[seed%list.length];
+}
+
+/* ================= 早晚安问候 ================= */
+function maybeGreeting(){
+  const c=curChat(); if(!c||streaming) return;
+  if(c.members&&c.members.length) return;
+  const ch=curChar(c);
+  if(!ch?.proactive||!c.messages.length) return;
+  if(!apiKeys.find(k=>k.id===selKeyId)?.key) return;
+  const h=new Date().getHours();
+  const slot=h>=5&&h<11?'morning':(h>=22||h<4)?'night':null;
+  if(!slot) return;
+  if(c.lastGreet===todayStr()+slot) return;
+  const lastTs=c.messages[c.messages.length-1].ts||0;
+  if(Date.now()-lastTs<4*3600e3) return;
+  c.lastGreet=todayStr()+slot; c.lastProactive=Date.now(); persistAll();
+  generateReply(c,null, slot==='morning'
+    ?`（系统提示：现在是早上，${userName()}刚打开和你的聊天。请自然地道一句早安，可以关心TA睡得好不好、今天有什么安排。绝对不要提这条提示。）`
+    :`（系统提示：现在是深夜，${userName()}还没睡、刚打开和你的聊天。请自然地表达关心，念叨TA怎么还不睡，催TA早点休息。绝对不要提这条提示。）`);
+}
 
 /* ================= 拍一拍 ================= */
 let lastTapTs=0, lastTapKey=null;
@@ -3167,7 +3400,13 @@ ${rows}</body></html>`;
 };
 
 /* ================= 百宝箱 ================= */
-$('boxBtn').onclick=()=>{ applyTheme(); $('statsToggle').classList.toggle('on',showStats()); openSheet('boxSheet'); };
+$('boxBtn').onclick=()=>{
+  applyTheme();
+  $('statsToggle').classList.toggle('on',showStats());
+  if(settings.bubbleMe) $('bubMe').value=settings.bubbleMe;
+  if(settings.bubbleTa) $('bubTa').value=settings.bubbleTa;
+  openSheet('boxSheet');
+};
 $('statsToggle').onclick=()=>{
   settings.showStats=!showStats();
   persistAll();
@@ -3215,6 +3454,13 @@ renderProfile();
 applyFont();
 renderChat();
 renderHistory();
+/* 上次没结束的自习：到点了就补记完成；还在跑就继续计时 */
+if(studySt){
+  if(Date.now()>=studyEnd()) endStudy(true);
+  else startStudyTick();
+}
+/* TA的此刻 & 时间条每分钟刷新 */
+setInterval(()=>{ if(!streaming) renderHeader(); },60e3);
 
 /* 从 IndexedDB 加载大数据；首次运行把 localStorage 旧数据迁移过去并腾出空间 */
 (async()=>{
@@ -3231,6 +3477,7 @@ renderHistory();
     try{ localStorage.removeItem('xw_chats'); localStorage.removeItem('xw_characters'); }catch(e){}
     if(changed){ renderChat(); renderHistory(); }
     maybeAnniversary(); // 打开 app：今天是不是特别的日子
+    maybeGreeting();    // 早上/深夜的问候
     maybeProactive();   // TA 可能先开口
     maybeUpdateSign();  // TA 可能换了签名
   }catch(e){ /* 没有 IndexedDB 就继续用 localStorage */ }
