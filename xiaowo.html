@@ -351,11 +351,51 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .modeTab.on{border-color:var(--accent);color:var(--accent-deep);font-weight:600;background:var(--bubble-me)}
 
 /* 发图 */
-#imgBtn,#fileBtn{
-  width:36px;height:44px;flex-shrink:0;font-size:20px;border-radius:14px;
+#plusBtn{
+  width:38px;height:44px;flex-shrink:0;font-size:22px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;color:var(--ink-soft);
+  transition:transform .2s;
+}
+#plusBtn:active{background:var(--bg-soft)}
+#plusBtn.open{transform:rotate(45deg)}
+
+/* ➕ 功能面板 */
+#plusPanel{
+  display:none;grid-template-columns:repeat(4,1fr);gap:12px;
+  padding:14px 18px;background:var(--bg);flex-shrink:0;
+}
+#plusPanel.show{display:grid}
+.ppItem{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft)}
+.ppItem .ppIc{
+  width:54px;height:54px;border-radius:16px;background:var(--card);box-shadow:var(--shadow);
+  display:flex;align-items:center;justify-content:center;font-size:25px;
+}
+.ppItem:active .ppIc{transform:scale(.94)}
+.ppItem.dis{opacity:.35}
+
+/* 表情包 */
+#stickerGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px}
+.stkItem{position:relative}
+.stkItem img{width:100%;aspect-ratio:1;object-fit:contain;background:var(--bg-soft);border-radius:12px;cursor:pointer}
+.stkItem .nm{font-size:10px;color:var(--ink-soft);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stkItem .rm{
+  position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;
+  background:var(--ink);color:var(--bg);font-size:10px;
   display:flex;align-items:center;justify-content:center;
 }
-#imgBtn:active,#fileBtn:active{background:var(--bg-soft)}
+.stickerImg{max-width:110px;max-height:110px;display:block}
+
+/* 转账卡片 */
+.transferCard{
+  width:190px;border-radius:14px;cursor:pointer;
+  background:linear-gradient(135deg,#FA9D3B,#F08300);color:#fff;
+  padding:14px 16px 8px;
+}
+.transferCard.done{background:linear-gradient(135deg,#FBD0A0,#F0B57F)}
+.tAmt{font-size:20px;font-weight:600}
+.tNote{font-size:12px;opacity:.92;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tFoot{font-size:10px;opacity:.8;border-top:1px solid rgba(255,255,255,.35);margin-top:8px;padding-top:4px}
+.bubble.plain{background:none;box-shadow:none;padding:0}
 .fchip{
   display:flex;align-items:center;height:56px;padding:0 12px;
   background:var(--card);border-radius:12px;box-shadow:var(--shadow);
@@ -482,8 +522,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   <!-- 输入栏 -->
   <div id="imgPreview"></div>
   <footer id="inputBar">
-    <button id="imgBtn" aria-label="发图片">🖼</button>
-    <button id="fileBtn" aria-label="发文件">📎</button>
+    <button id="plusBtn" aria-label="更多功能">＋</button>
     <div id="inputWrap">
       <textarea id="input" rows="1" placeholder="想说什么……"></textarea>
     </div>
@@ -491,6 +530,13 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <input type="file" id="imgFile" accept="image/*" multiple style="display:none">
     <input type="file" id="docFile" accept=".txt,.md,.json,.csv,.log,.html,.css,.js,.py,.xml,.yaml,.yml" multiple style="display:none">
   </footer>
+  <!-- ➕ 功能面板 -->
+  <div id="plusPanel">
+    <button class="ppItem" id="ppImg"><span class="ppIc">🖼</span>图片</button>
+    <button class="ppItem" id="ppFile"><span class="ppIc">📎</span>文件</button>
+    <button class="ppItem" id="ppSticker"><span class="ppIc">😝</span>表情包</button>
+    <button class="ppItem" id="ppTransfer"><span class="ppIc">💸</span>转账</button>
+  </div>
 </div>
 
 <!-- 侧边栏 -->
@@ -792,6 +838,27 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   </div>
 </div>
 
+<!-- 表情包弹层 -->
+<div class="sheetScrim" id="stickerSheet">
+  <div class="sheet">
+    <div class="sheetTitle">表情包<button class="close" data-close="stickerSheet">✕</button></div>
+    <div id="stickerGrid"></div>
+    <button class="ghostBtn" id="addSticker">＋ 添加表情包</button>
+    <div class="hintText">点一个直接发出去。文件名就是表情包的名字，TA 靠名字挑表情，所以起名直白点（比如"开心抱抱.jpg"）。TA 聊嗨了也会发给你。</div>
+    <input type="file" id="stickerFile" accept="image/*" multiple style="display:none">
+  </div>
+</div>
+
+<!-- 转账弹层 -->
+<div class="sheetScrim" id="transferSheet">
+  <div class="sheet">
+    <div class="sheetTitle">转账<button class="close" data-close="transferSheet">✕</button></div>
+    <div class="field"><label>金额</label><input type="number" id="tfAmt" min="0.01" step="0.01" placeholder="5.20"></div>
+    <div class="field"><label>备注（可不填）</label><input id="tfNote" placeholder="拿去买好吃的"></div>
+    <button class="primaryBtn" id="confirmTransfer">转过去</button>
+  </div>
+</div>
+
 <!-- 注入列表弹层 -->
 <div class="sheetScrim" id="injSheet">
   <div class="sheet">
@@ -881,6 +948,8 @@ let memories = load('xw_memories', []);     // {id,charId,text}
 let moments = load('xw_moments', []);       // {id,charId|null,text,ts,likes:[by],comments:[{by,text,ts}]}  by='me' 或角色id
 let annivs = load('xw_annivs', []);         // {id,charId,name,date:'YYYY-MM-DD',last:'已庆祝的日期'}
 let injections = load('xw_injections', []); // {id,name,content,on,pos:'sys_start|sys_end|chat_end|depth',depth}
+let stickers = load('xw_stickers', []);     // {id,name,data:dataURL}（正式存 IndexedDB）
+const persistStickers=()=>idbSet('stickers',stickers).catch(()=>{ try{save('xw_stickers',stickers)}catch(e){} });
 let streaming = false, aborter = null;
 
 const $ = id => document.getElementById(id);
@@ -927,6 +996,31 @@ function fmtFiles(s){
 }
 /* 折叠块的展开点击别触发消息操作菜单 */
 const wireThink=root=>root.querySelectorAll('.thinkBlock summary').forEach(x=>x.onclick=ev=>ev.stopPropagation());
+
+/* ===== 表情包 & 转账：<表情包:名字> / <转账:金额:备注> ===== */
+function findSticker(name){
+  name=(name||'').trim();
+  return stickers.find(s=>s.name===name)||stickers.find(s=>s.name.includes(name)||name.includes(s.name));
+}
+function transferHtml(amt,note,received){
+  return `<div class="transferCard${received?' done':''}"><div class="tAmt">¥${amt.toFixed(2)}</div><div class="tNote">${esc(note||'转账')}</div><div class="tFoot">${received?'✓ 已收款':'小窝转账'}</div></div>`;
+}
+/* 整行是特殊消息 → 返回特殊气泡的 html，否则 null */
+function specialHtml(line,received){
+  let m=line.match(/^<表情包[:：]\s*(.+?)\s*>$/);
+  if(m){ const st=findSticker(m[1]); return st?`<img class="stickerImg" src="${st.data}">`:null; }
+  m=line.match(/^<转账[:：]\s*([\d.]+)\s*(?:[:：]\s*(.*?))?\s*>$/);
+  if(m&&Number(m[1])>0) return transferHtml(Number(m[1]),m[2]||'',received);
+  return null;
+}
+/* 收款：TA 转来的钱，点一下收下 */
+function wireTransfer(el,m){
+  if(m.role==='user'||m.received||!el.querySelector('.transferCard')) return;
+  el.querySelector('.bubble').onclick=()=>{
+    m.received=true; persistAll(); renderChat();
+    toast('已收款，进小金库啦 ✓');
+  };
+}
 /* 去掉思考链，只留正文（朗读、导出、摘要用） */
 const stripThink=s=>s.replace(/<think(?:ing)?>[\s\S]*?(?:<\/think(?:ing)?>|$)/gi,'').trim();
 /* 下载一个文件 */
@@ -1168,24 +1262,29 @@ function renderChat(){
       const thinks=segs.filter(x=>x.type==='think');
       const text=segs.filter(x=>x.type==='text').map(x=>x.text).join('\n');
       const pieces=[];
-      if(thinks.length) pieces.push(thinks.map(t=>thinkHtml(t.text,t.closed)).join(''));
-      text.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>pieces.push(fmt(line)));
+      if(thinks.length) pieces.push({html:thinks.map(t=>thinkHtml(t.text,t.closed)).join(''),plain:''});
+      text.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
+        const sp=specialHtml(line,m.received);
+        pieces.push(sp?{html:sp,plain:'plain'}:{html:fmt(line),plain:''});
+      });
       if(pieces.length>1||thinks.length){
-        pieces.forEach(html=>{
-          const el=bubbleEl(m.role,html,'',ch);
+        pieces.forEach(p=>{
+          const el=bubbleEl(m.role,p.html,p.plain,ch);
           el.querySelector('.bubble').onclick=()=>openMsgActions(i);
-          wireThink(el); attachPat(el,ch,c);
+          wireThink(el); attachPat(el,ch,c); wireTransfer(el,m);
           area.appendChild(el);
         });
         if(m.stats&&showStats()) area.appendChild(statsEl(m.stats));
         return;
       }
     }
-    const html=(m.role!=='user'&&typeof m.content==='string')?fmtAssistant(m.content):contentHtml(m.content);
-    const el=bubbleEl(m.role,html,'',ch);
+    const spWhole=typeof m.content==='string'?specialHtml(m.content.trim(),m.received):null;
+    const html=spWhole??((m.role!=='user'&&typeof m.content==='string')?fmtAssistant(m.content):contentHtml(m.content));
+    const el=bubbleEl(m.role,html,spWhole?'plain':'',ch);
     el.querySelector('.bubble').onclick=()=>openMsgActions(i);
     wireThink(el);
     if(m.role!=='user') attachPat(el,ch,c);
+    wireTransfer(el,m);
     area.appendChild(el);
     if(m.role!=='user'&&m.stats&&showStats()) area.appendChild(statsEl(m.stats));
   });
@@ -1196,10 +1295,38 @@ function renderChat(){
 const input=$('input');
 input.oninput=()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,120)+'px'; };
 
+/* ================= ➕ 功能面板 ================= */
+const curOnline=()=>{
+  const c=curChat();
+  if(!c) return !!curChar(null)?.online;
+  return c.members&&c.members.length?!!c.online:!!curChar(c)?.online;
+};
+function togglePlus(open){
+  const show=open??!$('plusPanel').classList.contains('show');
+  $('plusPanel').classList.toggle('show',show);
+  $('plusBtn').classList.toggle('open',show);
+  if(show){
+    $('ppSticker').classList.toggle('dis',!curOnline());
+    $('ppTransfer').classList.toggle('dis',!curOnline());
+  }
+}
+$('plusBtn').onclick=()=>togglePlus();
+$('ppImg').onclick=()=>{ togglePlus(false); $('imgFile').click(); };
+$('ppFile').onclick=()=>{ togglePlus(false); $('docFile').click(); };
+$('ppSticker').onclick=()=>{
+  if(!curOnline()){ toast('表情包是线上专属哦，先把TA切到线上'); return; }
+  togglePlus(false); renderStickers(); openSheet('stickerSheet');
+};
+$('ppTransfer').onclick=()=>{
+  if(!curOnline()){ toast('转账是线上专属哦，先把TA切到线上'); return; }
+  togglePlus(false);
+  $('tfAmt').value=''; $('tfNote').value='';
+  openSheet('transferSheet');
+};
+
 /* ================= 发图 & 发文件 ================= */
 let pendingImgs=[];   // {media_type,data}
 let pendingFiles=[];  // {name,text}
-$('fileBtn').onclick=()=>$('docFile').click();
 $('docFile').onchange=async e=>{
   for(const f of e.target.files){
     if(f.size>300*1024){ toast(`「${f.name}」太大了（上限300KB）`); continue; }
@@ -1213,7 +1340,6 @@ $('docFile').onchange=async e=>{
   renderImgPreview();
   e.target.value='';
 };
-$('imgBtn').onclick=()=>$('imgFile').click();
 $('imgFile').onchange=async e=>{
   for(const f of e.target.files){
     try{ pendingImgs.push(await compressImage(f)); }
@@ -1662,7 +1788,7 @@ async function generateReply(c,onlyCharId,extraUser){
       const myName=userName();
       for(const m of members){
         const note=`【群聊】这是一个群聊，成员有：${allNames}，还有用户「${myName}」。你只扮演「${m.name}」，以${m.name}的身份说一条消息，不要替其他任何人发言，也不要在开头加自己的名字。`
-          +(c.online?'\n\n【线上群聊】大家在手机群里发消息。用发消息的口吻：短句、口语化、像平时在微信群里那样。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。':'')
+          +(c.online?'\n\n【线上群聊】大家在手机群里发消息。用发消息的口吻：短句、口语化、像平时在微信群里那样。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。\n\n'+onlineExtraNote():'')
           +(m.autoMem?'\n\n'+memNote():'');
         let gm=c.messages;
         if(m.ctxOn&&Number(m.ctxN)>0) gm=gm.slice(-Math.min(Number(m.ctxN),516));
@@ -1710,7 +1836,10 @@ async function generateReply(c,onlyCharId,extraUser){
       const body=baseBody(apiMsgs);
       if(ch&&ch.temp!=null&&ch.temp!=='') body.temperature=Number(ch.temp);
       const noteParts=[];
-      if(ch?.online) noteParts.push('【线上聊天】你和{{user}}正在手机上互发消息。用发消息的口吻回复：短句、口语化、像平时发微信那样自然。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。');
+      if(ch?.online){
+        noteParts.push('【线上聊天】你和{{user}}正在手机上互发消息。用发消息的口吻回复：短句、口语化、像平时发微信那样自然。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。');
+        noteParts.push(onlineExtraNote());
+      }
       if(ch?.autoMem) noteParts.push(memNote());
       const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,!!ch.online):'',c,noteParts.join('\n\n')||null,ch);
       if(sys) body.system=sys;
@@ -1726,6 +1855,7 @@ async function generateReply(c,onlyCharId,extraUser){
 }
 
 async function send(){
+  togglePlus(false);
   const text=input.value.trim();
   if(!text && !pendingImgs.length && !pendingFiles.length) return;
   if(!getApi()) return;
@@ -1856,6 +1986,70 @@ async function patChar(c,ch){
     c.ts=Date.now(); persistAll();
     if(c.id===currentId) renderChat();
   }
+}
+
+/* ================= 表情包 & 转账（发送侧） ================= */
+/* 发一条固定内容的用户消息；线上不自动回，线下自动回 */
+async function sendRaw(content,title){
+  if(!getApi()) return;
+  let c=curChat();
+  if(!c){
+    c={id:'t'+Date.now(),title:(title||'[消息]').slice(0,16),charId:selCharId,ts:Date.now(),messages:[]};
+    chats.push(c); currentId=c.id;
+  }
+  c.messages.push({role:'user',content,ts:Date.now()});
+  c.ts=Date.now(); persistAll(); renderChat();
+  const solo=!(c.members&&c.members.length);
+  if(solo?curChar(c)?.online:c.online) return;
+  await generateReply(c);
+}
+function renderStickers(){
+  const grid=$('stickerGrid'); grid.innerHTML='';
+  if(!stickers.length){
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--ink-soft);font-size:13px;padding:20px 0">还没有表情包，点下面添加几个叭</div>';
+    return;
+  }
+  stickers.forEach(st=>{
+    const d=document.createElement('div');
+    d.className='stkItem';
+    d.innerHTML=`<img src="${st.data}"><div class="nm">${esc(st.name)}</div><button class="rm">✕</button>`;
+    d.querySelector('img').onclick=()=>{
+      closeSheet('stickerSheet');
+      sendRaw(`<表情包:${st.name}>`,'[表情包]');
+    };
+    d.querySelector('.rm').onclick=()=>{
+      if(!confirm(`删掉「${st.name}」？`)) return;
+      stickers=stickers.filter(x=>x.id!==st.id);
+      persistStickers(); renderStickers();
+    };
+    grid.appendChild(d);
+  });
+}
+$('addSticker').onclick=()=>$('stickerFile').click();
+$('stickerFile').onchange=async e=>{
+  for(const f of e.target.files){
+    try{
+      const r=await compressImage(f,256,.85);
+      const name=f.name.replace(/\.[^.]+$/,'').slice(0,12)||('表情'+(stickers.length+1));
+      stickers.push({id:'st'+Date.now()+Math.random().toString(36).slice(2,5),name,data:`data:${r.media_type};base64,${r.data}`});
+    }catch(err){ toast('有张图读不了'); }
+  }
+  persistStickers(); renderStickers();
+  e.target.value='';
+};
+$('confirmTransfer').onclick=()=>{
+  const amt=Number($('tfAmt').value);
+  if(!amt||amt<=0){ toast('金额填一下叭'); return; }
+  const note=$('tfNote').value.trim().slice(0,20);
+  closeSheet('transferSheet');
+  sendRaw(`<转账:${amt}:${note}>`,'[转账]');
+};
+/* 线上模式的表情包/转账说明书 */
+function onlineExtraNote(){
+  const parts=[];
+  if(stickers.length) parts.push(`【表情包】你可以发表情包，可用的有：${stickers.map(s=>s.name).join('、')}。想发时单独占一行写 <表情包:名字>，那一行不要有别的字。偶尔发一个就好，别刷屏。`);
+  parts.push(`【转账】合适的情境下你可以给${userName()}转账：单独占一行写 <转账:金额:备注>，金额是数字。别频繁用，重要时刻才有意义。`);
+  return parts.join('\n\n');
 }
 
 /* 主动找你：打开/切到聊天时，隔了 2 小时以上 TA 先开口 */
@@ -2851,7 +3045,7 @@ $('statsToggle').onclick=()=>{
 };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,injections},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,injections,stickers},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -2871,6 +3065,7 @@ $('importFile').onchange=async e=>{
     if(data.moments) moments=data.moments;
     if(data.annivs) annivs=data.annivs;
     if(data.injections) injections=data.injections;
+    if(data.stickers){ stickers=data.stickers; persistStickers(); }
     if(data.presets){
       presets=data.presets;
       selPresetId=presets.some(p=>p.id===data.selPresetId)?data.selPresetId:null;
@@ -2892,12 +3087,15 @@ renderHistory();
 /* 从 IndexedDB 加载大数据；首次运行把 localStorage 旧数据迁移过去并腾出空间 */
 (async()=>{
   try{
-    const [ic,ich]=await Promise.all([idbGet('chats'),idbGet('characters')]);
+    const [ic,ich,ist]=await Promise.all([idbGet('chats'),idbGet('characters'),idbGet('stickers')]);
     let changed=false;
     if(ic){ chats=ic; changed=true; }
     else if(chats.length) await idbSet('chats',chats);
     if(ich){ characters=ich; changed=true; }
     else await idbSet('characters',characters);
+    if(ist&&ist.length) stickers=ist;
+    else if(stickers.length) persistStickers();
+    try{ localStorage.removeItem('xw_stickers'); }catch(e){}
     try{ localStorage.removeItem('xw_chats'); localStorage.removeItem('xw_characters'); }catch(e){}
     if(changed){ renderChat(); renderHistory(); }
     maybeAnniversary(); // 打开 app：今天是不是特别的日子
