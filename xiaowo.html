@@ -1301,6 +1301,8 @@ let streaming = false, aborter = null;
 
 const $ = id => document.getElementById(id);
 const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+/* 只放行真正的图片地址（自己拍的/导入的图都是 data:image 或 http(s)），挡掉伪造 src 的注入 */
+const safeUrl = u => (typeof u==='string' && /^(data:image\/(png|jpe?g|gif|webp|bmp)|https?:\/\/)[^"'<>\s]*$/i.test(u)) ? u : '';
 const fmt = s => esc(s)
   .replace(/`([^`\n]+)`/g,'<code>$1</code>')
   .replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
@@ -1368,7 +1370,7 @@ function photoHtml(text,msg){
 /* 整行是特殊消息 → 返回特殊气泡的 html，否则 null */
 function specialHtml(line,msg){
   let m=line.match(/^<表情包[:：]\s*(.+?)\s*>$/);
-  if(m){ const st=findSticker(m[1]); return st?`<img class="stickerImg" src="${st.data}">`:null; }
+  if(m){ const st=findSticker(m[1]); return st?`<img class="stickerImg" src="${safeUrl(st.data)}">`:null; }
   m=line.match(/^<转账[:：]\s*([\d.]+)\s*(?:[:：]\s*(.*?))?\s*>$/);
   if(m&&Number(m[1])>0) return transferHtml(Number(m[1]),m[2]||'',msg?.received);
   m=line.match(/^<语音[:：]\s*([\s\S]+?)\s*>$/);
@@ -1546,7 +1548,7 @@ $('profileName').onchange = e=>{
   persistAll(); toast(`以后就叫你「${userName()}」`);
 };
 function renderProfile(){
-  $('avatar').innerHTML = settings.myAvatar ? `<img src="${settings.myAvatar}">` : '₍ᵔ·̫ᵔ₎';
+  $('avatar').innerHTML = settings.myAvatar ? `<img src="${safeUrl(settings.myAvatar)}">` : '₍ᵔ·̫ᵔ₎';
 }
 $('avatar').onclick = ()=>$('myAvFile').click();
 $('myAvFile').onchange = async e=>{
@@ -1668,7 +1670,7 @@ function renderMemberBar(){
     const chip=document.createElement('button');
     chip.className='mbChip';
     const av=ch.avatar
-      ?`<img class="avSm" src="${ch.avatar}">`
+      ?`<img class="avSm" src="${safeUrl(ch.avatar)}">`
       :`<div class="avSm" style="background:var(--bubble-me);display:flex;align-items:center;justify-content:center;font-size:15px">${esc(ch.emoji||'☺')}</div>`;
     chip.innerHTML=av+`<span class="n">${esc(ch.name)}</span>`;
     chip.onclick=()=>{ if(streaming) return; generateReply(c,ch.id); };
@@ -1738,10 +1740,10 @@ function bubbleEl(role,html,extra,ch){
   const m=document.createElement('div');
   m.className='msg '+(role==='user'?'me':'ta');
   if(role==='user'){
-    const av=settings.myAvatar?`<img class="av" src="${settings.myAvatar}">`:'';
+    const av=settings.myAvatar?`<img class="av" src="${safeUrl(settings.myAvatar)}">`:'';
     m.innerHTML=`<div class="bubble ${extra||''}">${html}</div>${av}`;
   }else{
-    const av=ch&&ch.avatar?`<img class="av" src="${ch.avatar}">`:`<div class="av">${esc(ch?.emoji||'☺')}</div>`;
+    const av=ch&&ch.avatar?`<img class="av" src="${safeUrl(ch.avatar)}">`:`<div class="av">${esc(ch?.emoji||'☺')}</div>`;
     m.innerHTML=`${av}<div class="mcol"><div class="who">${esc(ch?.name||'')}</div><div class="bubble ${extra||''}">${html}</div></div>`;
   }
   return m;
@@ -1755,7 +1757,7 @@ function renderChat(){
   if(bgCh?.bg){
     /* 深夜模式压暗背景图，浅色主题提亮，保证字能看清 */
     const dim=document.documentElement.dataset.theme==='night'?'rgba(20,17,14,.55)':'rgba(255,255,255,.4)';
-    area.style.backgroundImage=`linear-gradient(${dim},${dim}),url(${bgCh.bg})`;
+    area.style.backgroundImage=`linear-gradient(${dim},${dim}),url("${safeUrl(bgCh.bg)}")`;
     area.style.backgroundSize='cover';
     area.style.backgroundPosition='center';
   }else{
@@ -1901,7 +1903,7 @@ function renderHome(){
   const ch=homeChar(); const body=$('homeBody');
   if(!ch){ body.innerHTML='<div style="text-align:center;color:var(--ink-soft);padding:30px 0">先打开和某个TA的单聊，再来看你们的主页吧～</div>'; return; }
   const av=ch.avatar
-    ?`<img src="${ch.avatar}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;box-shadow:var(--shadow)">`
+    ?`<img src="${safeUrl(ch.avatar)}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;box-shadow:var(--shadow)">`
     :`<div style="width:64px;height:64px;border-radius:50%;background:var(--bubble-me);display:flex;align-items:center;justify-content:center;font-size:30px">${esc(ch.emoji||'☺')}</div>`;
   const ls=loveStart(ch);
   let daysCard;
@@ -3032,7 +3034,7 @@ function renderStudyTimer(){
 }
 function updateStudyUI(){
   const ch=charOf(studySt?.charId)||curChar(curChat());
-  $('studyAvatar').innerHTML=ch?(ch.avatar?`<img class="avSm" src="${ch.avatar}">`:`<div class="avSm" style="background:var(--bubble-me);display:flex;align-items:center;justify-content:center">${esc(ch.emoji||'☺')}</div>`):'';
+  $('studyAvatar').innerHTML=ch?(ch.avatar?`<img class="avSm" src="${safeUrl(ch.avatar)}">`:`<div class="avSm" style="background:var(--bubble-me);display:flex;align-items:center;justify-content:center">${esc(ch.emoji||'☺')}</div>`):'';
   $('studyDurs').style.opacity=studySt?'.4':'1';
   $('studyStart').textContent=studySt?'提前结束':'开始专注';
   const today=studyLog.filter(l=>l.date===todayStr()).reduce((a,l)=>a+l.min,0);
@@ -3218,7 +3220,7 @@ function renderStickers(){
   stickers.forEach(st=>{
     const d=document.createElement('div');
     d.className='stkItem';
-    d.innerHTML=`<img src="${st.data}"><div class="nm">✎ ${esc(st.name)}</div><button class="rm">✕</button>`;
+    d.innerHTML=`<img src="${safeUrl(st.data)}"><div class="nm">✎ ${esc(st.name)}</div><button class="rm">✕</button>`;
     d.querySelector('img').onclick=()=>{
       closeSheet('stickerSheet');
       sendRaw(`<表情包:${st.name}>`,'[表情包]');
@@ -3438,7 +3440,7 @@ function renderChars(){
   characters.forEach(ch=>{
     const it=document.createElement('div');
     it.className='charItem'+(ch.id===selCharId?' sel':'');
-    const av=ch.avatar?`<img class="avSm" src="${ch.avatar}">`:`<span class="em">${esc(ch.emoji||'☺')}</span>`;
+    const av=ch.avatar?`<img class="avSm" src="${safeUrl(ch.avatar)}">`:`<span class="em">${esc(ch.emoji||'☺')}</span>`;
     it.innerHTML=`${av}
       <div class="info"><div class="nm">${esc(ch.name)}</div><div class="pv">${ch.online?'📱线上 · ':''}${esc(ch.prompt||'还没写设定')}</div></div>
       <button class="edit">编辑</button>`;
@@ -3523,7 +3525,7 @@ function compressAvatar(file){
 }
 function renderAvPreview(){
   $('ceAvPreview').innerHTML=editingAvatar
-    ?`<img src="${editingAvatar}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:var(--shadow)">`
+    ?`<img src="${safeUrl(editingAvatar)}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:var(--shadow)">`
     :`<div style="width:44px;height:44px;border-radius:50%;background:var(--bg-soft);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:12px">无</div>`;
   $('clearAv').style.display=editingAvatar?'block':'none';
 }
@@ -3531,7 +3533,7 @@ function renderAvPreview(){
 let editingBg=null;
 function renderBgPreview(){
   $('ceBgPreview').innerHTML=editingBg
-    ?`<img src="${editingBg}" style="width:60px;height:44px;border-radius:10px;object-fit:cover;box-shadow:var(--shadow)">`
+    ?`<img src="${safeUrl(editingBg)}" style="width:60px;height:44px;border-radius:10px;object-fit:cover;box-shadow:var(--shadow)">`
     :`<div style="width:60px;height:44px;border-radius:10px;background:var(--bg-soft);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:12px">无</div>`;
   $('clearBg').style.display=editingBg?'block':'none';
 }
@@ -3876,7 +3878,7 @@ function renderGroupChars(){
     const i=groupSel.indexOf(ch.id);
     const it=document.createElement('div');
     it.className='charItem'+(i>=0?' sel':'');
-    const av=ch.avatar?`<img class="avSm" src="${ch.avatar}">`:`<span class="em">${esc(ch.emoji||'☺')}</span>`;
+    const av=ch.avatar?`<img class="avSm" src="${safeUrl(ch.avatar)}">`:`<span class="em">${esc(ch.emoji||'☺')}</span>`;
     it.innerHTML=`${av}<div class="info"><div class="nm">${esc(ch.name)}</div><div class="pv">${i>=0?`第 ${i+1} 个发言`:'点一下加入'}</div></div>`;
     it.onclick=()=>{
       const j=groupSel.indexOf(ch.id);
@@ -3905,7 +3907,7 @@ $('createGroup').onclick=()=>{
 const charOf=id=>characters.find(c=>c.id===id);
 const momentName=by=>by==='me'?userName():(charOf(by)?.name||'TA');
 function momentAv(by){
-  const im=src=>`<img class="avSm" src="${src}">`;
+  const im=src=>`<img class="avSm" src="${safeUrl(src)}">`;
   const em=t=>`<div class="avSm" style="background:var(--bubble-me);display:flex;align-items:center;justify-content:center;font-size:${t.length>2?'11px':'17px'}">${esc(t)}</div>`;
   if(by==='me') return settings.myAvatar?im(settings.myAvatar):em('₍ᵔ·̫ᵔ₎');
   const ch=charOf(by);
