@@ -982,6 +982,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     </div>
     <input type="file" id="skinFile" accept=".json" style="display:none">
     <div class="hintText" style="margin:0 2px 6px">挑一个皮肤一键换上；也能自己调颜色和圆角。喜欢的皮肤可以「导出」成文件发给朋友，别人发你的也能「导入」。</div>
+    <button class="boxRow" id="cssBtn" style="width:100%"><span class="ic">🎨</span><span class="grow" style="text-align:left">高级美化（自定义 CSS）</span><span style="color:var(--ink-soft);font-size:12px">›</span></button>
     <button class="boxRow" id="timeBtn" style="width:100%"><span class="ic">⏳</span><span class="grow" style="text-align:left">时光机</span></button>
     <div class="boxRow">
       <span class="ic">📊</span><span class="grow">显示 token 统计</span>
@@ -1286,6 +1287,36 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     </div>
     <div id="wishList"></div>
     <div class="hintText" style="margin-top:6px">勾上表示一起完成啦 ✓。这些心愿 TA 都记在心里，会在合适的时候提起、约你去做。</div>
+  </div>
+</div>
+
+<!-- 高级美化：自定义 CSS -->
+<div class="sheetScrim" id="cssSheet">
+  <div class="sheet">
+    <div class="sheetTitle">高级美化（自定义 CSS）<button class="close" data-close="cssSheet">✕</button></div>
+    <div class="field">
+      <textarea id="cssInput" spellcheck="false" placeholder="把别人做好的 CSS 主题粘进来，或自己写。点「应用」立刻生效。" style="min-height:200px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.5;white-space:pre"></textarea>
+    </div>
+    <div class="boxRow" style="gap:8px;background:none;box-shadow:none;padding:0;margin-bottom:10px">
+      <button class="ghostBtn" id="cssDemo" style="flex:1;margin:0;font-size:13px">套用示范主题</button>
+      <button class="ghostBtn" id="cssExport" style="flex:1;margin:0;font-size:13px">📤 导出</button>
+      <button class="ghostBtn" id="cssImport" style="flex:1;margin:0;font-size:13px">📥 导入</button>
+    </div>
+    <input type="file" id="cssFile" accept=".css,.txt" style="display:none">
+    <button class="primaryBtn" id="cssApply">应用</button>
+    <button class="ghostBtn" id="cssClear" style="color:var(--danger)">清空，回到默认外观</button>
+    <details style="margin-top:12px">
+      <summary style="font-size:13px;color:var(--accent-deep);cursor:pointer">可以改哪些部件？（给主题作者看）</summary>
+      <div class="hintText" style="margin-top:8px;line-height:1.8">
+        顶栏 <code>#chatHeader</code>（名字 <code>#headerName</code>、状态 <code>#headerSub</code>）<br>
+        聊天背景 <code>#msgArea</code> · 时间条 <code>.timeDiv</code> · 角色名 <code>.who</code><br>
+        我的气泡 <code>.msg.me .bubble</code> · TA的气泡 <code>.msg.ta .bubble</code> · 通用 <code>.bubble</code><br>
+        头像 <code>.av</code> / <code>.avSm</code><br>
+        输入栏 <code>#inputBar</code>（输入框 <code>#input</code>、发送 <code>#sendBtn</code>、➕ <code>#plusBtn</code>）<br>
+        写法跟那段小手机的一样，记得在样式后面加 <code>!important</code> 才盖得住。
+      </div>
+    </details>
+    <div class="hintText" style="margin-top:8px">自定义 CSS 只改外观、不会运行程序，比较安全；唯一要留意的是别贴来路不明、含外部图片地址的主题（可能偷偷联网）。这套会跟着备份一起保存。</div>
   </div>
 </div>
 
@@ -2159,6 +2190,32 @@ $('callTextBtn').onclick=()=>{ $('callTextRow').classList.toggle('show'); if($('
 $('callMuteBtn').onclick=()=>{ callMuted=!callMuted; $('callMuteBtn').textContent=callMuted?'🔇':'🔊'; if(callMuted){ try{ speechSynthesis.cancel(); }catch(e){} callAvSpeaking(false); } };
 $('callSendBtn').onclick=()=>{ const t=$('callInput').value.trim(); if(t){ $('callInput').value=''; callSay(t); } };
 $('callInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('callSendBtn').onclick(); } });
+
+/* ===== 高级美化：自定义 CSS（整页深度换肤，可导入导出分享） ===== */
+function applyCustomCss(){
+  let el=document.getElementById('userCss');
+  if(!el){ el=document.createElement('style'); el.id='userCss'; document.head.appendChild(el); }
+  el.textContent=settings.customCss||'';
+}
+const CSS_DEMO=`/* 小窝 · iMessage 蓝（示范主题，随便改）by 小克 */
+#msgArea{background:#ffffff !important}
+.bubble{border-radius:18px !important;box-shadow:none !important;font-size:15px !important}
+.msg.me .bubble{background:linear-gradient(#1f9bff,#0a84ff) !important;color:#fff !important;border-bottom-right-radius:18px !important}
+.msg.ta .bubble{background:#e9e9eb !important;color:#000 !important;border-bottom-left-radius:18px !important}
+#chatHeader{background:rgba(248,248,248,.9) !important;border-bottom:1px solid #d6d6d8 !important}
+#headerName{color:#000 !important}
+#headerSub{color:#8e8e93 !important}
+.timeDiv,.who{color:#8e8e93 !important}
+#inputBar{background:#f6f6f6 !important;border-top:1px solid #d6d6d8 !important}
+#input{background:#fff !important;border:1px solid #c8c8cc !important;border-radius:18px !important;color:#000 !important}
+#sendBtn{background:#0a84ff !important;color:#fff !important}`;
+$('cssBtn').onclick=()=>{ $('cssInput').value=settings.customCss||''; openSheet('cssSheet'); };
+$('cssApply').onclick=()=>{ settings.customCss=$('cssInput').value; persistAll(); applyCustomCss(); toast('美化应用好啦 ✨'); };
+$('cssClear').onclick=()=>{ $('cssInput').value=''; settings.customCss=''; persistAll(); applyCustomCss(); toast('回到默认外观'); };
+$('cssDemo').onclick=()=>{ $('cssInput').value=CSS_DEMO; settings.customCss=CSS_DEMO; persistAll(); applyCustomCss(); toast('示范主题套上啦，可继续改'); };
+$('cssExport').onclick=()=>{ const css=$('cssInput').value||settings.customCss||''; if(!css.trim()){ toast('还没有内容可导出'); return; } dlFile('小窝主题.css',css,'text/css;charset=utf-8'); toast('主题导出好啦，可发给朋友'); };
+$('cssImport').onclick=()=>$('cssFile').click();
+$('cssFile').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const t=await f.text(); $('cssInput').value=t; settings.customCss=t; persistAll(); applyCustomCss(); toast('主题导入并应用啦 ✓'); }catch(err){ toast('文件读不了'); } e.target.value=''; };
 
 /* ===== 你们的相册：TA随手拍的照片都攒在这 ===== */
 function renderAlbum(){
@@ -4799,7 +4856,7 @@ $('importFile').onchange=async e=>{
       selPresetId=presets.some(p=>p.id===data.selPresetId)?data.selPresetId:null;
     }
     if(data.settings){ settings={...settings,...data.settings,apiKey:'',tavilyKey:settings.tavilyKey||''}; }
-    persistAll(); applyTheme(); renderChat(); renderHistory(); renderChars();
+    persistAll(); applyTheme(); applyCustomCss(); renderChat(); renderHistory(); renderChars();
     toast('恢复好啦');
   }catch(err){ toast('这个文件读不了'); }
   e.target.value='';
@@ -4807,6 +4864,7 @@ $('importFile').onchange=async e=>{
 
 /* ================= 启动 ================= */
 applyTheme();
+applyCustomCss();
 renderProfile();
 applyFont();
 renderChat();
