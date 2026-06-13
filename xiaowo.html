@@ -858,8 +858,8 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     </div>
     <div class="field">
       <label>单次回复上限（max_tokens）</label>
-      <input type="number" id="setMaxTokens" value="2048" min="256" max="64000">
-      <div class="hintText">设多大都不多花钱——模型说完会自然停笔，这只是保险丝。Sonnet 最高 64000，个别模型上限低，设超了会报错，调小即可。</div>
+      <input type="number" id="setMaxTokens" min="256" max="64000" placeholder="留空＝不限制（推荐）">
+      <div class="hintText">不懂就留空——等于不限制，TA 想说多长说多长，说完会自然停笔，<b>设大也不多花钱</b>，只是个保险丝。想自己设也行：个别模型上限低，填超了会报错，调小即可。</div>
     </div>
     <button class="primaryBtn" id="saveSettings">保存</button>
     <div class="hintText">Key 只存在这台手机的浏览器里，不会发给除 Anthropic 之外的任何地方。</div>
@@ -2574,10 +2574,12 @@ function baseBody(messages){
   const preset=presets.find(p=>p.id===selPresetId);
   const body={
     model: settings.model,
-    max_tokens: Number(preset?.maxTokens)||Number(settings.maxTokens)||2048,
     stream: streamOn(),
     messages,
   };
+  /* 留空＝不限制：有填才带 max_tokens。Anthropic 必填→callStream 里补大默认；OpenAI 省略即不限 */
+  const mt=Number(preset?.maxTokens)||Number(settings.maxTokens);
+  if(mt>0) body.max_tokens=mt;
   if(preset && preset.temperature!=='' && preset.temperature!=null)
     body.temperature=Number(preset.temperature);
   return body;
@@ -2631,7 +2633,8 @@ function toOpenAI(body){
         :{type:'text',text:b.text}
     )});
   }
-  const o={model:body.model,max_tokens:body.max_tokens,stream:body.stream!==false,messages:msgs};
+  const o={model:body.model,stream:body.stream!==false,messages:msgs};
+  if(body.max_tokens) o.max_tokens=body.max_tokens;   // 留空就不传＝不限制
   if(o.stream) o.stream_options={include_usage:true};   // 让流式响应带 token 用量
   if(body.temperature!=null) o.temperature=body.temperature;
   return o;
@@ -2663,6 +2666,8 @@ async function callStream(api,body,bub,area,out){
   const isOA=api.fmt==='openai';
   /* OpenAI 系温度 0~2，Anthropic 最高 1：超了自动压回，不报错 */
   if(!isOA&&body.temperature!=null) body.temperature=Math.min(1,body.temperature);
+  /* Anthropic 接口 max_tokens 必填：用户留空（不限制）时补个足够大的默认，正常聊天到不了 */
+  if(!isOA&&body.max_tokens==null) body.max_tokens=8192;
   if(!isOA) addCacheControl(body);
   /* 卡死看门狗：超过 60 秒没有任何新内容就当作 TA 那边卡住了，主动断开让用户重试。
      流式每收到一段就重置计时；非流式（一次性返回本来就要等久）不挂表，免得误杀长回复 */
@@ -3732,7 +3737,7 @@ $('gearBtn').onclick=()=>{
   $('addKeyForm').style.display='none'; $('addKeyBtn').style.display='block';
   buildModelSelect();
   syncModelSelect();
-  $('setMaxTokens').value=settings.maxTokens;
+  $('setMaxTokens').value=settings.maxTokens||'';
   openSheet('settingsSheet');
 };
 $('fetchModels').onclick=async()=>{
@@ -3758,7 +3763,7 @@ $('fetchModels').onclick=async()=>{
 $('setModel').onchange=e=>{ $('setModelCustom').style.display=e.target.value==='custom'?'block':'none'; };
 $('saveSettings').onclick=()=>{
   settings.model=$('setModel').value==='custom'?$('setModelCustom').value.trim():$('setModel').value;
-  settings.maxTokens=Number($('setMaxTokens').value)||2048;
+  settings.maxTokens=$('setMaxTokens').value.trim()?Number($('setMaxTokens').value):'';
   persistAll(); closeSheet('settingsSheet'); toast('存好啦');
 };
 
