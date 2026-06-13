@@ -1399,7 +1399,7 @@ const persistStickers=()=>idbSet('stickers',stickers).catch(()=>{ try{save('xw_s
 let streaming = false, aborter = null;
 
 const $ = id => document.getElementById(id);
-const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 /* 只放行真正的图片地址（自己拍的/导入的图都是 data:image 或 http(s)），挡掉伪造 src 的注入 */
 const safeUrl = u => (typeof u==='string' && /^(data:image\/(png|jpe?g|gif|webp|bmp)|https?:\/\/)[^"'<>\s]*$/i.test(u)) ? u : '';
 /* 代码块：```lang … ``` 渲染成代码框（可复制，HTML 还能预览） */
@@ -3576,7 +3576,7 @@ function renderKeyList(){
     it.onclick=ev=>{
       if(ev.target.closest('.delKey')) return;
       selKeyId=k.id; persistAll(); renderKeyList();
-      toast(`已切换到「${esc(k.label||'未命名')}」`);
+      toast(`已切换到「${k.label||'未命名'}」`);
     };
     it.querySelector('.kEdit').onclick=ev=>{
       ev.stopPropagation();
