@@ -676,6 +676,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <button class="ppItem" id="ppAlbum"><span class="ppIc">📷</span>相册</button>
     <button class="ppItem" id="ppGame"><span class="ppIc">🎮</span>小游戏</button>
     <button class="ppItem" id="ppStudy"><span class="ppIc">📚</span>自习</button>
+    <button class="ppItem" id="ppHome"><span class="ppIc">💕</span>恋爱主页</button>
   </div>
 </div>
 
@@ -1216,6 +1217,27 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   </div>
 </div>
 
+<!-- 恋爱主页弹层 -->
+<div class="sheetScrim" id="homeSheet">
+  <div class="sheet">
+    <div class="sheetTitle">恋爱主页<button class="close" data-close="homeSheet">✕</button></div>
+    <div id="homeBody"></div>
+  </div>
+</div>
+
+<!-- 一起想做的事（心愿单）弹层 -->
+<div class="sheetScrim" id="wishSheet">
+  <div class="sheet">
+    <div class="sheetTitle">一起想做的事<button class="close" data-close="wishSheet">✕</button></div>
+    <div class="field" style="display:flex;gap:8px;align-items:flex-end">
+      <input id="wishInput" placeholder="比如：一起去看海、养只猫、吃遍这条街" maxlength="60" style="flex:1">
+      <button class="primaryBtn" id="addWish" style="width:auto;padding:0 18px;margin:0">添加</button>
+    </div>
+    <div id="wishList"></div>
+    <div class="hintText" style="margin-top:6px">勾上表示一起完成啦 ✓。这些心愿 TA 都记在心里，会在合适的时候提起、约你去做。</div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1260,6 +1282,7 @@ if(selPresetId && !presets.some(p=>p.id===selPresetId)) selPresetId=null;
 let memories = load('xw_memories', []);     // {id,charId,text}
 let moments = load('xw_moments', []);       // {id,charId|null,text,ts,likes:[by],comments:[{by,text,ts}]}  by='me' 或角色id
 let annivs = load('xw_annivs', []);         // {id,charId,name,date:'YYYY-MM-DD',last:'已庆祝的日期'}
+let wishes = load('xw_wishes', []);         // {id,charId,text,done,ts} 一起想做的事/心愿单
 let injections = load('xw_injections', []); // {id,name,content,on,pos:'sys_start|sys_end|chat_end|depth',depth}
 let stickers = load('xw_stickers', []);     // {id,name,data:dataURL}（正式存 IndexedDB）
 let diaries = load('xw_diaries', []);       // {id,charId,date:'YYYY-MM-DD',text,ts}
@@ -1411,6 +1434,7 @@ const persistAll = ()=>{
   save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook);
   save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories);
   save('xw_moments',moments); save('xw_annivs',annivs); save('xw_injections',injections);
+  save('xw_wishes',wishes);
   save('xw_diaries',diaries); save('xw_cal_notes',calNotes); save('xw_periods',periods);
   save('xw_photos',photos); save('xw_games',gamesLog);
   idbSet('chats',chats).catch(()=>save('xw_chats',chats));
@@ -1838,6 +1862,93 @@ $('confirmVoice').onclick=()=>{
 $('ppAlbum').onclick=()=>{ togglePlus(false); renderAlbum(); openSheet('albumSheet'); };
 $('ppGame').onclick=()=>{ togglePlus(false); openSheet('gameSheet'); };
 
+/* ===== 恋爱主页 + 一起想做的事（心愿单） ===== */
+function homeChar(){ const c=curChat(); return (c&&c.members&&c.members.length)?null:curChar(c); }
+/* 在一起起点：优先用户手设的 loveStartDate；否则找名字像"在一起"的过去纪念日（别错拿生日） */
+function loveStart(ch){
+  if(ch?.loveStartDate&&/^\d{4}-\d{2}-\d{2}$/.test(ch.loveStartDate)) return {date:ch.loveStartDate};
+  const re=/在一起|恋爱|相恋|交往|确定关系|表白/;
+  const list=annivs.filter(a=>a.charId===ch?.id&&/^\d{4}-\d{2}-\d{2}$/.test(a.date)&&new Date(a.date+'T00:00:00')<=new Date()&&re.test(a.name||''));
+  return list.sort((x,y)=>x.date<y.date?-1:1)[0]||null;
+}
+/* 下一个纪念日（按月日，循环到明年） */
+function nextAnniv(ch){
+  const list=annivs.filter(a=>a.charId===ch?.id&&/^\d{4}-\d{2}-\d{2}$/.test(a.date));
+  if(!list.length) return null;
+  const now=new Date(); now.setHours(0,0,0,0); let best=null;
+  for(const a of list){
+    const [,mo,da]=a.date.split('-').map(Number);
+    let d=new Date(now.getFullYear(),mo-1,da); if(d<now) d=new Date(now.getFullYear()+1,mo-1,da);
+    const days=Math.round((d-now)/86400000);
+    if(!best||days<best.days) best={a,days};
+  }
+  return best;
+}
+function renderHome(){
+  const ch=homeChar(); const body=$('homeBody');
+  if(!ch){ body.innerHTML='<div style="text-align:center;color:var(--ink-soft);padding:30px 0">先打开和某个TA的单聊，再来看你们的主页吧～</div>'; return; }
+  const av=ch.avatar
+    ?`<img src="${ch.avatar}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;box-shadow:var(--shadow)">`
+    :`<div style="width:64px;height:64px;border-radius:50%;background:var(--bubble-me);display:flex;align-items:center;justify-content:center;font-size:30px">${esc(ch.emoji||'☺')}</div>`;
+  const ls=loveStart(ch);
+  let daysCard;
+  if(ls){
+    const days=Math.floor((Date.now()-new Date(ls.date+'T00:00:00'))/86400000)+1;
+    daysCard=`<div style="text-align:center;padding:14px 0 18px">
+      <div style="font-size:13px;color:var(--ink-soft)">和 ${esc(ch.name)} 在一起</div>
+      <div style="font-size:42px;font-weight:700;color:var(--accent-deep);line-height:1.15">${days}<span style="font-size:18px;font-weight:600"> 天</span></div>
+      <div style="font-size:12px;color:var(--ink-soft)">从 ${ls.date} 算起 ♡</div></div>`;
+  }else{
+    daysCard=`<div style="text-align:center;padding:14px 0">
+      <div style="font-size:13px;color:var(--ink-soft);margin-bottom:8px">设定你们在一起的日子，就能看天数啦 ♡</div>
+      <input type="date" id="homeLoveDate" style="padding:6px 10px;border-radius:10px">
+      <button class="ghostBtn" id="homeLoveSave" style="margin-top:8px;width:auto;padding:6px 18px">保存</button></div>`;
+  }
+  const na=nextAnniv(ch);
+  const annCard=na?`<div class="boxRow" style="background:var(--bg-soft);box-shadow:none"><span class="ic">🎂</span><span class="grow">${na.days===0?'今天就是「'+esc(na.a.name)+'」!':'距离「'+esc(na.a.name)+'」'}</span><b style="color:var(--accent-deep)">${na.days===0?'🎉':'还有 '+na.days+' 天'}</b></div>`:'';
+  const wl=wishes.filter(w=>w.charId===ch.id);
+  const doneN=wl.filter(w=>w.done).length;
+  const prev=wl.slice().sort((a,b)=>(a.done-b.done)||(b.ts-a.ts)).slice(0,3)
+    .map(w=>`<div style="font-size:13px;${w.done?'text-decoration:line-through;color:var(--ink-soft)':'color:var(--ink)'}">${w.done?'✓':'○'} ${esc(w.text)}</div>`).join('')
+    ||'<div style="font-size:13px;color:var(--ink-soft)">还没写，点开加几个一起想做的事吧～</div>';
+  const wishCard=`<button class="boxRow" id="homeWish" style="width:100%;flex-direction:column;align-items:stretch;gap:7px;background:var(--bg-soft);box-shadow:none;text-align:left">
+    <div style="display:flex;align-items:center;gap:12px"><span class="ic">🌈</span><span class="grow" style="font-weight:600">一起想做的事</span><span style="font-size:12px;color:var(--ink-soft)">${wl.length?doneN+'/'+wl.length:''} ›</span></div>
+    ${prev}</button>`;
+  const weather=(weatherInfo&&settings.city&&weatherInfo.city===settings.city.name)?` · ${weatherInfo.desc} ${weatherInfo.temp}°`:'';
+  body.innerHTML=`
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">${av}
+      <div><div style="font-size:18px;font-weight:600">${esc(ch.name)}</div>
+      <div style="font-size:13px;color:var(--ink-soft)">${esc(nowAct(ch))}${weather}</div></div></div>
+    ${daysCard}${annCard}<div style="height:8px"></div>${wishCard}`;
+  const sv=$('homeLoveSave'); if(sv) sv.onclick=()=>{ const v=$('homeLoveDate').value; if(!v){ toast('先选个日期叭'); return; } ch.loveStartDate=v; persistAll(); renderHome(); toast('记好啦 ♡'); };
+  $('homeWish').onclick=()=>{ closeSheet('homeSheet'); openWish(ch); };
+}
+$('ppHome').onclick=()=>{ togglePlus(false); renderHome(); openSheet('homeSheet'); };
+
+let wishChar=null;
+function openWish(ch){ wishChar=ch||homeChar(); if(!wishChar){ toast('先打开和TA的单聊'); return; } renderWishes(); openSheet('wishSheet'); }
+function renderWishes(){
+  const box=$('wishList');
+  const wl=wishes.filter(w=>w.charId===wishChar?.id).sort((a,b)=>(a.done-b.done)||(b.ts-a.ts));
+  if(!wl.length){ box.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:18px 0">还没有心愿，加一个吧～</div>'; return; }
+  box.innerHTML='';
+  wl.forEach(w=>{
+    const it=document.createElement('div');
+    it.className='boxRow'; it.style.cssText='background:var(--bg-soft);box-shadow:none;border-radius:12px;margin-bottom:8px';
+    it.innerHTML=`<button class="wishChk" style="font-size:18px;flex-shrink:0">${w.done?'✅':'⬜'}</button><span class="grow" style="${w.done?'text-decoration:line-through;color:var(--ink-soft)':''}">${esc(w.text)}</span><button class="delKey wishDel" style="flex-shrink:0">✕</button>`;
+    it.querySelector('.wishChk').onclick=()=>{ w.done=!w.done; persistAll(); renderWishes(); };
+    it.querySelector('.wishDel').onclick=()=>{ if(!confirm('删掉这个心愿？')) return; wishes=wishes.filter(x=>x.id!==w.id); persistAll(); renderWishes(); };
+    box.appendChild(it);
+  });
+}
+$('addWish').onclick=()=>{
+  if(!wishChar){ toast('先打开恋爱主页'); return; }
+  const t=$('wishInput').value.trim(); if(!t){ toast('写点想做的事叭'); return; }
+  wishes.push({id:'wish'+Date.now()+Math.random().toString(36).slice(2,5),charId:wishChar.id,text:t.slice(0,60),done:false,ts:Date.now()});
+  $('wishInput').value=''; persistAll(); renderWishes();
+};
+$('wishInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('addWish').onclick(); } });
+
 /* ===== 你们的相册：TA随手拍的照片都攒在这 ===== */
 function renderAlbum(){
   const grid=$('albumGrid');
@@ -2009,6 +2120,15 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   if(mems.length) fast.push('【记忆】关于用户，你记得这些事：\n'+mems.map(m=>'- '+m.text).join('\n'));
   const ans=annivs.filter(a=>a.charId===ch?.id);
   if(ans.length) fast.push('【纪念日】对你们很重要的日子，你一直记得：\n'+ans.map(a=>`- ${a.name}：${a.date}`).join('\n'));
+  const wl=wishes.filter(w=>w.charId===ch?.id);
+  if(wl.length){
+    const undone=wl.filter(w=>!w.done), done=wl.filter(w=>w.done);
+    let ws='【你们一起想做的事】这是你和{{user}}共同的心愿清单，你都记在心里：';
+    if(undone.length) ws+='\n还没实现的：\n'+undone.map(w=>'- '+w.text).join('\n');
+    if(done.length) ws+='\n已经一起完成的：\n'+done.map(w=>'- '+w.text).join('\n');
+    ws+='\n合适的时候可以自然地提起、约对方一起去做，或为完成过的事开心一下。别生硬罗列。';
+    fast.push(ws);
+  }
   if(c?.summary) fast.push('【前情提要】（更早对话的压缩版）\n'+c.summary);
   for(const i of injActive('sys_end')) fast.push(i.content);
   const s1=applyVars(slow.join('\n\n'),ch), s2=applyVars(fast.join('\n\n'),ch);
@@ -4436,7 +4556,7 @@ $('cacheToggle').onclick=()=>{
 };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,injections,stickers,diaries,studyLog,calNotes,periods,photos,gamesLog},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,photos,gamesLog},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -4455,6 +4575,7 @@ $('importFile').onchange=async e=>{
     if(data.memories) memories=data.memories;
     if(data.moments) moments=data.moments;
     if(data.annivs) annivs=data.annivs;
+    if(data.wishes) wishes=data.wishes;
     if(data.injections) injections=data.injections;
     if(data.stickers){ stickers=data.stickers; persistStickers(); }
     if(data.diaries) diaries=data.diaries;
