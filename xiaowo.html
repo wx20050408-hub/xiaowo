@@ -1920,8 +1920,10 @@ function renderChat(){
     }
     let ch=null;
     if(m.role!=='user') ch=(m.charId&&characters.find(x=>x.id===m.charId))||curChar(c)||{name:'?'};
-    /* 线上模式：TA 的回复按行拆成一条条小消息（思考块单独一个气泡） */
-    if(online&&m.role!=='user'&&typeof m.content==='string'){
+    /* 线上模式：TA 的回复按行拆成一条条小消息（思考块单独一个气泡）。
+       每条消息记着自己发出时是线上还是线下，老消息没记就跟随窗口当前设置（向后兼容） */
+    const mOnline = m.online!==undefined ? m.online : online;
+    if(mOnline&&m.role!=='user'&&typeof m.content==='string'){
       const segs=/<think/i.test(m.content)?extractThink(m.content):[{type:'text',text:m.content}];
       const thinks=segs.filter(x=>x.type==='think');
       const text=segs.filter(x=>x.type==='text').map(x=>x.text).join('\n');
@@ -2682,7 +2684,7 @@ async function callStream(api,body,bub,area,out){
                          : (ev.type==='content_block_delta'?ev.delta?.text:null);
         if(piece){
           out.acc+=piece;
-          bub.innerHTML=fmtAssistant(out.acc);
+          if(out.render) out.render(); else bub.innerHTML=fmtAssistant(out.acc);
           area.scrollTop=area.scrollHeight;
         }
         /* 捞 token 用量 */
@@ -2713,6 +2715,28 @@ async function runReply(c,api,body,ch){
   const bub=holder.querySelector('.bubble');
   const out={acc:''};
   const isOnline=chatOnline(c);
+  /* 线上模式：边流式边把"已经写完整行"的句子弹成一条条独立小消息，
+     最后一行还在打字就留在当前气泡里，弹完一条→气泡回到「…」像在打下一条 */
+  if(isOnline){
+    const popped=[];   // 已弹出成型的小气泡
+    out.render=()=>{
+      const segs=/<think/i.test(out.acc)?extractThink(out.acc):[{type:'text',text:out.acc}];
+      const thinks=segs.filter(x=>x.type==='think');
+      const text=segs.filter(x=>x.type==='text').map(x=>x.text).join('\n');
+      const parts=text.split('\n');
+      const liveLine=parts[parts.length-1].trim();          // 还在打的那行
+      const done=parts.slice(0,-1).map(s=>s.trim()).filter(Boolean);  // 已写完的整行
+      for(let k=popped.length;k<done.length;k++){
+        const el=bubbleEl('assistant',fmt(done[k]),'',ch);
+        area.insertBefore(el,holder);                       // 插在「正在打字」气泡前面
+        wireThink(el); wireCode(el);
+        popped.push(el);
+      }
+      const tk=thinks.length?thinks.map(t=>thinkHtml(t.text,t.closed)).join(''):'';
+      bub.innerHTML=(tk+(liveLine?fmt(liveLine):''))||'<span class="typingDot">…</span>';
+      wireThink(holder);
+    };
+  }
   const saveMsg=()=>{
     /* TA 自己记的笔记：收走 <记住> 标记，存进记忆 */
     if(out.acc.includes('<记住>')){
@@ -2732,7 +2756,7 @@ async function runReply(c,api,body,ch){
     const stats=(out.usage&&(out.usage.in!=null||out.usage.out!=null))
       ?{in:out.usage.in,out:out.usage.out,cached:out.usage.cached||0,secs:out.t0?Math.round((Date.now()-out.t0)/100)/10:null}
       :null;
-    c.messages.push({role:'assistant',charId:ch?.id,content:out.acc,ts:Date.now(),...(stats?{stats}:{})});
+    c.messages.push({role:'assistant',charId:ch?.id,content:out.acc,ts:Date.now(),online:isOnline,...(stats?{stats}:{})});
     c.ts=Date.now(); persistAll();
     const idx=c.messages.length-1;
     bub.onclick=()=>openMsgActions(idx);
@@ -3334,7 +3358,7 @@ async function studyPraise(min,charId){
   if(!txt) return;
   const c=chats.filter(x=>!(x.members&&x.members.length)&&x.charId===ch.id).sort((a,b)=>b.ts-a.ts)[0];
   if(c){
-    c.messages.push({role:'assistant',charId:ch.id,content:txt,ts:Date.now()});
+    c.messages.push({role:'assistant',charId:ch.id,content:txt,ts:Date.now(),online:chatOnline(c)});
     c.ts=Date.now(); persistAll();
     if(c.id===currentId) renderChat();
   }
@@ -3444,7 +3468,7 @@ async function patChar(c,ch){
   const txt=await quickGen(api,momentSystem(ch),
     applyVars(`${userName()}刚刚在聊天里拍了拍你（就像微信的拍一拍）。请用一句简短的话回应，符合你的性格和你们的关系。只输出这句话本身，不要动作描写。`,ch),80);
   if(txt){
-    c.messages.push({role:'assistant',charId:ch.id,content:txt.slice(0,200),ts:Date.now()});
+    c.messages.push({role:'assistant',charId:ch.id,content:txt.slice(0,200),ts:Date.now(),online:chatOnline(c)});
     c.ts=Date.now(); persistAll();
     if(c.id===currentId) renderChat();
   }
