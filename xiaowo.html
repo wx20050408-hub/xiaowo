@@ -3167,18 +3167,18 @@ function renderKeyList(){
         <div class="keyLabel">${esc(k.label||'未命名')}</div>
         <div class="keyPreview">${maskKey(k.key)}${k.url?' · '+esc(k.url.replace(/^https?:\/\//,'').split('/')[0]):''}${k.fmt==='openai'?' · OpenAI格式':''}</div>
       </div>
-      <button class="delKey editKey" title="编辑" style="color:var(--accent-deep);font-weight:600">✎ 改</button>
-      <button class="delKey" title="删除">✕ 删</button>`;
+      <button class="delKey kEdit" title="编辑" style="color:var(--accent-deep);font-weight:600">✎ 改</button>
+      <button class="delKey kDel" title="删除">✕ 删</button>`;
     it.onclick=ev=>{
-      if(ev.target.classList.contains('delKey')) return;
+      if(ev.target.closest('.delKey')) return;
       selKeyId=k.id; persistAll(); renderKeyList();
       toast(`已切换到「${esc(k.label||'未命名')}」`);
     };
-    it.querySelector('.editKey').onclick=ev=>{
+    it.querySelector('.kEdit').onclick=ev=>{
       ev.stopPropagation();
       openKeyEdit(k);
     };
-    it.querySelector('.delKey').onclick=ev=>{
+    it.querySelector('.kDel').onclick=ev=>{
       ev.stopPropagation();
       if(!confirm(`删掉「${k.label||'未命名'}」这个 Key？`)) return;
       apiKeys=apiKeys.filter(x=>x.id!==k.id);
