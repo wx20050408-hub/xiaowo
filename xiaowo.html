@@ -900,6 +900,10 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <div class="sheetTitle">窗口设置<button class="close" data-close="winSheet">✕</button></div>
     <div class="field"><label>对话名字</label><input id="winTitle" maxlength="24" placeholder="给这个窗口起个名字"></div>
     <div class="field">
+      <div class="boxRow"><span class="ic">📱</span><span class="grow">这个窗口 线上模式</span><button class="wbToggle" id="winOnline"></button></div>
+      <div class="hintText">线上：TA 用短句回复、要你点「让TA回复」才说话；线下：正常长文、发完自动回。只影响这个窗口，新窗口默认跟随角色。</div>
+    </div>
+    <div class="field">
       <div class="boxRow"><span class="ic">💌</span><span class="grow">这个窗口TA会主动找你</span><button class="wbToggle" id="winProactive"></button></div>
       <div class="hintText">只对当前这个窗口生效。同一个角色开的几个窗口可以分别开关，互不影响。新窗口默认跟随角色的设置。</div>
     </div>
@@ -1625,6 +1629,12 @@ function proactiveGapMs(c){
   const h=(c&&c.proactiveGap>0)?c.proactiveGap:2;
   return h*3600e3;
 }
+/* 线上/线下：群聊用窗口的 c.online；单聊窗口设过用窗口的，否则跟随角色 */
+function chatOnline(c){
+  if(!c) return !!curChar(null)?.online;
+  if(c.members&&c.members.length) return !!c.online;
+  return c.online===undefined ? !!curChar(c)?.online : !!c.online;
+}
 
 function renderHeader(){
   const c=curChat();
@@ -1639,7 +1649,7 @@ function renderHeader(){
   }
   const ch=curChar(c);
   $('headerName').textContent = c ? c.title : (ch ? ch.name : '小窝');
-  $('headerSub').textContent = (ch ? `${ch.name} · ${ch.online?'📱':''}${nowAct(ch)}` : '在线')
+  $('headerSub').textContent = (ch ? `${ch.name} · ${chatOnline(c)?'📱':''}${nowAct(ch)}` : '在线')
     + (ch?.sign ? ` · ${ch.sign}` : '') + (pr ? ` · ${pr.name}` : '');
   updateReplyBtn();
 }
@@ -1686,8 +1696,12 @@ function renameChat(c){
 /* 点顶栏的对话名 → 打开这个窗口的设置（改名 + 主动设置） */
 $('headerName').onclick=()=>{ const c=curChat(); if(c) openWinSettings(c); };
 
-/* ===== 窗口设置：每个对话窗独立的主动开关 + 频率 ===== */
-let editingWinId=null, winProEnabled=false;
+/* ===== 窗口设置：每个对话窗独立的 线上/线下 + 主动开关 + 频率 ===== */
+let editingWinId=null, winProEnabled=false, winOnlineEnabled=false;
+$('winOnline').onclick=()=>{
+  winOnlineEnabled=!winOnlineEnabled;
+  $('winOnline').classList.toggle('on',winOnlineEnabled);
+};
 $('winProactive').onclick=()=>{
   winProEnabled=!winProEnabled;
   $('winProactive').classList.toggle('on',winProEnabled);
@@ -1696,6 +1710,8 @@ $('winProactive').onclick=()=>{
 function openWinSettings(c){
   editingWinId=c.id;
   $('winTitle').value=c.title||'';
+  winOnlineEnabled=chatOnline(c);
+  $('winOnline').classList.toggle('on',winOnlineEnabled);
   winProEnabled=proactiveOn(c);
   $('winProactive').classList.toggle('on',winProEnabled);
   $('winGapField').style.display=winProEnabled?'block':'none';
@@ -1708,11 +1724,12 @@ $('saveWin').onclick=()=>{
   const v=$('winTitle').value.trim();
   if(!v){ toast('名字不能空着'); return; }
   c.title=v.slice(0,24);
+  c.online=winOnlineEnabled;
   c.proactive=winProEnabled;
   const g=Number($('winGap').value);
   c.proactiveGap=(g>0)?Math.min(72,Math.max(0.5,g)):2;
   persistAll(); renderHistory();
-  if(c.id===currentId) renderHeader();
+  if(c.id===currentId){ renderHeader(); renderChat(); }
   closeSheet('winSheet');
   toast('改好啦');
 };
@@ -1748,7 +1765,7 @@ function renderChat(){
     area.innerHTML='<div id="empty"><div class="face">₍ᐢ. .ᐢ₎</div><div class="hint">说点什么吧，我听着呢</div></div>';
     return;
   }
-  const online=c.members&&c.members.length?!!c.online:curChar(c)?.online;
+  const online=chatOnline(c);
   let prevTs=0;
   c.messages.forEach((m,i)=>{
     /* 超过10分钟的间隔显示时间条 */
@@ -1819,11 +1836,7 @@ const input=$('input');
 input.oninput=()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,120)+'px'; };
 
 /* ================= ➕ 功能面板 ================= */
-const curOnline=()=>{
-  const c=curChat();
-  if(!c) return !!curChar(null)?.online;
-  return c.members&&c.members.length?!!c.online:!!curChar(c)?.online;
-};
+const curOnline=()=>chatOnline(curChat());
 function togglePlus(open){
   const show=open??!$('plusPanel').classList.contains('show');
   $('plusPanel').classList.toggle('show',show);
@@ -2444,7 +2457,7 @@ async function runReply(c,api,body,ch){
   area.appendChild(holder); area.scrollTop=area.scrollHeight;
   const bub=holder.querySelector('.bubble');
   const out={acc:''};
-  const isOnline=c.members&&c.members.length?!!c.online:curChar(c)?.online;
+  const isOnline=chatOnline(c);
   const saveMsg=()=>{
     /* TA 自己记的笔记：收走 <记住> 标记，存进记忆 */
     if(out.acc.includes('<记住>')){
@@ -2470,7 +2483,7 @@ async function runReply(c,api,body,ch){
     bub.onclick=()=>openMsgActions(idx);
     wireThink(bub);
     /* 线上模式：回复完按行拆成小气泡；含特殊卡片（语音/拍照等）也重渲染成卡片 */
-    const onlineNow=c.members&&c.members.length?!!c.online:curChar(c)?.online;
+    const onlineNow=chatOnline(c);
     if(c.id===currentId && ((onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|搜索)[:：]/.test(out.acc)))
       renderChat();
     else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
@@ -2660,14 +2673,15 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
       const body=baseBody(apiMsgs);
       if(ch&&ch.temp!=null&&ch.temp!=='') body.temperature=Number(ch.temp);
       const noteParts=[];
-      if(ch?.online){
+      const soloOnline=chatOnline(c);
+      if(soloOnline){
         noteParts.push('【线上聊天】你和{{user}}正在手机上互发消息。用发消息的口吻回复：短句、口语化、像平时发微信那样自然。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。');
         noteParts.push(onlineExtraNote());
       }
       if(ch?.autoMem) noteParts.push(memNote());
       if((settings.tavilyKey||'').trim()) noteParts.push(searchNote());
       noteParts.push(directorNote());
-      const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,!!ch.online):'',c,noteParts.join('\n\n')||null,ch);
+      const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,soloOnline):'',c,noteParts.join('\n\n')||null,ch);
       if(sys) body.system=sys;
       const ok=await runReply(c,api,body,ch);
       /* 窗口超出 N → 后台压前情提要并推进锚点（不等待） */
@@ -2711,8 +2725,7 @@ async function send(){
   if(typeof content!=='string') genImgDescs(c);   // 带图：后台生成文字描述
 
   /* 线上模式：不自动回，等「让TA回复」或点名 */
-  const solo=!(c.members&&c.members.length);
-  if(solo ? curChar(c)?.online : c.online) return;
+  if(chatOnline(c)) return;
   await generateReply(c);
 }
 
@@ -3193,8 +3206,7 @@ async function sendRaw(content,title){
   }
   c.messages.push({role:'user',content,ts:Date.now()});
   c.ts=Date.now(); persistAll(); renderChat();
-  const solo=!(c.members&&c.members.length);
-  if(solo?curChar(c)?.online:c.online) return;
+  if(chatOnline(c)) return;
   await generateReply(c);
 }
 function renderStickers(){
@@ -3278,7 +3290,7 @@ $('replyBtn').onclick=async()=>{
 };
 function updateReplyBtn(){
   const c=curChat();
-  const isOn=c&&(c.members&&c.members.length?!!c.online:curChar(c)?.online);
+  const isOn=c&&chatOnline(c);
   $('replyBtn').style.display=(isOn&&!streaming)?'block':'none';
 }
 
