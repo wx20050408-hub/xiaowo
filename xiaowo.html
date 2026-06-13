@@ -2903,7 +2903,7 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
       const myName=userName();
       for(const m of members){
         const note=`【群聊】这是一个群聊，成员有：${allNames}，还有用户「${myName}」。你只扮演「${m.name}」，以${m.name}的身份说一条消息，不要替其他任何人发言，也不要在开头加自己的名字。`
-          +(c.online?'\n\n【线上群聊】大家在手机群里发消息。用发消息的口吻：短句、口语化、像平时在微信群里那样。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。\n\n'+onlineExtraNote():'')
+          +(c.online?'\n\n【线上群聊】大家在手机群里发消息。用发消息的口吻：短句、口语化、像平时在微信群里那样。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。\n\n'+onlineExtraNote():'\n\n'+offlineNote())
           +(m.autoMem?'\n\n'+memNote():'')
           +'\n\n'+directorNote();
         let gm=c.messages;
@@ -2956,6 +2956,8 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
       if(soloOnline){
         noteParts.push('【线上聊天】你和{{user}}正在手机上互发消息。用发消息的口吻回复：短句、口语化、像平时发微信那样自然。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。');
         noteParts.push(onlineExtraNote());
+      }else{
+        noteParts.push(offlineNote());
       }
       if(ch?.autoMem) noteParts.push(memNote());
       if((settings.tavilyKey||'').trim()) noteParts.push(searchNote());
@@ -3544,6 +3546,10 @@ function onlineExtraNote(){
   parts.push(`【语音条】偶尔可以发语音：单独占一行写 <语音:想说的话>，对方要点开才能听。适合撒娇、哄人、或者有点害羞打字说不出口的话。别频繁用。`);
   parts.push(`【随手拍】你可以"拍张照片"分享你的此刻：单独占一行写 <拍照:照片画面的描述>，描述照片里拍到了什么（你在哪、看到什么），像随手拍的配文，40字以内。偶尔分享一张就好，照片会存进你们共同的相册。`);
   return parts.join('\n\n');
+}
+/* 线下/沉浸模式的风格提示：抵消"被线上短句腌入味"——明确要求写成连贯段落 */
+function offlineNote(){
+  return `【线下·沉浸相处】你和${userName()}现在是面对面、沉浸式地相处，不是隔着手机发消息。请把回复写成连贯、自然的段落：可以有动作、神态、心理活动和环境的描写，让画面感和情绪都在场。\n不要把话拆成一行一句的短消息，也不要模仿上文那种手机聊天「一行一条」的风格——就算前面的消息是那样，从现在起也请切回完整的叙述。`;
 }
 
 /* 主动找你：打开/切到聊天时，隔了 2 小时以上 TA 先开口 */
