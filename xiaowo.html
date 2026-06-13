@@ -706,11 +706,24 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .rpWord{background:var(--bubble-me);border-radius:14px;padding:5px 12px;font-size:14px;color:var(--ink)}
 .rpWord b{color:var(--accent-deep)}
 .rpWord .n{font-size:11px;color:var(--ink-soft);margin-left:4px}
+/* 开屏齿轮 + 图片背景可读性 + 装扮面板 */
+#splash>*{position:relative;z-index:1}
+#splashGear{position:absolute;top:max(16px,env(safe-area-inset-top));right:18px;z-index:2;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.5);backdrop-filter:blur(6px);font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+#splash.imgbg::before{content:'';position:absolute;inset:0;z-index:0;background:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.42));pointer-events:none}
+#splash.imgbg .splashHead,#splash.imgbg .splashSub,#splash.imgbg .splashHint{color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.65)}
+#splash.imgbg .splashDays{color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+#dressSheet{z-index:340}
+#dressPreview .treeSvg{width:130px}
+.tsChip,.bgChip{border:2px solid transparent;border-radius:14px;padding:7px 12px;font-size:13px;background:var(--bg-soft);display:flex;align-items:center;gap:5px;color:var(--ink)}
+.tsChip.on,.bgChip.on{border-color:var(--accent);color:var(--accent-deep);font-weight:600}
+.bgChip{width:46px;height:34px;padding:0;border-radius:10px}
+.bgChip.on{box-shadow:0 0 0 2px var(--accent)}
 </style>
 </head>
 <body>
 <!-- 开屏页：你和TA的关系树（点一下/上滑进入） -->
 <div id="splash">
+  <button id="splashGear" title="开屏装扮">🎨</button>
   <div id="splashTreeWrap"></div>
   <div id="splashInfo"></div>
   <div id="splashPick"></div>
@@ -1332,6 +1345,24 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   <div class="sheet">
     <div class="sheetTitle">恋爱主页<button class="close" data-close="homeSheet">✕</button></div>
     <div id="homeBody"></div>
+  </div>
+</div>
+
+<!-- 开屏装扮：换树 + 换背景 -->
+<div class="sheetScrim" id="dressSheet">
+  <div class="sheet">
+    <div class="sheetTitle">开屏装扮<button class="close" data-close="dressSheet">✕</button></div>
+    <div id="dressPreview" style="display:flex;justify-content:center;margin-bottom:6px"></div>
+    <div id="dressTree"></div>
+    <div class="boxRow" style="background:none;box-shadow:none;padding:6px 2px 2px"><span class="ic">🖼</span><span class="grow" style="font-weight:600">开屏背景</span></div>
+    <div id="dressBgChips" style="display:flex;flex-wrap:wrap;gap:8px;margin:0 2px 8px"></div>
+    <div class="boxRow" style="gap:8px">
+      <span class="ic" style="opacity:0">🖼</span>
+      <label style="flex:1;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink)">自定义颜色 <input type="color" id="dressBgColor" class="colorDot"></label>
+      <button class="ghostBtn" id="dressBgImg" style="flex:1;margin:0;font-size:13px">📷 上传图片</button>
+    </div>
+    <input type="file" id="dressBgFile" accept="image/*" style="display:none">
+    <div class="hintText" style="margin:2px 2px 0">背景是整个开屏共用的；树的样子是给每个 TA 单独记的。心血来潮随时来换 ♡</div>
   </div>
 </div>
 
@@ -2089,8 +2120,27 @@ function seasonPalette(m){
   if(m>=9&&m<=11) return {name:'autumn',trunk:'#7a5236',leaves:['#e8a33d','#d9692a','#c0392b','#e6b422','#cf7c2c','#b5532a']};
   return {name:'winter',trunk:'#6f5742',leaves:['#8fa37c','#b7c2a3','#cdb89a','#9fb08a','#d8c6a8']};
 }
-function buildTreeSVG(days,away,seedStr){
-  const pal=seasonPalette(new Date().getMonth()+1);
+/* 提亮/压暗一个 hex 颜色（amt: -1暗 ~ 1亮） */
+function tShade(hex,amt){
+  hex=String(hex||'#8cc63f').replace('#',''); if(hex.length===3) hex=hex.split('').map(c=>c+c).join('');
+  const ad=c=>Math.max(0,Math.min(255,Math.round(amt>=0?c+(255-c)*amt:c*(1+amt))));
+  const r=ad(parseInt(hex.slice(0,2),16)),g=ad(parseInt(hex.slice(2,4),16)),b=ad(parseInt(hex.slice(4,6),16));
+  return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+/* 树种调色板：normal跟随季节，其余固定主题；custom用自选色生成明暗变体 */
+const TREE_STYLES=[{k:'normal',name:'随季节',emoji:'🌳'},{k:'sakura',name:'樱花',emoji:'🌸'},{k:'maple',name:'枫叶',emoji:'🍁'},{k:'ginkgo',name:'银杏',emoji:'🍂'},{k:'pine',name:'常青',emoji:'🌲'}];
+function treePalette(style,custom){
+  switch(style){
+    case 'sakura': return {name:'sakura',trunk:'#9a6b5a',leaves:['#ffd1e3','#ffc0d9','#ffe3ef','#f7a8c8','#ffd9e8'],blossom:true};
+    case 'maple':  return {name:'maple',trunk:'#7a4a30',leaves:['#e0492b','#c0392b','#e8702a','#d65a25','#b53524']};
+    case 'ginkgo': return {name:'ginkgo',trunk:'#7d6240',leaves:['#f2c43d','#e8b923','#ffd95a','#e0a92a','#f7d048']};
+    case 'pine':   return {name:'pine',trunk:'#5e4a36',leaves:['#2f6b3a','#357a42','#2a5e33','#3f8a4c','#46924f']};
+    case 'custom': return {name:'custom',trunk:'#7d5e44',leaves:[tShade(custom,0.28),tShade(custom,0.14),custom||'#8cc63f',tShade(custom,-0.14),tShade(custom,-0.28)]};
+    default: return seasonPalette(new Date().getMonth()+1);
+  }
+}
+function buildTreeSVG(days,away,seedStr,style,custom){
+  const pal=treePalette(style,custom);
   const MAX=54, rand=tRng(tHash(seedStr));
   const n=Math.max(4,Math.min(MAX,Math.round(MAX*(1-Math.exp(-days/26))))); // 越聊越久叶子越多，递减封顶
   const pts=[]; let guard=0;
@@ -2100,10 +2150,12 @@ function buildTreeSVG(days,away,seedStr){
     if(y>148) continue; // 树冠以下不放叶
     pts.push({x,y,rot:Math.round(rand()*70-35),sz:0.78+rand()*0.5,col:pal.leaves[Math.floor(rand()*pal.leaves.length)],r:rand()});
   }
-  const fallN = away>=2 ? Math.min(9,Math.max(3,away)) : 0; // 久没聊→几片叶子飘落
+  let fallN = away>=2 ? Math.min(9,Math.max(3,away)) : 0; // 久没聊→几片叶子飘落
+  if(pal.blossom) fallN=Math.max(fallN,4); // 樱花总有几片花瓣在飘
+  const ryK=pal.blossom?6.2:4.3; // 樱花更圆，像花瓣
   let leaves='';
   for(let i=0;i<n;i++){
-    const p=pts[i]; const rx=(7*p.sz).toFixed(1), ry=(4.3*p.sz).toFixed(1), cx=p.x.toFixed(1), cy=p.y.toFixed(1);
+    const p=pts[i]; const rx=(7*p.sz).toFixed(1), ry=(ryK*p.sz).toFixed(1), cx=p.x.toFixed(1), cy=p.y.toFixed(1);
     if(i>=n-fallN) leaves+=`<ellipse class="leaf fall" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${p.col}" style="animation-delay:${(p.r*3.5).toFixed(2)}s;animation-duration:${(3.4+p.r*2).toFixed(2)}s"/>`;
     else leaves+=`<ellipse class="leaf" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${p.col}" transform="rotate(${p.rot} ${cx} ${cy})"/>`;
   }
@@ -2185,6 +2237,7 @@ function splashCurrentChar(){
 function renderSplash(){
   const sp=$('splash'); if(!sp) return;
   if(!splashOn()||splashDone){ sp.style.display='none'; return; }
+  applySplashBg();
   const wrap=$('splashTreeWrap'), info=$('splashInfo'), pick=$('splashPick');
   const ch=splashCurrentChar();
   if(!ch){
@@ -2193,7 +2246,7 @@ function renderSplash(){
     pick.innerHTML='';
   }else{
     const st=charStats(ch.id);
-    wrap.innerHTML=buildTreeSVG(st.days,st.away,ch.id);
+    wrap.innerHTML=buildTreeSVG(st.days,st.away,ch.id,ch.treeStyle,ch.treeColor);
     const fall=st.away>=2?' · 好久没聊啦，它在落叶呢':'';
     const ls=loveStart(ch);
     if(ls){ const ld=Math.floor((Date.now()-new Date(ls.date+'T00:00:00'))/86400000)+1;
@@ -2222,6 +2275,68 @@ function dismissSplash(){
   sp.addEventListener('touchstart',e=>{ sy=e.touches[0].clientY; },{passive:true});
   sp.addEventListener('touchmove',e=>{ if(sy!=null && sy-e.touches[0].clientY>40){ sy=null; dismissSplash(); } },{passive:true});
 })();
+
+/* ===== 开屏背景 + 装扮面板 ===== */
+const SPLASH_BGS=[
+  {k:'default',css:''},
+  {k:'sky',css:'linear-gradient(170deg,#cfe8ff,#eaf6ff)'},
+  {k:'dusk',css:'linear-gradient(170deg,#ffd9c7,#ffe9d6)'},
+  {k:'mint',css:'linear-gradient(170deg,#cdeede,#eafaf2)'},
+  {k:'lilac',css:'linear-gradient(170deg,#e2d6f5,#f2ecfb)'},
+  {k:'sakura',css:'linear-gradient(170deg,#ffe3ef,#fff2f7)'},
+  {k:'night',css:'linear-gradient(170deg,#2c3550,#46362a)'},
+];
+function applySplashBg(){
+  const sp=$('splash'); if(!sp) return;
+  const bg=settings.splashBg;
+  sp.classList.remove('imgbg');
+  sp.style.background=''; sp.style.backgroundImage=''; sp.style.backgroundSize=''; sp.style.backgroundPosition='';
+  if(!bg) return; // 回退到 CSS 默认奶油渐变
+  if(bg.type==='image'){
+    sp.style.backgroundColor='#3a2e25';
+    sp.style.backgroundImage=`url("${safeUrl(bg.value)}")`;
+    sp.style.backgroundSize='cover'; sp.style.backgroundPosition='center';
+    sp.classList.add('imgbg');
+  }else sp.style.background=bg.value;
+}
+let dressChar=null;
+function openDress(ch){ dressChar=ch||splashCurrentChar()||homeChar(); renderDress(); openSheet('dressSheet'); }
+function dressApply(){ persistAll(); applySplashBg(); if(!splashDone&&splashOn()) renderSplash(); if($('homeSheet').classList.contains('show')) renderHome(); renderDress(); }
+function renderDress(){
+  const ch=dressChar;
+  $('dressPreview').innerHTML = ch ? buildTreeSVG(Math.max(charStats(ch.id).days,12),0,ch.id,ch.treeStyle,ch.treeColor) : buildTreeSVG(20,0,'preview');
+  const dt=$('dressTree');
+  if(ch){
+    const cur=ch.treeStyle||'normal';
+    const chips=TREE_STYLES.map(s=>`<button class="tsChip${cur===s.k?' on':''}" data-ts="${s.k}">${s.emoji} ${s.name}</button>`).join('')
+      +`<button class="tsChip${cur==='custom'?' on':''}" data-ts="custom">🎨 自定义</button>`;
+    dt.innerHTML=`<div class="boxRow" style="background:none;box-shadow:none;padding:2px 2px"><span class="ic">🌳</span><span class="grow" style="font-weight:600">给「${esc(ch.name)}」的树</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin:0 2px 8px">${chips}</div>
+      ${cur==='custom'?`<div class="boxRow" style="gap:8px"><span class="ic" style="opacity:0">🌳</span><label style="flex:1;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink)">叶子颜色 <input type="color" id="dressTreeColor" class="colorDot" value="${ch.treeColor||'#8cc63f'}"></label></div>`:''}`;
+    dt.querySelectorAll('.tsChip').forEach(b=>b.onclick=()=>{ ch.treeStyle=b.dataset.ts; if(b.dataset.ts==='custom'&&!ch.treeColor) ch.treeColor='#8cc63f'; dressApply(); });
+    const tc=$('dressTreeColor'); if(tc) tc.oninput=e=>{ ch.treeColor=e.target.value; ch.treeStyle='custom'; persistAll(); applySplashBg(); if(!splashDone&&splashOn())renderSplash(); $('dressPreview').innerHTML=buildTreeSVG(20,0,ch.id,'custom',ch.treeColor); };
+  }else dt.innerHTML='<div class="hintText" style="margin:0 2px 10px">还没有和TA的单聊，先去聊几句，就能给TA的树换样子啦～</div>';
+  const cur=settings.splashBg;
+  $('dressBgChips').innerHTML=SPLASH_BGS.map(b=>{
+    const on=(!cur&&b.k==='default')||(cur&&cur.type==='color'&&cur.value===b.css&&!!b.css);
+    const sw=b.css||'radial-gradient(120% 90% at 50% 16%,#fff7ee,#f6ecdf)';
+    return `<button class="bgChip${on?' on':''}" data-bg="${esc(b.k)}" title="${b.k==='default'?'默认':''}" style="background:${sw}"></button>`;
+  }).join('');
+  $('dressBgChips').querySelectorAll('.bgChip').forEach(b=>b.onclick=()=>{
+    const def=SPLASH_BGS.find(x=>x.k===b.dataset.bg);
+    settings.splashBg=(def.k==='default')?null:{type:'color',value:def.css};
+    dressApply();
+  });
+  const cc=$('dressBgColor'); if(cc){ cc.value=(cur&&cur.type==='color'&&/^#[0-9a-f]{6}$/i.test(cur.value))?cur.value:'#f6ecdf'; cc.oninput=e=>{ settings.splashBg={type:'color',value:e.target.value}; dressApply(); }; }
+}
+$('splashGear').onclick=e=>{ e.stopPropagation(); openDress(splashCurrentChar()); };
+$('dressBgImg').onclick=()=>$('dressBgFile').click();
+$('dressBgFile').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ const r=await compressImage(f,1280,.72); settings.splashBg={type:'image',value:`data:${r.media_type};base64,${r.data}`}; dressApply(); toast('开屏背景换好啦 🖼'); }
+  catch(err){ toast('这张图读不了'); }
+  e.target.value='';
+};
 
 /* ===== 恋爱主页 + 一起想做的事（心愿单） ===== */
 function homeChar(){ const c=curChat(); return (c&&c.members&&c.members.length)?null:curChar(c); }
@@ -2277,7 +2392,7 @@ function renderHome(){
     ${prev}</button>`;
   const weather=(weatherInfo&&settings.city&&weatherInfo.city===settings.city.name)?` · ${weatherInfo.desc} ${weatherInfo.temp}°`:'';
   const tst=charStats(ch.id);
-  const treeCard=`<div class="homeTree">${buildTreeSVG(tst.days,tst.away,ch.id)}<div class="htCap">你们一起聊过的 ${tst.days} 天${tst.away>=2?' · 它好像在等你回来':''}</div></div>`;
+  const treeCard=`<div class="homeTree">${buildTreeSVG(tst.days,tst.away,ch.id,ch.treeStyle,ch.treeColor)}<div class="htCap">你们一起聊过的 ${tst.days} 天${tst.away>=2?' · 它好像在等你回来':''}</div><button class="ghostBtn" id="homeDress" style="margin-top:8px;width:auto;padding:5px 16px;font-size:13px">🎨 给这棵树/开屏换个样子</button></div>`;
   const reportCard=`<button class="boxRow" id="homeReport" style="width:100%;background:var(--bg-soft);box-shadow:none;text-align:left"><span class="ic">📊</span><span class="grow" style="font-weight:600">我们的小报告</span><span style="font-size:12px;color:var(--ink-soft)">最晚熬到几点·聊了多少·最常说的词 ›</span></button>`;
   body.innerHTML=`
     ${treeCard}
@@ -2288,6 +2403,7 @@ function renderHome(){
   const sv=$('homeLoveSave'); if(sv) sv.onclick=()=>{ const v=$('homeLoveDate').value; if(!v){ toast('先选个日期叭'); return; } ch.loveStartDate=v; persistAll(); renderHome(); toast('记好啦 ♡'); };
   $('homeWish').onclick=()=>{ closeSheet('homeSheet'); openWish(ch); };
   $('homeReport').onclick=()=>{ renderReport(ch); openSheet('reportSheet'); };
+  $('homeDress').onclick=()=>{ openDress(ch); };
 }
 $('ppHome').onclick=()=>{ togglePlus(false); renderHome(); openSheet('homeSheet'); };
 
