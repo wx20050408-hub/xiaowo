@@ -635,6 +635,34 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .mCmtRow button{padding:8px 15px;border-radius:14px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;flex-shrink:0}
 #momentsEmpty{text-align:center;color:var(--ink-soft);font-size:13px;padding:50px 20px;line-height:2}
 .mPosting{display:flex;align-items:center;gap:10px;color:var(--ink-soft);font-size:13px;padding:4px 4px 14px}
+/* ===== 通话模式 ===== */
+#callScreen{position:fixed;inset:0;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:space-between;padding:max(34px,env(safe-area-inset-top)) 20px max(28px,env(safe-area-inset-bottom));color:#fff}
+#callScreen.show{display:flex}
+#callScreen.callVoice{background:linear-gradient(160deg,#F6DCC4,#E3C7E0);color:var(--ink)}
+#callScreen.callVideo{background:#15110D}
+.callTop{text-align:center;z-index:2}
+.callName{font-size:22px;font-weight:700}
+.callStat{font-size:13px;opacity:.8;margin-top:4px}
+.callAvWrap{flex:1;display:flex;align-items:center;justify-content:center;width:100%;position:relative}
+.callScreen.callVideo .callAvWrap{position:absolute;inset:0}
+#callScreen.callVideo .callAvBig{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:0}
+#callScreen.callVideo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35),transparent 30%,transparent 60%,rgba(0,0,0,.55))}
+.callAvBig{width:200px;height:200px;border-radius:50%;object-fit:cover;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.callAvFb{width:200px;height:200px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:90px;background:rgba(255,255,255,.18)}
+.callSpeaking{animation:callpulse 1.1s ease-in-out infinite}
+@keyframes callpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+.callCap{position:relative;z-index:2;max-width:480px;width:100%;text-align:center;min-height:46px;font-size:15px;line-height:1.5;margin-bottom:8px;text-shadow:0 1px 6px rgba(0,0,0,.25)}
+.callCap .who{font-size:11px;opacity:.7;display:block;margin-bottom:2px}
+.callCtrls{z-index:2;display:flex;gap:18px;align-items:center;justify-content:center}
+.callBtn{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(255,255,255,.2);backdrop-filter:blur(6px);color:inherit}
+#callScreen.callVoice .callBtn{background:rgba(255,255,255,.55)}
+.callBtn.mic.on{background:var(--accent);color:#fff;box-shadow:0 0 0 6px rgba(232,168,124,.3)}
+.callBtn.hang{background:#E5544B;color:#fff}
+.callSmall{width:46px;height:46px;font-size:19px}
+.callTextRow{z-index:2;display:none;gap:8px;width:100%;max-width:480px;margin-top:12px}
+.callTextRow.show{display:flex}
+.callTextRow input{flex:1;min-width:0;border:none;border-radius:18px;padding:11px 15px;font-size:15px;background:rgba(255,255,255,.9);color:var(--ink)}
+.callTextRow button{padding:0 18px;border-radius:18px;background:var(--accent);color:#fff;font-weight:600;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -685,6 +713,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <button class="ppItem" id="ppGame"><span class="ppIc">🎮</span>小游戏</button>
     <button class="ppItem" id="ppStudy"><span class="ppIc">📚</span>自习</button>
     <button class="ppItem" id="ppHome"><span class="ppIc">💕</span>恋爱主页</button>
+    <button class="ppItem" id="ppCall"><span class="ppIc">📞</span>通话</button>
   </div>
 </div>
 
@@ -1257,6 +1286,27 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     </div>
     <div id="wishList"></div>
     <div class="hintText" style="margin-top:6px">勾上表示一起完成啦 ✓。这些心愿 TA 都记在心里，会在合适的时候提起、约你去做。</div>
+  </div>
+</div>
+
+<!-- 通话模式全屏 -->
+<div id="callScreen" class="callVideo">
+  <div class="callTop">
+    <div class="callName" id="callName">通话</div>
+    <div class="callStat" id="callStat">正在接通…</div>
+  </div>
+  <div class="callAvWrap"><div id="callAv"></div></div>
+  <div class="callCap" id="callCap"></div>
+  <div class="callTextRow" id="callTextRow">
+    <input id="callInput" placeholder="打字说…" maxlength="200">
+    <button id="callSendBtn">发送</button>
+  </div>
+  <div class="callCtrls">
+    <button class="callBtn callSmall" id="callStyleBtn" title="切换界面">🔄</button>
+    <button class="callBtn callSmall" id="callTextBtn" title="打字">⌨️</button>
+    <button class="callBtn mic" id="callMicBtn" title="说话">🎤</button>
+    <button class="callBtn callSmall" id="callMuteBtn" title="静音TA">🔊</button>
+    <button class="callBtn hang" id="callHangBtn" title="挂断">📞</button>
   </div>
 </div>
 
@@ -2015,6 +2065,100 @@ $('addWish').onclick=()=>{
   $('wishInput').value=''; persistAll(); renderWishes();
 };
 $('wishInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('addWish').onclick(); } });
+
+/* ===== 通话模式：全屏界面 + TA朗读 + 你说话(语音转文字)或打字 ===== */
+let callTimer=null, callT0=0, callRec=null, callMicOn=false, callMuted=false, callBusy=false, callFinal='';
+const CALL_NOTE='（系统提示：你正在和对方打电话/视频通话。请用最口语化、简短自然的话回应，像真的在通话，一次说一两句就好。绝对不要写任何动作、神态、旁白、括号说明，也不要发表情包/转账/语音条这些。）';
+function callChar(){ const c=curChat(); return (c&&c.members&&c.members.length)?null:curChar(c); }
+function renderCallAvatar(ch){
+  if(!ch) return;
+  $('callAv').innerHTML=ch.avatar?`<img class="callAvBig" src="${safeUrl(ch.avatar)}">`:`<div class="callAvFb">${esc(ch.emoji||'☺')}</div>`;
+}
+function openCall(){
+  const c=curChat(), ch=callChar();
+  if(!c){ toast('先打开和TA的单聊再通话哦'); return; }
+  if(!ch){ toast('群聊还不能通话哦'); return; }
+  if(!getApi()) return;
+  togglePlus(false);
+  $('callName').textContent=ch.name;
+  $('callStat').textContent='正在接通…';
+  $('callCap').innerHTML=''; $('callTextRow').classList.remove('show');
+  renderCallAvatar(ch);
+  $('callScreen').classList.add('show');
+  callMuted=false; $('callMuteBtn').textContent='🔊';
+  callT0=Date.now(); clearInterval(callTimer);
+  callTimer=setInterval(()=>{ const s=Math.floor((Date.now()-callT0)/1000); $('callStat').textContent='通话中 '+String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); },1000);
+  setTimeout(callGreet,900);
+}
+async function callGreet(){
+  if(!$('callScreen').classList.contains('show')||callBusy) return;
+  callBusy=true;
+  await generateReply(curChat(),null,CALL_NOTE+'（这是电话刚接通，请你先自然地打个招呼开场。）');
+  if($('callScreen').classList.contains('show')) speakLast(curChat());
+  callBusy=false;
+}
+function speakLast(c){
+  const last=c.messages[c.messages.length-1];
+  if(!last||last.role!=='assistant') return;
+  const say=stripThink(textOf(last.content)).replace(/<[^>]+>/g,'').replace(/[*_#`>~]/g,'').replace(/\n+/g,' ').trim();
+  if(!say) return;
+  showCap('ta',say); callSpeak(say);
+}
+function showCap(who,text){
+  $('callCap').innerHTML=`<span class="who">${who==='me'?'你':esc($('callName').textContent)}</span>${esc(text)}`;
+}
+function callSpeak(text){
+  if(callMuted||!text||!('speechSynthesis'in window)) return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='zh-CN';
+    const v=speechSynthesis.getVoices().find(v=>/^zh/i.test(v.lang)); if(v) u.voice=v;
+    u.onstart=()=>callAvSpeaking(true);
+    u.onend=()=>callAvSpeaking(false);
+    u.onerror=()=>callAvSpeaking(false);
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function callAvSpeaking(on){ const el=$('callAv').firstElementChild; if(el) el.classList.toggle('callSpeaking',on); }
+async function callSay(text){
+  text=(text||'').trim(); if(!text) return;
+  const c=curChat(); if(!c||callBusy){ if(callBusy) toast('等TA说完再说哦'); return; }
+  callBusy=true;
+  c.messages.push({role:'user',content:text,ts:Date.now()});
+  c.ts=Date.now(); persistAll(); showCap('me',text);
+  await generateReply(c,null,CALL_NOTE);
+  if($('callScreen').classList.contains('show')) speakLast(c);
+  callBusy=false;
+}
+function callListen(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ toast('这台设备不支持语音识别，用 ⌨️ 打字吧'); $('callTextRow').classList.add('show'); return; }
+  if(callBusy){ toast('等TA说完再说哦'); return; }
+  if(callMicOn){ try{ callRec&&callRec.stop(); }catch(e){} return; }
+  try{ callRec=new SR(); }catch(e){ toast('麦克风启动失败'); return; }
+  callRec.lang='zh-CN'; callRec.interimResults=true; callRec.continuous=false; callFinal='';
+  callRec.onresult=e=>{ let t=''; for(const r of e.results) t+=r[0].transcript; showCap('me',t); if(e.results[e.results.length-1].isFinal) callFinal=t; };
+  callRec.onerror=ev=>{ if(ev.error==='not-allowed') toast('需要允许麦克风权限哦'); };
+  callRec.onend=()=>{ callMicOn=false; updateMicUI(); const t=callFinal.trim(); callFinal=''; if(t) callSay(t); };
+  try{ callRec.start(); callMicOn=true; updateMicUI(); }catch(e){ callMicOn=false; updateMicUI(); }
+}
+function updateMicUI(){ $('callMicBtn').classList.toggle('on',callMicOn); }
+function hangUp(){
+  clearInterval(callTimer); callTimer=null;
+  try{ speechSynthesis.cancel(); }catch(e){}
+  try{ callRec&&callRec.stop(); }catch(e){}
+  callMicOn=false; callBusy=false; callAvSpeaking(false);
+  $('callScreen').classList.remove('show');
+}
+$('ppCall').onclick=openCall;
+$('callMicBtn').onclick=callListen;
+$('callHangBtn').onclick=hangUp;
+$('callStyleBtn').onclick=()=>{ const sc=$('callScreen'); sc.classList.toggle('callVideo'); sc.classList.toggle('callVoice'); };
+$('callTextBtn').onclick=()=>{ $('callTextRow').classList.toggle('show'); if($('callTextRow').classList.contains('show')) $('callInput').focus(); };
+$('callMuteBtn').onclick=()=>{ callMuted=!callMuted; $('callMuteBtn').textContent=callMuted?'🔇':'🔊'; if(callMuted){ try{ speechSynthesis.cancel(); }catch(e){} callAvSpeaking(false); } };
+$('callSendBtn').onclick=()=>{ const t=$('callInput').value.trim(); if(t){ $('callInput').value=''; callSay(t); } };
+$('callInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('callSendBtn').onclick(); } });
 
 /* ===== 你们的相册：TA随手拍的照片都攒在这 ===== */
 function renderAlbum(){
