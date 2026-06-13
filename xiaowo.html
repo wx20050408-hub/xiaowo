@@ -691,6 +691,21 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .homeTree{display:flex;flex-direction:column;align-items:center;padding:2px 0 0}
 .homeTree .treeSvg{width:min(58vw,180px)}
 .homeTree .htCap{font-size:12px;color:var(--ink-soft);margin-top:-2px}
+/* 开屏：选角色头像条 */
+#splashPick{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;justify-content:center;max-width:90vw}
+.spAv{width:40px;height:40px;border-radius:50%;overflow:hidden;border:2px solid transparent;opacity:.55;transition:opacity .2s,border-color .2s,transform .2s;display:flex;align-items:center;justify-content:center;background:var(--bubble-me);font-size:20px;flex-shrink:0}
+.spAv img{width:100%;height:100%;object-fit:cover}
+.spAv.on{opacity:1;border-color:var(--accent);transform:scale(1.08)}
+/* 我们的小报告 */
+.rpCard{background:var(--bg-soft);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+.rpCard .rpHead{font-size:13px;color:var(--ink-soft);display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.rpBig{font-size:30px;font-weight:700;color:var(--accent-deep);line-height:1.2}
+.rpBig small{font-size:14px;font-weight:600;color:var(--ink)}
+.rpSub{font-size:12.5px;color:var(--ink-soft);margin-top:2px}
+.rpWords{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.rpWord{background:var(--bubble-me);border-radius:14px;padding:5px 12px;font-size:14px;color:var(--ink)}
+.rpWord b{color:var(--accent-deep)}
+.rpWord .n{font-size:11px;color:var(--ink-soft);margin-left:4px}
 </style>
 </head>
 <body>
@@ -698,6 +713,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 <div id="splash">
   <div id="splashTreeWrap"></div>
   <div id="splashInfo"></div>
+  <div id="splashPick"></div>
   <div class="splashHint"><span class="arr">↑</span>点一下，回到小窝</div>
 </div>
 <div id="app">
@@ -1316,6 +1332,14 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   <div class="sheet">
     <div class="sheetTitle">恋爱主页<button class="close" data-close="homeSheet">✕</button></div>
     <div id="homeBody"></div>
+  </div>
+</div>
+
+<!-- 我们的小报告 -->
+<div class="sheetScrim" id="reportSheet">
+  <div class="sheet">
+    <div class="sheetTitle">我们的小报告<button class="close" data-close="reportSheet">✕</button></div>
+    <div id="reportBody"></div>
   </div>
 </div>
 
@@ -2065,13 +2089,6 @@ function seasonPalette(m){
   if(m>=9&&m<=11) return {name:'autumn',trunk:'#7a5236',leaves:['#e8a33d','#d9692a','#c0392b','#e6b422','#cf7c2c','#b5532a']};
   return {name:'winter',trunk:'#6f5742',leaves:['#8fa37c','#b7c2a3','#cdb89a','#9fb08a','#d8c6a8']};
 }
-/* 这个对话「聊过几天」（不同日期数）＋距上次聊多久（天） */
-function treeStat(c){
-  const msgs=(c&&c.messages)||[]; const set=new Set();
-  for(const m of msgs){ if(m.ts) set.add(new Date(m.ts).toDateString()); }
-  const away=(c&&c.ts)?Math.floor((Date.now()-c.ts)/86400000):0;
-  return {days:set.size,away};
-}
 function buildTreeSVG(days,away,seedStr){
   const pal=seasonPalette(new Date().getMonth()+1);
   const MAX=54, rand=tRng(tHash(seedStr));
@@ -2100,34 +2117,97 @@ function buildTreeSVG(days,away,seedStr){
   if(pal.name==='winter') for(let i=0;i<11;i++) snow+=`<circle class="snow" cx="${(20+rand()*160).toFixed(0)}" cy="${(20+rand()*30).toFixed(0)}" r="${(1.4+rand()*1.6).toFixed(1)}" fill="#ffffff" style="animation-delay:${(rand()*6).toFixed(2)}s;animation-duration:${(5+rand()*4).toFixed(2)}s"/>`;
   return `<svg class="treeSvg" viewBox="0 0 200 232" xmlns="http://www.w3.org/2000/svg">${trunk}<g class="canopy">${leaves}</g>${snow}</svg>`;
 }
+/* ===== 角色统计（开屏树 + 小报告复用）=====
+   一个角色名下可能有多个单聊，统计时合并 */
+function charSoloChats(charId){ return chats.filter(c=>!(c.members&&c.members.length) && c.charId===charId); }
+function allMsgsOf(charId){ const out=[]; for(const c of charSoloChats(charId)) for(const m of (c.messages||[])) out.push(m); return out; }
+function charStats(charId){
+  const dset=new Set(); let last=0,total=0,me=0,ta=0;
+  for(const m of allMsgsOf(charId)){
+    if(m.ts){ dset.add(new Date(m.ts).toDateString()); if(m.ts>last) last=m.ts; }
+    if(m.role==='user') { total++; me++; }
+    else if(m.role==='assistant') { total++; ta++; }
+  }
+  return {days:dset.size,away:last?Math.floor((Date.now()-last)/86400000):0,total,me,ta,last};
+}
+/* 有单聊记录的角色，按最近活跃排序 */
+function splashCharIds(){
+  const m=new Map();
+  for(const c of chats){ if((c.members&&c.members.length)||c.charId==null) continue; m.set(c.charId,Math.max(m.get(c.charId)||0,c.ts||0)); }
+  return [...m.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+}
+/* 最晚聊到几点（凌晨算更晚：0-5点 +24 小时再比） */
+function latestNight(msgs){
+  let best=null;
+  for(const m of msgs){ if(!m.ts) continue; const d=new Date(m.ts), h=d.getHours(); const key=(h<6?h+24:h)*60+d.getMinutes();
+    if(!best||key>best.key) best={key,d,h,min:d.getMinutes()}; }
+  return best;
+}
+function busiestDay(msgs){
+  const m=new Map();
+  for(const x of msgs){ if(!x.ts) continue; const d=new Date(x.ts); const k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); m.set(k,(m.get(k)||0)+1); }
+  let best=null; for(const [k,v] of m) if(!best||v>best.v) best={k,v}; return best;
+}
+const RP_STOP=new Set('的 了 是 我 你 他 她 它 们 在 也 都 和 与 啊 吧 呢 吗 嘛 哦 呀 啦 嗯 这 那 就 不 没 有 个 会 要 好 很 又 还 把 被 给 让 跟 对 为 之 等 着 过 上 下 里 来 去 到 得 地 而 但 所以 因为 然后 还有 一下 一点 一样 一直 你们 我们 他们 什么 怎么 这个 那个 一个 这样 那样 自己 现在 时候 可以 没有 知道 这么 那么 真的 不是 就是 一些 这些 那些 而且 如果 但是 已经 还是 应该 觉得'.split(/\s+/));
+/* 最常说的词（用浏览器内置中文分词，过滤虚词/标点/单字；纯本地不联网） */
+function topWords(msgs){
+  if(typeof Intl==='undefined'||!Intl.Segmenter) return null;
+  let seg; try{ seg=new Intl.Segmenter('zh',{granularity:'word'}); }catch(e){ return null; }
+  const freq=new Map();
+  for(const m of msgs){
+    if(typeof m.content!=='string') continue;
+    const txt=m.content.replace(/<[^>]*>/g,' '); // 去掉<语音:>等标签外壳
+    for(const s of seg.segment(txt)){
+      if(!s.isWordLike) continue;
+      const w=s.segment.trim();
+      if(w.length<2||RP_STOP.has(w)) continue;
+      if(/^[a-z0-9]+$/i.test(w)&&w.length<3) continue;
+      freq.set(w,(freq.get(w)||0)+1);
+    }
+  }
+  return [...freq.entries()].filter(e=>e[1]>=2).sort((a,b)=>b[1]-a[1]).slice(0,6);
+}
+
 /* ===== 开屏页 ===== */
 const splashOn=()=>settings.splash!==false;
 let splashDone=false;
-function splashPick(){
-  const cur=curChat();
-  if(cur && !(cur.members&&cur.members.length)) return {c:cur,ch:curChar(cur)};
-  const solo=chats.filter(c=>!(c.members&&c.members.length)).sort((a,b)=>(b.ts||0)-(a.ts||0))[0];
-  if(solo) return {c:solo,ch:curChar(solo)};
-  if(cur) return {c:cur,ch:null};
-  return null;
+/* 开屏当前展示哪个角色：优先记住的 splashCharId → 当前单聊 → 最近活跃 */
+function splashCurrentChar(){
+  const ids=splashCharIds(); if(!ids.length) return null;
+  let id=settings.splashCharId;
+  if(id==null||!ids.includes(id)){
+    const cur=curChat();
+    id=(cur&&!(cur.members&&cur.members.length))?cur.charId:ids[0];
+    if(!ids.includes(id)) id=ids[0];
+  }
+  return characters.find(c=>String(c.id)===String(id))||null;
 }
 function renderSplash(){
   const sp=$('splash'); if(!sp) return;
   if(!splashOn()||splashDone){ sp.style.display='none'; return; }
-  const t=splashPick(), wrap=$('splashTreeWrap'), info=$('splashInfo');
-  if(!t){
+  const wrap=$('splashTreeWrap'), info=$('splashInfo'), pick=$('splashPick');
+  const ch=splashCurrentChar();
+  if(!ch){
     wrap.innerHTML=buildTreeSVG(0,0,'xiaowo');
     info.innerHTML='<div class="splashHead">这里是你们的小窝</div><div class="splashSub">进去和TA说说话，树会慢慢长起来 🌱</div>';
+    pick.innerHTML='';
   }else{
-    const st=treeStat(t.c), ch=t.ch;
-    wrap.innerHTML=buildTreeSVG(st.days,st.away,(ch&&ch.id)||t.c.id);
+    const st=charStats(ch.id);
+    wrap.innerHTML=buildTreeSVG(st.days,st.away,ch.id);
     const fall=st.away>=2?' · 好久没聊啦，它在落叶呢':'';
-    if(ch){
-      const ls=loveStart(ch);
-      if(ls){ const ld=Math.floor((Date.now()-new Date(ls.date+'T00:00:00'))/86400000)+1;
-        info.innerHTML=`<div class="splashHead">和 ${esc(ch.name)} 在一起</div><div class="splashDays">${ld}<small> 天</small></div><div class="splashSub">这棵树记着你们聊过的 ${st.days} 天 🌳${fall}</div>`;
-      }else info.innerHTML=`<div class="splashHead">和 ${esc(ch.name)}</div><div class="splashDays">${st.days}<small> 天</small></div><div class="splashSub">你们一起聊过的日子${fall}</div>`;
-    }else info.innerHTML=`<div class="splashHead">回到小窝</div><div class="splashSub">${st.away>=2?'好久没来啦～':'欢迎回来 ♡'}</div>`;
+    const ls=loveStart(ch);
+    if(ls){ const ld=Math.floor((Date.now()-new Date(ls.date+'T00:00:00'))/86400000)+1;
+      info.innerHTML=`<div class="splashHead">和 ${esc(ch.name)} 在一起</div><div class="splashDays">${ld}<small> 天</small></div><div class="splashSub">这棵树记着你们聊过的 ${st.days} 天 🌳${fall}</div>`;
+    }else info.innerHTML=`<div class="splashHead">和 ${esc(ch.name)}</div><div class="splashDays">${st.days}<small> 天</small></div><div class="splashSub">你们一起聊过的日子${fall}</div>`;
+    // 多个角色才显示头像切换条
+    const ids=splashCharIds();
+    if(ids.length>1){
+      pick.innerHTML=ids.map(id=>{ const c=characters.find(x=>String(x.id)===String(id)); if(!c) return '';
+        const on=String(c.id)===String(ch.id);
+        const inner=c.avatar?`<img src="${safeUrl(c.avatar)}">`:`<span>${esc(c.emoji||'☺')}</span>`;
+        return `<button class="spAv${on?' on':''}" data-cid="${esc(String(id))}" title="${esc(c.name)}">${inner}</button>`; }).join('');
+      pick.querySelectorAll('.spAv').forEach(b=>b.onclick=e=>{ e.stopPropagation(); settings.splashCharId=b.dataset.cid; persistAll(); renderSplash(); });
+    }else pick.innerHTML='';
   }
   sp.style.display='flex'; sp.classList.remove('hide');
 }
@@ -2196,18 +2276,47 @@ function renderHome(){
     <div style="display:flex;align-items:center;gap:12px"><span class="ic">🌈</span><span class="grow" style="font-weight:600">一起想做的事</span><span style="font-size:12px;color:var(--ink-soft)">${wl.length?doneN+'/'+wl.length:''} ›</span></div>
     ${prev}</button>`;
   const weather=(weatherInfo&&settings.city&&weatherInfo.city===settings.city.name)?` · ${weatherInfo.desc} ${weatherInfo.temp}°`:'';
-  const tst=treeStat(curChat());
+  const tst=charStats(ch.id);
   const treeCard=`<div class="homeTree">${buildTreeSVG(tst.days,tst.away,ch.id)}<div class="htCap">你们一起聊过的 ${tst.days} 天${tst.away>=2?' · 它好像在等你回来':''}</div></div>`;
+  const reportCard=`<button class="boxRow" id="homeReport" style="width:100%;background:var(--bg-soft);box-shadow:none;text-align:left"><span class="ic">📊</span><span class="grow" style="font-weight:600">我们的小报告</span><span style="font-size:12px;color:var(--ink-soft)">最晚熬到几点·聊了多少·最常说的词 ›</span></button>`;
   body.innerHTML=`
     ${treeCard}
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">${av}
       <div><div style="font-size:18px;font-weight:600">${esc(ch.name)}</div>
       <div style="font-size:13px;color:var(--ink-soft)">${esc(nowAct(ch))}${weather}</div></div></div>
-    ${daysCard}${annCard}<div style="height:8px"></div>${wishCard}`;
+    ${daysCard}${annCard}<div style="height:8px"></div>${wishCard}${reportCard}`;
   const sv=$('homeLoveSave'); if(sv) sv.onclick=()=>{ const v=$('homeLoveDate').value; if(!v){ toast('先选个日期叭'); return; } ch.loveStartDate=v; persistAll(); renderHome(); toast('记好啦 ♡'); };
   $('homeWish').onclick=()=>{ closeSheet('homeSheet'); openWish(ch); };
+  $('homeReport').onclick=()=>{ renderReport(ch); openSheet('reportSheet'); };
 }
 $('ppHome').onclick=()=>{ togglePlus(false); renderHome(); openSheet('homeSheet'); };
+
+/* ===== 我们的小报告 ===== */
+function renderReport(ch){
+  const body=$('reportBody');
+  if(!ch){ body.innerHTML='<div style="text-align:center;color:var(--ink-soft);padding:30px 0">先打开和某个TA的单聊，再来看你们的小报告～</div>'; return; }
+  const st=charStats(ch.id), msgs=allMsgsOf(ch.id);
+  if(!st.total){ body.innerHTML=`<div style="text-align:center;color:var(--ink-soft);padding:30px 0">你和 ${esc(ch.name)} 还没聊几句，多聊聊就有报告啦～</div>`; return; }
+  const ln=latestNight(msgs), bd=busiestDay(msgs), tw=topWords(msgs);
+  let nightCard='';
+  if(ln){
+    const d=ln.d, h=ln.h, mm=String(ln.min).padStart(2,'0');
+    const part=h<6?'凌晨':h<11?'早上':h<13?'中午':h<18?'下午':h<23?'晚上':'深夜';
+    nightCard=`<div class="rpCard"><div class="rpHead">🌙 最晚的一次</div><div class="rpBig">${part}${h}:${mm}</div><div class="rpSub">${d.getMonth()+1}月${d.getDate()}日 那天，你们聊到了这个点${h<6?' · 熬夜冠军 🏆':''}</div></div>`;
+  }
+  let busyCard='';
+  if(bd){ const p=bd.k.split('-'); busyCard=`<div class="rpCard"><div class="rpHead">🔥 最热闹的一天</div><div class="rpBig">${p[1]}月${p[2]}日 <small>聊了 ${bd.v} 条</small></div></div>`; }
+  let wordCard='';
+  if(tw===null) wordCard=`<div class="rpCard"><div class="rpHead">💬 最常说的词</div><div class="rpSub">这个浏览器认不出中文词，换个新点的就能看啦～</div></div>`;
+  else if(!tw.length) wordCard=`<div class="rpCard"><div class="rpHead">💬 最常说的词</div><div class="rpSub">还看不出明显高频词，再多聊点就有啦</div></div>`;
+  else wordCard=`<div class="rpCard"><div class="rpHead">💬 你们最常说的词</div><div class="rpWords">${tw.map(e=>`<span class="rpWord"><b>${esc(e[0])}</b><span class="n">×${e[1]}</span></span>`).join('')}</div></div>`;
+  body.innerHTML=`
+    <div class="rpCard"><div class="rpHead">💌 你和 ${esc(ch.name)}</div>
+      <div class="rpBig">${st.total}<small> 条消息</small></div>
+      <div class="rpSub">你说了 ${st.me} 条，TA 回了 ${st.ta} 条 · 一起聊过 ${st.days} 天${st.away>=2?`（已经 ${st.away} 天没聊咯）`:''}</div></div>
+    ${nightCard}${busyCard}${wordCard}
+    <div class="hintText" style="margin-top:4px">都是这台设备上的聊天记录算出来的，只有你看得到 ♡</div>`;
+}
 
 let wishChar=null;
 function openWish(ch){ wishChar=ch||homeChar(); if(!wishChar){ toast('先打开和TA的单聊'); return; } renderWishes(); openSheet('wishSheet'); }
