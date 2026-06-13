@@ -591,12 +591,13 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   align-self:flex-start;margin:-10px 0 0 44px;
 }
 
-/* 线上模式回复按钮 */
+/* 线上模式回复按钮：悬浮在输入栏上方、漂在聊天区里，不再占一整行紫底 */
 #replyBtn{
-  display:none;align-self:flex-end;margin:0 14px 6px;flex-shrink:0;
-  padding:5px 13px;border-radius:14px;
-  background:transparent;color:var(--ink-soft);font-size:12.5px;font-weight:500;
-  border:1px solid var(--line);
+  display:none;position:absolute;right:14px;z-index:6;
+  bottom:calc(env(safe-area-inset-bottom) + 70px);
+  padding:6px 14px;border-radius:16px;
+  background:var(--card);color:var(--ink-soft);font-size:12.5px;font-weight:500;
+  border:1px solid var(--line);box-shadow:var(--shadow);
 }
 #replyBtn:active{background:var(--bg-soft);color:var(--accent-deep)}
 
