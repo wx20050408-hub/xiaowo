@@ -3847,17 +3847,29 @@ $('addWb').onclick=()=>{
 /* 导入世界书 json：支持酒馆 World Info（entries 对象/数组）和小窝自己的格式 */
 const rid=p=>p+Date.now()+Math.random().toString(36).slice(2,6);
 function mapWiEntry(e){
-  const keys=Array.isArray(e.key)?e.key:Array.isArray(e.keys)?e.keys:typeof e.key==='string'?e.key.split(','):[];
+  /* 关键词：Rikka 用 keywords(数组)，酒馆用 key/keys(数组或逗号串)，小窝自己存逗号串 */
+  const rawKeys=Array.isArray(e.keywords)?e.keywords
+    :Array.isArray(e.key)?e.key
+    :Array.isArray(e.keys)?e.keys
+    :typeof e.keywords==='string'?e.keywords.split(',')
+    :typeof e.key==='string'?e.key.split(',')
+    :[];
+  const keywords=rawKeys.map(s=>String(s).trim()).filter(Boolean).join(', ');
+  /* 常驻：Rikka=constantActive，酒馆=constant，小窝=mode:'always' */
+  const always=e.constant===true||e.constantActive===true||e.mode==='always';
   return {
     id:rid('w'),
-    title:String(e.comment||e.title||e.name||keys[0]||'未命名').slice(0,40),
+    title:String(e.comment||e.title||e.name||rawKeys[0]||'未命名').slice(0,40),
     content:String(e.content||''),
-    mode:(e.constant||e.mode==='always')?'always':'keyword',
-    keywords:e.keywords||keys.map(s=>String(s).trim()).filter(Boolean).join(', '),
+    mode:always?'always':'keyword',
+    keywords,
     on:!(e.disable===true||e.enabled===false||e.on===false),
   };
 }
 function importWbJson(data,fname){
+  /* Rikka 格式：{version,type:'lorebook',data:{name,entries}} → 拆出里面的 data */
+  if(data&&!Array.isArray(data)&&data.data&&(data.type==='lorebook'||Array.isArray(data.data.entries)))
+    data=data.data;
   /* 小窝备份里的整组世界书 */
   if(Array.isArray(data)&&data.length&&data[0]&&Array.isArray(data[0].entries)){
     for(const bk of data)
