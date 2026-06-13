@@ -1984,6 +1984,7 @@ function togglePlus(open){
     $('ppTransfer').classList.toggle('dis',!curOnline());
     $('ppVoice').classList.toggle('dis',!curOnline());
   }
+  updateReplyBtn();   // 开/关面板时同步「让TA回复」的显示
 }
 $('plusBtn').onclick=()=>togglePlus();
 $('ppImg').onclick=()=>{ togglePlus(false); $('imgFile').click(); };
@@ -3577,7 +3578,8 @@ $('replyBtn').onclick=async()=>{
 function updateReplyBtn(){
   const c=curChat();
   const isOn=c&&chatOnline(c);
-  $('replyBtn').style.display=(isOn&&!streaming)?'block':'none';
+  const plusOpen=$('plusPanel').classList.contains('show');   // ➕面板开着时别让按钮浮在上面
+  $('replyBtn').style.display=(isOn&&!streaming&&!plusOpen)?'block':'none';
 }
 
 /* ================= 弹层通用 ================= */
