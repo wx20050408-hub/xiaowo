@@ -586,11 +586,11 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 /* 线上模式回复按钮 */
 #replyBtn{
   display:none;align-self:flex-end;margin:0 14px 6px;flex-shrink:0;
-  padding:9px 18px;border-radius:20px;
-  background:var(--accent);color:#fff;font-size:14px;font-weight:600;
-  box-shadow:var(--shadow);
+  padding:5px 13px;border-radius:14px;
+  background:transparent;color:var(--ink-soft);font-size:12.5px;font-weight:500;
+  border:1px solid var(--line);
 }
-#replyBtn:active{background:var(--accent-deep)}
+#replyBtn:active{background:var(--bg-soft);color:var(--accent-deep)}
 
 /* ============ 朋友圈 ============ */
 #momentsPage{
@@ -653,7 +653,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   </main>
 
   <!-- 线上模式：手动触发回复 -->
-  <button id="replyBtn">📨 让TA回复</button>
+  <button id="replyBtn">让TA回复 ›</button>
 
   <!-- 输入栏 -->
   <div id="imgPreview"></div>
