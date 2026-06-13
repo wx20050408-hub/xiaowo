@@ -664,9 +664,42 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .callTextRow.show{display:flex}
 .callTextRow input{flex:1;min-width:0;border:none;border-radius:18px;padding:11px 15px;font-size:15px;background:rgba(255,255,255,.9);color:var(--ink)}
 .callTextRow button{padding:0 18px;border-radius:18px;background:var(--accent);color:#fff;font-weight:600;flex-shrink:0}
+/* ===== 开屏页：你和TA的关系树 ===== */
+#splash{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(120% 90% at 50% 16%, var(--bg-soft,#fff7ee) 0%, var(--bg,#f6ecdf) 72%);
+  transition:opacity .55s ease, transform .55s ease;touch-action:none;user-select:none;cursor:pointer;overflow:hidden}
+#splash.hide{opacity:0;transform:translateY(-32px);pointer-events:none}
+#splashTreeWrap{width:min(78vw,300px);max-height:52vh;display:flex;align-items:flex-end;justify-content:center}
+#splashInfo{margin-top:8px;text-align:center}
+.splashHead{font-size:14px;color:var(--ink-soft)}
+.splashDays{font-size:40px;font-weight:700;color:var(--accent-deep);line-height:1.15}
+.splashDays small{font-size:16px;font-weight:600}
+.splashSub{font-size:12px;color:var(--ink-soft);margin-top:3px;padding:0 24px}
+.splashHint{position:absolute;bottom:42px;font-size:13px;color:var(--ink-soft);opacity:.85;display:flex;flex-direction:column;align-items:center;gap:2px;animation:splashBob 2s ease-in-out infinite}
+.splashHint .arr{font-size:20px}
+@keyframes splashBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+/* 关系树本体（开屏 & 恋爱主页复用） */
+.treeSvg{width:100%;height:auto;display:block;overflow:visible}
+.treeSvg .canopy{transform-box:view-box;transform-origin:100px 200px;animation:treeSway 6s ease-in-out infinite}
+@keyframes treeSway{0%,100%{transform:rotate(-1.3deg)}50%{transform:rotate(1.3deg)}}
+.treeSvg .leaf.fall{transform-box:fill-box;transform-origin:center;animation:leafFall 4s ease-in infinite}
+@keyframes leafFall{0%{transform:translateY(0) translateX(0) rotate(0);opacity:1}12%{opacity:1}100%{transform:translateY(150px) translateX(22px) rotate(240deg);opacity:0}}
+.treeSvg .snow{animation:snowFall 6s linear infinite;opacity:.85}
+@keyframes snowFall{0%{transform:translateY(-12px);opacity:0}12%{opacity:.85}100%{transform:translateY(168px);opacity:0}}
+@media (prefers-reduced-motion:reduce){.treeSvg .canopy,.treeSvg .leaf.fall,.treeSvg .snow,.splashHint{animation:none}}
+/* 恋爱主页里的小树 */
+.homeTree{display:flex;flex-direction:column;align-items:center;padding:2px 0 0}
+.homeTree .treeSvg{width:min(58vw,180px)}
+.homeTree .htCap{font-size:12px;color:var(--ink-soft);margin-top:-2px}
 </style>
 </head>
 <body>
+<!-- 开屏页：你和TA的关系树（点一下/上滑进入） -->
+<div id="splash">
+  <div id="splashTreeWrap"></div>
+  <div id="splashInfo"></div>
+  <div class="splashHint"><span class="arr">↑</span>点一下，回到小窝</div>
+</div>
 <div id="app">
   <!-- 顶栏 -->
   <header id="chatHeader">
@@ -996,6 +1029,10 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <div class="boxRow">
       <span class="ic">🌊</span><span class="grow">流式输出（关掉改一次性返回，Gemini等不支持流式时关）</span>
       <button class="wbToggle" id="streamToggle"></button>
+    </div>
+    <div class="boxRow">
+      <span class="ic">🌳</span><span class="grow">开屏关系树（每次打开先看你们的树，点一下进入）</span>
+      <button class="wbToggle" id="splashToggle"></button>
     </div>
     <div class="boxRow">
       <span class="ic">🌤</span><input id="cityInput" placeholder="你的城市（填了TA就能感知天气）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
@@ -2018,6 +2055,94 @@ $('confirmVoice').onclick=()=>{
 $('ppAlbum').onclick=()=>{ togglePlus(false); renderAlbum(); openSheet('albumSheet'); };
 $('ppGame').onclick=()=>{ togglePlus(false); openSheet('gameSheet'); };
 
+/* ===== 关系树（开屏页 + 恋爱主页复用）=====
+   叶子数 ← 你们聊过的天数；颜色 ← 当前月份/季节；久没聊 → 落叶动画 */
+function tHash(s){ let h=2166136261; s=String(s||'tree'); for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+function tRng(seed){ let a=seed>>>0; return ()=>{ a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function seasonPalette(m){
+  if(m>=3&&m<=5) return {name:'spring',trunk:'#8d6e52',leaves:['#9ccc5a','#b5e07a','#8cc63f','#c3e88d','#7fb53f']};
+  if(m>=6&&m<=8) return {name:'summer',trunk:'#7d5e44',leaves:['#4e9b2d','#5aa02c','#6cb33f','#3f8f29','#74b84a']};
+  if(m>=9&&m<=11) return {name:'autumn',trunk:'#7a5236',leaves:['#e8a33d','#d9692a','#c0392b','#e6b422','#cf7c2c','#b5532a']};
+  return {name:'winter',trunk:'#6f5742',leaves:['#8fa37c','#b7c2a3','#cdb89a','#9fb08a','#d8c6a8']};
+}
+/* 这个对话「聊过几天」（不同日期数）＋距上次聊多久（天） */
+function treeStat(c){
+  const msgs=(c&&c.messages)||[]; const set=new Set();
+  for(const m of msgs){ if(m.ts) set.add(new Date(m.ts).toDateString()); }
+  const away=(c&&c.ts)?Math.floor((Date.now()-c.ts)/86400000):0;
+  return {days:set.size,away};
+}
+function buildTreeSVG(days,away,seedStr){
+  const pal=seasonPalette(new Date().getMonth()+1);
+  const MAX=54, rand=tRng(tHash(seedStr));
+  const n=Math.max(4,Math.min(MAX,Math.round(MAX*(1-Math.exp(-days/26))))); // 越聊越久叶子越多，递减封顶
+  const pts=[]; let guard=0;
+  while(pts.length<MAX && guard++<3000){
+    const a=rand()*Math.PI*2, r=Math.sqrt(rand());
+    const x=100+Math.cos(a)*r*70, y=86+Math.sin(a)*r*52;
+    if(y>148) continue; // 树冠以下不放叶
+    pts.push({x,y,rot:Math.round(rand()*70-35),sz:0.78+rand()*0.5,col:pal.leaves[Math.floor(rand()*pal.leaves.length)],r:rand()});
+  }
+  const fallN = away>=2 ? Math.min(9,Math.max(3,away)) : 0; // 久没聊→几片叶子飘落
+  let leaves='';
+  for(let i=0;i<n;i++){
+    const p=pts[i]; const rx=(7*p.sz).toFixed(1), ry=(4.3*p.sz).toFixed(1), cx=p.x.toFixed(1), cy=p.y.toFixed(1);
+    if(i>=n-fallN) leaves+=`<ellipse class="leaf fall" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${p.col}" style="animation-delay:${(p.r*3.5).toFixed(2)}s;animation-duration:${(3.4+p.r*2).toFixed(2)}s"/>`;
+    else leaves+=`<ellipse class="leaf" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${p.col}" transform="rotate(${p.rot} ${cx} ${cy})"/>`;
+  }
+  const trunk=`<g stroke="${pal.trunk}" fill="none" stroke-linecap="round">
+    <path d="M100,228 Q97,178 100,140" stroke-width="13"/>
+    <path d="M100,168 Q82,154 66,142" stroke-width="7"/>
+    <path d="M100,152 Q120,142 136,130" stroke-width="7"/>
+    <path d="M100,138 Q92,122 84,110" stroke-width="5.5"/>
+    <path d="M100,143 Q112,124 122,112" stroke-width="5.5"/></g>`;
+  let snow='';
+  if(pal.name==='winter') for(let i=0;i<11;i++) snow+=`<circle class="snow" cx="${(20+rand()*160).toFixed(0)}" cy="${(20+rand()*30).toFixed(0)}" r="${(1.4+rand()*1.6).toFixed(1)}" fill="#ffffff" style="animation-delay:${(rand()*6).toFixed(2)}s;animation-duration:${(5+rand()*4).toFixed(2)}s"/>`;
+  return `<svg class="treeSvg" viewBox="0 0 200 232" xmlns="http://www.w3.org/2000/svg">${trunk}<g class="canopy">${leaves}</g>${snow}</svg>`;
+}
+/* ===== 开屏页 ===== */
+const splashOn=()=>settings.splash!==false;
+let splashDone=false;
+function splashPick(){
+  const cur=curChat();
+  if(cur && !(cur.members&&cur.members.length)) return {c:cur,ch:curChar(cur)};
+  const solo=chats.filter(c=>!(c.members&&c.members.length)).sort((a,b)=>(b.ts||0)-(a.ts||0))[0];
+  if(solo) return {c:solo,ch:curChar(solo)};
+  if(cur) return {c:cur,ch:null};
+  return null;
+}
+function renderSplash(){
+  const sp=$('splash'); if(!sp) return;
+  if(!splashOn()||splashDone){ sp.style.display='none'; return; }
+  const t=splashPick(), wrap=$('splashTreeWrap'), info=$('splashInfo');
+  if(!t){
+    wrap.innerHTML=buildTreeSVG(0,0,'xiaowo');
+    info.innerHTML='<div class="splashHead">这里是你们的小窝</div><div class="splashSub">进去和TA说说话，树会慢慢长起来 🌱</div>';
+  }else{
+    const st=treeStat(t.c), ch=t.ch;
+    wrap.innerHTML=buildTreeSVG(st.days,st.away,(ch&&ch.id)||t.c.id);
+    const fall=st.away>=2?' · 好久没聊啦，它在落叶呢':'';
+    if(ch){
+      const ls=loveStart(ch);
+      if(ls){ const ld=Math.floor((Date.now()-new Date(ls.date+'T00:00:00'))/86400000)+1;
+        info.innerHTML=`<div class="splashHead">和 ${esc(ch.name)} 在一起</div><div class="splashDays">${ld}<small> 天</small></div><div class="splashSub">这棵树记着你们聊过的 ${st.days} 天 🌳${fall}</div>`;
+      }else info.innerHTML=`<div class="splashHead">和 ${esc(ch.name)}</div><div class="splashDays">${st.days}<small> 天</small></div><div class="splashSub">你们一起聊过的日子${fall}</div>`;
+    }else info.innerHTML=`<div class="splashHead">回到小窝</div><div class="splashSub">${st.away>=2?'好久没来啦～':'欢迎回来 ♡'}</div>`;
+  }
+  sp.style.display='flex'; sp.classList.remove('hide');
+}
+function dismissSplash(){
+  const sp=$('splash'); if(!sp||sp.style.display==='none') return;
+  splashDone=true; sp.classList.add('hide');
+  setTimeout(()=>{ sp.style.display='none'; },600);
+}
+(function(){ const sp=$('splash'); if(!sp) return;
+  sp.addEventListener('click',dismissSplash);
+  let sy=null;
+  sp.addEventListener('touchstart',e=>{ sy=e.touches[0].clientY; },{passive:true});
+  sp.addEventListener('touchmove',e=>{ if(sy!=null && sy-e.touches[0].clientY>40){ sy=null; dismissSplash(); } },{passive:true});
+})();
+
 /* ===== 恋爱主页 + 一起想做的事（心愿单） ===== */
 function homeChar(){ const c=curChat(); return (c&&c.members&&c.members.length)?null:curChar(c); }
 /* 在一起起点：优先用户手设的 loveStartDate；否则找名字像"在一起"的过去纪念日（别错拿生日） */
@@ -2071,7 +2196,10 @@ function renderHome(){
     <div style="display:flex;align-items:center;gap:12px"><span class="ic">🌈</span><span class="grow" style="font-weight:600">一起想做的事</span><span style="font-size:12px;color:var(--ink-soft)">${wl.length?doneN+'/'+wl.length:''} ›</span></div>
     ${prev}</button>`;
   const weather=(weatherInfo&&settings.city&&weatherInfo.city===settings.city.name)?` · ${weatherInfo.desc} ${weatherInfo.temp}°`:'';
+  const tst=treeStat(curChat());
+  const treeCard=`<div class="homeTree">${buildTreeSVG(tst.days,tst.away,ch.id)}<div class="htCap">你们一起聊过的 ${tst.days} 天${tst.away>=2?' · 它好像在等你回来':''}</div></div>`;
   body.innerHTML=`
+    ${treeCard}
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">${av}
       <div><div style="font-size:18px;font-weight:600">${esc(ch.name)}</div>
       <div style="font-size:13px;color:var(--ink-soft)">${esc(nowAct(ch))}${weather}</div></div></div>
@@ -4865,6 +4993,7 @@ $('boxBtn').onclick=()=>{
   $('statsToggle').classList.toggle('on',showStats());
   $('cacheToggle').classList.toggle('on',cache1h());
   $('streamToggle').classList.toggle('on',streamOn());
+  $('splashToggle').classList.toggle('on',splashOn());
   $('cityInput').value=settings.city?.name||'';
   $('tavilyInput').value=settings.tavilyKey||'';
   syncBubUI();
@@ -4909,6 +5038,12 @@ $('streamToggle').onclick=()=>{
   persistAll();
   $('streamToggle').classList.toggle('on',streamOn());
   toast(streamOn()?'流式输出开啦（边写边出）':'已关流式，改成一次性返回');
+};
+$('splashToggle').onclick=()=>{
+  settings.splash=!splashOn();
+  persistAll();
+  $('splashToggle').classList.toggle('on',splashOn());
+  toast(splashOn()?'开屏关系树开啦，下次打开就能看到 🌳':'已关开屏，直接进聊天');
 };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
@@ -4958,6 +5093,7 @@ renderProfile();
 applyFont();
 renderChat();
 renderHistory();
+renderSplash(); // 开屏：先给你看你们的树（数据从 IndexedDB 回来后会再刷一次）
 /* 上次没结束的自习：到点了就补记完成；还在跑就继续计时 */
 if(studySt){
   if(Date.now()>=studyEnd()) endStudy(true);
@@ -4985,6 +5121,7 @@ setInterval(()=>{ if(!streaming) renderHeader(); },60e3);
     try{ localStorage.removeItem('xw_stickers'); }catch(e){}
     try{ localStorage.removeItem('xw_chats'); localStorage.removeItem('xw_characters'); }catch(e){}
     if(changed){ renderChat(); renderHistory(); }
+    renderSplash(); // 大数据回来了，用真实聊天天数重画开屏的树
     maybeAnniversary(); // 打开 app：今天是不是特别的日子
     maybeGreeting();    // 早上/深夜的问候
     maybeProactive();   // TA 可能先开口
