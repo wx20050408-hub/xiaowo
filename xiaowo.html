@@ -118,6 +118,14 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .bubble.err{background:#FBEAE6;color:var(--danger);font-size:13px}
 .msg.hlFlash .bubble{animation:hlpulse 1.6s ease}
 @keyframes hlpulse{0%,100%{box-shadow:var(--shadow)}25%,55%{box-shadow:0 0 0 3px var(--accent)}}
+/* 代码块 */
+.codeBox{margin:8px 0;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.codeBar{display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:var(--bg-soft);border-bottom:1px solid var(--line)}
+.codeLang{font-size:11px;color:var(--ink-soft);font-family:ui-monospace,Consolas,monospace}
+.codeBtn{font-size:12px;color:var(--accent-deep);font-weight:600;padding:2px 8px;border-radius:8px}
+.codeBtn:active{background:var(--card)}
+.codePre{margin:0;padding:10px 12px;overflow-x:auto;background:var(--card)}
+.codePre code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;white-space:pre;color:var(--ink);background:none;padding:0;border-radius:0}
 .msg .who{font-size:11px;color:var(--ink-soft);margin:0 6px 4px}
 .typingDot{display:inline-block;animation:blink 1s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
@@ -1221,6 +1229,16 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   </div>
 </div>
 
+<!-- 网页预览弹层（沙箱 iframe，跑TA写的代码） -->
+<div class="sheetScrim" id="codePrevSheet">
+  <div class="sheet">
+    <div class="sheetTitle">网页预览<button class="close" data-close="codePrevSheet">✕</button></div>
+    <iframe id="codePrevFrame" sandbox="allow-scripts allow-modals allow-popups allow-forms" style="width:100%;height:58vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
+    <div class="hintText" style="margin:8px 2px">这是 TA 写的网页在「安全沙箱」里跑——它碰不到你的聊天记录和 API Key，放心看。</div>
+    <button class="ghostBtn" id="codePrevSave">保存成 .html 文件</button>
+  </div>
+</div>
+
 <!-- 恋爱主页弹层 -->
 <div class="sheetScrim" id="homeSheet">
   <div class="sheet">
@@ -1303,9 +1321,43 @@ const $ = id => document.getElementById(id);
 const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 /* 只放行真正的图片地址（自己拍的/导入的图都是 data:image 或 http(s)），挡掉伪造 src 的注入 */
 const safeUrl = u => (typeof u==='string' && /^(data:image\/(png|jpe?g|gif|webp|bmp)|https?:\/\/)[^"'<>\s]*$/i.test(u)) ? u : '';
-const fmt = s => esc(s)
-  .replace(/`([^`\n]+)`/g,'<code>$1</code>')
-  .replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
+/* 代码块：```lang … ``` 渲染成代码框（可复制，HTML 还能预览） */
+function looksHtml(lang,code){
+  if(/^(html|htm|xml|svg)$/i.test(lang)) return true;
+  if(lang) return false;
+  return /<(!doctype html|html|head|body|div|section|main|button|h[1-6]|p[\s>]|ul|ol|li|style|script|canvas|svg|img|input|form|table)[\s>]/i.test(code);
+}
+function codeBlockHtml(lang,code){
+  const html=looksHtml(lang,code);
+  return `<div class="codeBox"><div class="codeBar"><span class="codeLang">${esc(lang||(html?'html':'code'))}</span><span style="display:flex;gap:6px">`
+    +(html?`<button class="codeBtn cbPrev">▶ 预览</button>`:'')
+    +`<button class="codeBtn cbCopy">复制</button></span></div>`
+    +`<pre class="codePre"><code>${esc(code.replace(/\n$/,''))}</code></pre></div>`;
+}
+function fmt(s){
+  s=String(s);
+  const blocks=[];
+  s=s.replace(/```([^\n`]*)\n?([\s\S]*?)```/g,(_,lang,code)=>{ blocks.push([lang.trim(),code]); return 'CB'+(blocks.length-1)+''; });
+  let h=esc(s)
+    .replace(/`([^`\n]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
+  if(blocks.length) h=h.replace(/CB(\d+)/g,(_,i)=>codeBlockHtml(blocks[+i][0],blocks[+i][1]));
+  return h;
+}
+/* 给代码框接上 复制 / 预览 按钮（textContent 拿到的是未转义的原始代码） */
+let codePrevCode='';
+function wireCode(root){
+  root.querySelectorAll('.codeBox').forEach(box=>{
+    const code=box.querySelector('code').textContent;
+    const cp=box.querySelector('.cbCopy');
+    if(cp) cp.onclick=ev=>{ ev.stopPropagation(); (navigator.clipboard?navigator.clipboard.writeText(code):Promise.reject()).then(()=>toast('代码复制好啦'),()=>toast('复制失败，长按选中吧')); };
+    const pv=box.querySelector('.cbPrev');
+    if(pv) pv.onclick=ev=>{ ev.stopPropagation(); codePrevCode=code; $('codePrevFrame').srcdoc=code; openSheet('codePrevSheet'); };
+  });
+}
+$('codePrevSave').onclick=()=>{ if(codePrevCode){ dlFile('小窝网页.html',codePrevCode,'text/html;charset=utf-8'); toast('网页保存好啦'); } };
+/* 关掉预览时清空 iframe，省得后台还在跑 */
+document.querySelector('#codePrevSheet .close').addEventListener('click',()=>{ $('codePrevFrame').srcdoc=''; });
 
 /* ===== 思考链：把 <think>…</think> 拆出来折叠显示 ===== */
 function extractThink(s){
@@ -1802,7 +1854,7 @@ function renderChat(){
         pieces.forEach(p=>{
           const el=bubbleEl(m.role,p.html,p.plain,ch);
           el.querySelector('.bubble').onclick=()=>openMsgActions(i);
-          wireThink(el); attachPat(el,ch,c); wireTransfer(el,m); wireVoice(el,m);
+          wireThink(el); wireCode(el); attachPat(el,ch,c); wireTransfer(el,m); wireVoice(el,m);
           area.appendChild(el);
         });
         if(m.stats&&showStats()) area.appendChild(statsEl(m.stats));
@@ -1814,7 +1866,7 @@ function renderChat(){
     const ooc=m.role==='user'&&typeof m.content==='string'&&/^[（(][\s\S]*[)）]$/.test(m.content.trim());
     const el=bubbleEl(m.role,html,spWhole?'plain':(ooc?'ooc':''),ch);
     el.querySelector('.bubble').onclick=()=>openMsgActions(i);
-    wireThink(el);
+    wireThink(el); wireCode(el);
     if(m.role!=='user') attachPat(el,ch,c);
     wireTransfer(el,m); wireVoice(el,m);
     area.appendChild(el);
@@ -2483,7 +2535,7 @@ async function runReply(c,api,body,ch){
     c.ts=Date.now(); persistAll();
     const idx=c.messages.length-1;
     bub.onclick=()=>openMsgActions(idx);
-    wireThink(bub);
+    wireThink(bub); wireCode(bub);
     /* 线上模式：回复完按行拆成小气泡；含特殊卡片（语音/拍照等）也重渲染成卡片 */
     const onlineNow=chatOnline(c);
     if(c.id===currentId && ((onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|搜索)[:：]/.test(out.acc)))
