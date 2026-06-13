@@ -108,14 +108,16 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .msg.me{align-self:flex-end;align-items:flex-end}
 .msg.ta{align-self:flex-start;align-items:flex-start}
 .bubble{
-  padding:11px 15px;border-radius:var(--radius);
+  padding:11px 15px;border-radius:var(--bubble-radius,var(--radius));
   word-break:break-word;white-space:pre-wrap;
   box-shadow:var(--shadow);
 }
-.msg.me .bubble{background:var(--bubble-me);border-bottom-right-radius:8px}
-.msg.ta .bubble{background:var(--bubble-ta);border-bottom-left-radius:8px}
+.msg.me .bubble{background:var(--bubble-me);color:var(--bubble-me-text,inherit);border-bottom-right-radius:var(--bubble-tail,8px)}
+.msg.ta .bubble{background:var(--bubble-ta);color:var(--bubble-ta-text,inherit);border-bottom-left-radius:var(--bubble-tail,8px)}
 .bubble code{background:var(--bg-soft);border-radius:6px;padding:1px 6px;font-size:13px}
 .bubble.err{background:#FBEAE6;color:var(--danger);font-size:13px}
+.msg.hlFlash .bubble{animation:hlpulse 1.6s ease}
+@keyframes hlpulse{0%,100%{box-shadow:var(--shadow)}25%,55%{box-shadow:0 0 0 3px var(--accent)}}
 .msg .who{font-size:11px;color:var(--ink-soft);margin:0 6px 4px}
 .typingDot{display:inline-block;animation:blink 1s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
@@ -919,12 +921,25 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <button class="themeDot" data-theme="mist" style="background:#DEDEF5"></button>
       <button class="themeDot" data-theme="night" style="background:#46362A"></button>
     </div>
+    <div class="boxRow"><span class="ic">🎈</span><span class="grow">气泡皮肤</span></div>
+    <div id="skinChips" style="display:flex;flex-wrap:wrap;gap:8px;margin:2px 2px 10px"></div>
     <div class="boxRow">
-      <span class="ic">🎈</span><span class="grow">气泡颜色 我 / TA</span>
+      <span class="ic" style="opacity:0">🎈</span><span class="grow">自定义颜色 我 / TA</span>
       <input type="color" id="bubMe" class="colorDot" value="#F6DCC4">
       <input type="color" id="bubTa" class="colorDot" value="#FFFFFF">
+    </div>
+    <div class="boxRow">
+      <span class="ic" style="opacity:0">🎈</span><span class="grow">圆角 <span id="radiusVal" style="color:var(--ink-soft);font-size:13px"></span></span>
+      <input type="range" id="bubRadius" min="4" max="28" step="1" style="flex:0 0 130px">
+    </div>
+    <div class="boxRow" style="gap:8px">
+      <span class="ic" style="opacity:0">🎈</span>
+      <button class="ghostBtn" id="skinExport" style="flex:1;font-size:13px;margin:0">📤 导出皮肤</button>
+      <button class="ghostBtn" id="skinImport" style="flex:1;font-size:13px;margin:0">📥 导入皮肤</button>
       <button id="bubReset" style="color:var(--ink-soft);padding:4px 8px">还原</button>
     </div>
+    <input type="file" id="skinFile" accept=".json" style="display:none">
+    <div class="hintText" style="margin:0 2px 6px">挑一个皮肤一键换上；也能自己调颜色和圆角。喜欢的皮肤可以「导出」成文件发给朋友，别人发你的也能「导入」。</div>
     <button class="boxRow" id="timeBtn" style="width:100%"><span class="ic">⏳</span><span class="grow" style="text-align:left">时光机</span></button>
     <div class="boxRow">
       <span class="ic">📊</span><span class="grow">显示 token 统计</span>
@@ -1396,12 +1411,82 @@ function applyTheme(){
   const root=document.documentElement.style;
   if(settings.bubbleMe) root.setProperty('--bubble-me',settings.bubbleMe); else root.removeProperty('--bubble-me');
   if(settings.bubbleTa) root.setProperty('--bubble-ta',settings.bubbleTa); else root.removeProperty('--bubble-ta');
+  if(settings.bubbleMeText) root.setProperty('--bubble-me-text',settings.bubbleMeText); else root.removeProperty('--bubble-me-text');
+  if(settings.bubbleTaText) root.setProperty('--bubble-ta-text',settings.bubbleTaText); else root.removeProperty('--bubble-ta-text');
+  if(settings.bubbleRadius!=null) root.setProperty('--bubble-radius',settings.bubbleRadius+'px'); else root.removeProperty('--bubble-radius');
+  if(settings.bubbleTail!=null) root.setProperty('--bubble-tail',settings.bubbleTail+'px'); else root.removeProperty('--bubble-tail');
+}
+/* ===== 气泡皮肤：内置可选 + 导入导出 ===== */
+const BUBBLE_SKINS=[
+  {name:'奶油',me:'#F6DCC4',ta:'#FFFFFF',meText:'',taText:'',radius:18,tail:8},
+  {name:'蜜桃',me:'#FAD4D8',ta:'#FFF6F2',meText:'#7A3B45',taText:'#6B4A45',radius:20,tail:8},
+  {name:'薄荷',me:'#CFEBDA',ta:'#FFFFFF',meText:'#2F5C46',taText:'',radius:18,tail:8},
+  {name:'海盐',me:'#CFE3F5',ta:'#FFFFFF',meText:'#2C4E68',taText:'',radius:18,tail:8},
+  {name:'葡萄',me:'#E0D6F5',ta:'#FFFFFF',meText:'#4A3A6B',taText:'',radius:20,tail:8},
+  {name:'晚樱',me:'#F3C9E0',ta:'#FBF1F7',meText:'#6B3556',taText:'#5C4555',radius:22,tail:8},
+  {name:'抹茶',me:'#DCE6B8',ta:'#FBFBF0',meText:'#4A5526',taText:'',radius:16,tail:8},
+  {name:'方糖',me:'#F6DCC4',ta:'#FFFFFF',meText:'',taText:'',radius:8,tail:8},
+  {name:'软糖',me:'#FBD0C0',ta:'#FFFFFF',meText:'#7A3F2C',taText:'',radius:26,tail:26},
+  {name:'暗夜',me:'#46362A',ta:'#2E2822',meText:'#F0E6DA',taText:'#E8E0D4',radius:18,tail:8},
+];
+function applySkin(s){
+  settings.bubbleMe=s.me||''; settings.bubbleTa=s.ta||'';
+  settings.bubbleMeText=s.meText||''; settings.bubbleTaText=s.taText||'';
+  settings.bubbleRadius=(s.radius!=null?Number(s.radius):null);
+  settings.bubbleTail=(s.tail!=null?Number(s.tail):null);
+  persistAll(); applyTheme(); syncBubUI();
+}
+function renderSkinChips(){
+  const box=$('skinChips'); if(!box) return;
+  box.innerHTML='';
+  BUBBLE_SKINS.forEach(s=>{
+    const b=document.createElement('button');
+    b.title=s.name;
+    b.style.cssText='display:inline-flex;flex-direction:column;align-items:center;gap:4px;padding:7px 8px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg-soft);cursor:pointer';
+    const t=Math.min(s.tail,8);
+    b.innerHTML=`<span style="display:flex;gap:3px">
+      <i style="width:17px;height:17px;border-radius:7px;border-bottom-right-radius:${t}px;background:${s.me}"></i>
+      <i style="width:17px;height:17px;border-radius:7px;border-bottom-left-radius:${t}px;background:${s.ta};box-shadow:inset 0 0 0 1px #0001"></i>
+    </span><span style="font-size:11px;color:var(--ink-soft)">${s.name}</span>`;
+    b.onclick=()=>{ applySkin(s); toast('换上「'+s.name+'」啦'); };
+    box.appendChild(b);
+  });
+}
+function syncBubUI(){
+  if($('bubMe')) $('bubMe').value=settings.bubbleMe||'#F6DCC4';
+  if($('bubTa')) $('bubTa').value=settings.bubbleTa||'#FFFFFF';
+  const r=settings.bubbleRadius!=null?settings.bubbleRadius:18;
+  if($('bubRadius')) $('bubRadius').value=r;
+  if($('radiusVal')) $('radiusVal').textContent=r+'px';
+  renderSkinChips();
 }
 $('bubMe').oninput=e=>{ settings.bubbleMe=e.target.value; persistAll(); applyTheme(); };
 $('bubTa').oninput=e=>{ settings.bubbleTa=e.target.value; persistAll(); applyTheme(); };
+$('bubRadius').oninput=e=>{ settings.bubbleRadius=Number(e.target.value); $('radiusVal').textContent=e.target.value+'px'; persistAll(); applyTheme(); };
+$('skinExport').onclick=()=>{
+  const skin={type:'xiaowo-bubble-skin',name:'我的气泡',
+    me:settings.bubbleMe||'#F6DCC4',ta:settings.bubbleTa||'#FFFFFF',
+    meText:settings.bubbleMeText||'',taText:settings.bubbleTaText||'',
+    radius:settings.bubbleRadius!=null?settings.bubbleRadius:18,
+    tail:settings.bubbleTail!=null?settings.bubbleTail:8};
+  dlFile('小窝气泡皮肤.json',JSON.stringify(skin,null,2),'application/json');
+  toast('皮肤导出好啦，可以发给朋友～');
+};
+$('skinImport').onclick=()=>$('skinFile').click();
+$('skinFile').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const s=JSON.parse(await f.text());
+    if(!s||(!s.me&&!s.ta)) toast('这个不像气泡皮肤文件呢');
+    else{ applySkin(s); toast('皮肤导入好啦 ✓'); }
+  }catch(err){ toast('文件读不了'); }
+  e.target.value='';
+};
 $('bubReset').onclick=()=>{
   delete settings.bubbleMe; delete settings.bubbleTa;
-  persistAll(); applyTheme(); toast('气泡回到默认色');
+  delete settings.bubbleMeText; delete settings.bubbleTaText;
+  delete settings.bubbleRadius; delete settings.bubbleTail;
+  persistAll(); applyTheme(); syncBubUI(); toast('气泡回到默认啦');
 };
 
 /* ================= 侧边栏 ================= */
@@ -1451,6 +1536,7 @@ function fmtMsgTime(ts){
   const lb=dateLabel(ts);
   return (lb==='今天'?'':lb+' ')+hm;
 }
+let searchJump=null;  // 从搜索结果点进来时，要跳转高亮的关键词
 function renderHistory(){
   const list=$('historyList'); list.innerHTML='';
   const q=$('search').value.trim();
@@ -1472,7 +1558,7 @@ function renderHistory(){
       }
     }
     it.innerHTML=`<span class="t">${esc(c.title)}${snippet?`<div style="font-size:11px;color:var(--ink-soft);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(snippet)}</div>`:''}</span><button class="ren">✎</button><button class="del">✕</button>`;
-    it.querySelector('.t').onclick=()=>{ switchChat(c.id); openDrawer(false); };
+    it.querySelector('.t').onclick=()=>{ if(q&&!c.title.includes(q)) searchJump=q; switchChat(c.id); openDrawer(false); };
     it.querySelector('.ren').onclick=ev=>{ ev.stopPropagation(); renameChat(c); };
     it.querySelector('.del').onclick=ev=>{
       ev.stopPropagation();
@@ -1675,6 +1761,16 @@ function renderChat(){
     if(m.role!=='user'&&m.stats&&showStats()) area.appendChild(statsEl(m.stats));
   });
   area.scrollTop=area.scrollHeight;
+  /* 从搜索结果跳进来：滚到命中那条并高亮一下 */
+  if(searchJump){
+    const needle=searchJump; searchJump=null;
+    const hit=[...area.querySelectorAll('.msg')].find(el=>el.textContent.includes(needle));
+    if(hit) requestAnimationFrame(()=>{
+      hit.scrollIntoView({block:'center'});
+      hit.classList.add('hlFlash');
+      setTimeout(()=>hit.classList.remove('hlFlash'),1700);
+    });
+  }
 }
 
 /* 输入框自适应高度 */
@@ -3071,8 +3167,8 @@ function renderKeyList(){
         <div class="keyLabel">${esc(k.label||'未命名')}</div>
         <div class="keyPreview">${maskKey(k.key)}${k.url?' · '+esc(k.url.replace(/^https?:\/\//,'').split('/')[0]):''}${k.fmt==='openai'?' · OpenAI格式':''}</div>
       </div>
-      <button class="delKey editKey" title="编辑">✎</button>
-      <button class="delKey" title="删除">✕</button>`;
+      <button class="delKey editKey" title="编辑" style="color:var(--accent-deep);font-weight:600">✎ 改</button>
+      <button class="delKey" title="删除">✕ 删</button>`;
     it.onclick=ev=>{
       if(ev.target.classList.contains('delKey')) return;
       selKeyId=k.id; persistAll(); renderKeyList();
@@ -4139,8 +4235,7 @@ $('boxBtn').onclick=()=>{
   $('cacheToggle').classList.toggle('on',cache1h());
   $('cityInput').value=settings.city?.name||'';
   $('tavilyInput').value=settings.tavilyKey||'';
-  if(settings.bubbleMe) $('bubMe').value=settings.bubbleMe;
-  if(settings.bubbleTa) $('bubTa').value=settings.bubbleTa;
+  syncBubUI();
   openSheet('boxSheet');
 };
 /* 城市 → Open-Meteo 地理编码拿经纬度，TA就能感知天气 */
