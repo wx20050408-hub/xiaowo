@@ -994,6 +994,10 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <button class="wbToggle" id="cacheToggle"></button>
     </div>
     <div class="boxRow">
+      <span class="ic">🌊</span><span class="grow">流式输出（关掉改一次性返回，Gemini等不支持流式时关）</span>
+      <button class="wbToggle" id="streamToggle"></button>
+    </div>
+    <div class="boxRow">
       <span class="ic">🌤</span><input id="cityInput" placeholder="你的城市（填了TA就能感知天气）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
     </div>
     <div class="boxRow">
@@ -2548,6 +2552,8 @@ function degradeContent(m,isOld){
 /* 缓存断点（仅 Anthropic 格式）：system 慢区/快区各一个 + messages 倒数第二条一个，共3个（上限4）。
    默认 1 小时 TTL：写入贵一点（2x），但隔多久回来聊重复部分都按一折读，伴侣场景稳赚 */
 const cache1h=()=>settings.cache1h!==false;
+/* 流式输出开关：默认开（边写边出）。关掉改成一次性返回，适合 Gemini 等对流式支持差的中转 */
+const streamOn=()=>settings.stream!==false;
 function addCacheControl(body){
   const cc=()=>cache1h()?{type:'ephemeral',ttl:'1h'}:{type:'ephemeral'};
   if(body.system)
@@ -2569,7 +2575,7 @@ function baseBody(messages){
   const body={
     model: settings.model,
     max_tokens: Number(preset?.maxTokens)||Number(settings.maxTokens)||2048,
-    stream: true,
+    stream: streamOn(),
     messages,
   };
   if(preset && preset.temperature!=='' && preset.temperature!=null)
@@ -2658,6 +2664,13 @@ async function callStream(api,body,bub,area,out){
   /* OpenAI 系温度 0~2，Anthropic 最高 1：超了自动压回，不报错 */
   if(!isOA&&body.temperature!=null) body.temperature=Math.min(1,body.temperature);
   if(!isOA) addCacheControl(body);
+  /* 卡死看门狗：超过 60 秒没有任何新内容就当作 TA 那边卡住了，主动断开让用户重试。
+     流式每收到一段就重置计时；非流式（一次性返回本来就要等久）不挂表，免得误杀长回复 */
+  let stall;
+  const armStall=()=>{ clearTimeout(stall); stall=setTimeout(()=>{ out.stalled=true; try{ aborter&&aborter.abort(); }catch(_){} },60000); };
+  try{
+  const stream=body.stream!==false;
+  if(stream) armStall();
   const res=await fetch(api.apiUrl,{
     method:'POST',
     signal:aborter.signal,
@@ -2668,12 +2681,33 @@ async function callStream(api,body,bub,area,out){
     const errText=await res.text();
     throw new Error(`HTTP ${res.status}：${errText.slice(0,300)}`);
   }
+  /* 非流式：一次性拿完整 JSON，解析出文本和用量，渲染一次 */
+  if(!stream){
+    const data=await res.json();
+    out.acc=isOA ? (data.choices?.[0]?.message?.content||'')
+                 : ((data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join(''));
+    const u=data.usage||{};
+    out.usage=out.usage||{};
+    if(isOA){
+      out.usage.in=u.prompt_tokens; out.usage.out=u.completion_tokens;
+      out.usage.cached=u.prompt_tokens_details?.cached_tokens||0;
+    }else{
+      out.usage.in=(u.input_tokens||0)+(u.cache_read_input_tokens||0)+(u.cache_creation_input_tokens||0);
+      out.usage.out=u.output_tokens||0; out.usage.cached=u.cache_read_input_tokens||0;
+    }
+    if(out.acc){
+      if(out.render) out.render(); else bub.innerHTML=fmtAssistant(out.acc);
+      area.scrollTop=area.scrollHeight;
+    }
+    return;
+  }
   const reader=res.body.getReader();
   const dec=new TextDecoder();
   let buf='';
   while(true){
     const {done,value}=await reader.read();
     if(done) break;
+    armStall();   // 收到一段数据，重置卡死计时
     buf+=dec.decode(value,{stream:true});
     const lines=buf.split('\n'); buf=lines.pop();
     for(const line of lines){
@@ -2707,6 +2741,7 @@ async function callStream(api,body,bub,area,out){
       }catch(e){ if(e instanceof SyntaxError) continue; throw e; }
     }
   }
+  }finally{ clearTimeout(stall); }
 }
 
 /* 跑一条回复（单聊一条 / 群聊每个成员一条），返回 false 表示中断或出错 */
@@ -2782,17 +2817,26 @@ async function runReply(c,api,body,ch){
     else bub.innerHTML='<i>（空回复）</i>';
     return true;
   }catch(e){
-    if(e.name==='AbortError'){
+    const retry=()=>{
+      if(streaming) return;
+      holder.remove();
+      generateReply(c,(c.members&&c.members.length&&ch)?ch.id:null);
+    };
+    if(out.stalled){
+      /* 超过 1 分钟没回应主动断的：有写到一半的就先存住别丢，没动静的给重试提示 */
+      if(out.acc) saveMsg();
+      else{
+        bub.classList.add('err');
+        bub.textContent='TA 那边好像卡住了（超过 1 分钟没回应），点我重试';
+        bub.onclick=retry;
+      }
+    }else if(e.name==='AbortError'){
       if(out.acc) saveMsg();
       else holder.remove();
     }else{
       bub.classList.add('err');
       bub.textContent='出错了：'+e.message+'（点我重试）';
-      bub.onclick=()=>{
-        if(streaming) return;
-        holder.remove();
-        generateReply(c,(c.members&&c.members.length&&ch)?ch.id:null);
-      };
+      bub.onclick=retry;
     }
     return false;
   }
@@ -4815,6 +4859,7 @@ $('boxBtn').onclick=()=>{
   applyTheme();
   $('statsToggle').classList.toggle('on',showStats());
   $('cacheToggle').classList.toggle('on',cache1h());
+  $('streamToggle').classList.toggle('on',streamOn());
   $('cityInput').value=settings.city?.name||'';
   $('tavilyInput').value=settings.tavilyKey||'';
   syncBubUI();
@@ -4853,6 +4898,12 @@ $('cacheToggle').onclick=()=>{
   persistAll();
   $('cacheToggle').classList.toggle('on',cache1h());
   toast(cache1h()?'缓存改成存1小时啦':'已换回5分钟短缓存');
+};
+$('streamToggle').onclick=()=>{
+  settings.stream=!streamOn();
+  persistAll();
+  $('streamToggle').classList.toggle('on',streamOn());
+  toast(streamOn()?'流式输出开啦（边写边出）':'已关流式，改成一次性返回');
 };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
