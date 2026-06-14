@@ -3009,7 +3009,18 @@ function degradeContent(m,isOld){
 const cache1h=()=>settings.cache1h!==false;
 /* 流式输出开关：默认开（边写边出）。关掉改成一次性返回，适合 Gemini 等对流式支持差的中转 */
 const streamOn=()=>settings.stream!==false;
+/* 稳定的用户标识：中转站常挂多个上游账号轮询抗限流，缓存是按账号存的。
+   带上固定 metadata.user_id，让中转站每次都把你转给同一个上游，缓存才不会因轮询而漏命中。
+   首次生成后存进 settings 持久化，之后永远不变 */
+function cacheUserId(){
+  if(!settings.userId){
+    settings.userId='xw-'+(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2));
+    save('xw_settings',settings);
+  }
+  return settings.userId;
+}
 function addCacheControl(body){
+  body.metadata={...(body.metadata||{}),user_id:cacheUserId()};
   const cc=()=>cache1h()?{type:'ephemeral',ttl:'1h'}:{type:'ephemeral'};
   if(body.system)
     body.system=body.system.split(CACHE_BP).filter(s=>s.trim()).map(s=>({type:'text',text:s,cache_control:cc()}));
