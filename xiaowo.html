@@ -488,6 +488,15 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   font-size:12px;max-width:150px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
 }
 #imgPreview{display:none;gap:10px;padding:10px 14px 0;background:var(--bg);flex-shrink:0;flex-wrap:wrap}
+/* 引用回复：输入框上方的"正在回复"小条 */
+#quoteBar{display:none;align-items:center;gap:8px;margin:8px 12px 0;padding:7px 10px;background:var(--card);border-left:3px solid var(--accent);border-radius:8px;box-shadow:var(--shadow);flex-shrink:0}
+#quoteBar .qbBody{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+#quoteBar .qbName{font-size:11px;color:var(--accent);font-weight:600}
+#quoteBar .qbText{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#quoteBar .qbX{flex-shrink:0;width:24px;height:24px;border:none;background:transparent;color:var(--ink-soft);font-size:14px;cursor:pointer}
+/* 引用回复：气泡里那一小块被引用的内容（颜色跟随气泡文字，适配各种气泡皮肤） */
+.quoteRef{display:block;margin:0 0 5px;padding:4px 8px;border-left:2px solid currentColor;border-radius:6px;background:rgba(128,128,128,.16);font-size:12px;color:inherit;opacity:.82;line-height:1.4;white-space:pre-wrap;word-break:break-word}
+.quoteRef .qrName{font-weight:600;margin-right:5px}
 #imgPreview.has{display:flex}
 .pimg{position:relative}
 .pimg img{width:56px;height:56px;object-fit:cover;border-radius:12px;box-shadow:var(--shadow)}
@@ -759,6 +768,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 
   <!-- 输入栏 -->
   <div id="imgPreview"></div>
+  <div id="quoteBar"></div>
   <footer id="inputBar">
     <button id="plusBtn" aria-label="更多功能">＋</button>
     <div id="inputWrap">
@@ -1178,6 +1188,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 <div class="sheetScrim" id="msgActionSheet">
   <div class="sheet">
     <div class="sheetTitle">这条消息<button class="close" data-close="msgActionSheet">✕</button></div>
+    <button class="boxRow" id="quoteMsg" style="width:100%"><span class="ic">💬</span><span class="grow" style="text-align:left">引用回复</span></button>
     <button class="boxRow" id="editMsg" style="width:100%"><span class="ic">✏️</span><span class="grow" style="text-align:left">编辑</span></button>
     <button class="boxRow" id="regenMsg" style="width:100%"><span class="ic">🎲</span><span class="grow" style="text-align:left">从这里重新生成</span></button>
     <button class="boxRow" id="branchMsg" style="width:100%"><span class="ic">🌿</span><span class="grow" style="text-align:left">从这里开个分支</span></button>
@@ -1985,6 +1996,7 @@ function renderChat(){
   const area=$('msgArea'); area.innerHTML='';
   renderHeader();
   const c=curChat();
+  if(quoting&&(!c||quoting.cid!==c.id)){ quoting=null; renderQuoteBar(); }   // 切换对话时清掉残留的引用
   /* 角色聊天背景（单聊生效，叠一层半透明保证字能看清） */
   const bgCh=(!c||!(c.members&&c.members.length))?curChar(c):null;
   if(bgCh?.bg){
@@ -2047,7 +2059,8 @@ function renderChat(){
     const spWhole=typeof m.content==='string'?specialHtml(m.content.trim(),m):null;
     const html=spWhole??((m.role!=='user'&&typeof m.content==='string')?fmtAssistant(m.content):contentHtml(m.content));
     const ooc=m.role==='user'&&typeof m.content==='string'&&/^[（(][\s\S]*[)）]$/.test(m.content.trim());
-    const el=bubbleEl(m.role,html,spWhole?'plain':(ooc?'ooc':''),ch);
+    const qref=m.quote?quoteRefHtml(m.quote):'';
+    const el=bubbleEl(m.role,qref+html,spWhole?'plain':(ooc?'ooc':''),ch);
     el.querySelector('.bubble').onclick=()=>openMsgActions(i);
     wireThink(el); wireCode(el);
     if(m.role!=='user') attachPat(el,ch,c);
@@ -2899,7 +2912,14 @@ function injectIntoLastUser(apiMsgs,text){
 
 /* 历史里 3 条以前的图片降级成文字描述（描述后台预生成） */
 function degradeContent(m,isOld){
-  const ct=m.content;
+  let ct=m.content;
+  /* 引用回复：把被引用的内容当前缀发给模型，让它知道这条在回哪句（不动存储/渲染） */
+  if(m.quote&&m.quote.text){
+    const q=`（回复 ${m.quote.name}：「${m.quote.text}」）\n`;
+    if(typeof ct==='string') ct=q+ct;
+    else{ ct=ct.map(b=>({...b})); const ti=ct.findIndex(b=>b.type==='text');
+      if(ti>=0) ct[ti]={...ct[ti],text:q+ct[ti].text}; else ct=[{type:'text',text:q},...ct]; }
+  }
   if(!isOld||typeof ct==='string'||!ct.some(b=>b.type==='image')) return ct;
   const texts=ct.filter(b=>b.type==='text').map(b=>b.text).join(' ');
   return (`[图片${m.imgDesc?'：'+m.imgDesc:''}] `+texts).trim();
@@ -3405,8 +3425,11 @@ async function send(){
     content=pendingImgs.map(p=>({type:'image',source:{type:'base64',media_type:p.media_type,data:p.data}}));
     if(textFull) content.push({type:'text',text:textFull});
   }else content=textFull;
-  c.messages.push({role:'user',content,ts:Date.now()});
+  const umsg={role:'user',content,ts:Date.now()};
+  if(quoting&&quoting.cid===c.id) umsg.quote={name:quoting.name,text:quoting.text,role:quoting.role};
+  c.messages.push(umsg);
   c.ts=Date.now();
+  quoting=null; renderQuoteBar();
   pendingImgs=[]; pendingFiles=[]; renderImgPreview();
   input.value=''; input.style.height='auto';
   persistAll(); renderChat();
@@ -4287,6 +4310,28 @@ function openMsgActions(i){
   actMsgIdx=i;
   openSheet('msgActionSheet');
 }
+/* ===== 引用回复（像微信那样指明在回哪条） ===== */
+let quoting=null;  // {name,text,role,cid}
+function renderQuoteBar(){
+  const bar=$('quoteBar'); if(!bar) return;
+  if(!quoting){ bar.style.display='none'; bar.innerHTML=''; return; }
+  bar.style.display='flex';
+  bar.innerHTML=`<div class="qbBody"><span class="qbName">回复 ${esc(quoting.name)}</span><span class="qbText">${esc(quoting.text)}</span></div><button class="qbX" aria-label="取消引用">✕</button>`;
+  bar.querySelector('.qbX').onclick=()=>{ quoting=null; renderQuoteBar(); };
+}
+function quoteRefHtml(q){
+  return `<div class="quoteRef"><span class="qrName">${esc(q.name)}</span>${esc(q.text)}</div>`;
+}
+$('quoteMsg').onclick=()=>{
+  const c=curChat(); const m=c&&c.messages[actMsgIdx]; if(!m||m.role==='sys') return;
+  let name=userName();
+  if(m.role!=='user'){ const ch=(m.charId&&characters.find(x=>x.id===m.charId))||curChar(c); name=ch?.name||'TA'; }
+  let text=shotText(m).replace(/\s+/g,' ').trim();
+  if(!text){ toast('这条没法引用哦'); return; }
+  if(text.length>50) text=text.slice(0,50)+'…';
+  quoting={name,text,role:m.role,cid:c.id};
+  renderQuoteBar(); closeSheet('msgActionSheet'); input.focus();
+};
 async function regenFrom(i){
   const c=curChat(); if(!c||streaming) return;
   const m=c.messages[i];
