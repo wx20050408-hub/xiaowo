@@ -569,6 +569,19 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .calDay.period{background:var(--bubble-me)}
 .calDay.predict{outline:1.5px dashed var(--accent-deep)}
 .calDay .marks{font-size:8px;line-height:1;height:9px;color:var(--accent-deep)}
+/* 可多选小标签（生理期表单：流量/症状/心情） */
+.chipRow{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:6px 13px;border-radius:16px;border:1.5px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:13px;cursor:pointer;transition:all .15s}
+.chip.on{border-color:var(--accent);background:var(--bubble-me);color:var(--ink);font-weight:600}
+/* 生理期统计卡 + 历史项 */
+.pStatCard{background:var(--bubble-me);border-radius:14px;padding:12px 14px;margin:2px 2px 4px}
+.pStatBig{font-size:15px;font-weight:600;color:var(--ink)}
+.pStatSub{font-size:12px;color:var(--ink-soft);margin-top:4px;line-height:1.6}
+.pItem{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:10px 12px;margin-bottom:8px;display:flex;align-items:flex-start;gap:8px}
+.pItem .pMain{flex:1;min-width:0}
+.pItem .pDate{font-weight:600;font-size:14px}
+.pItem .pTags{font-size:12px;color:var(--ink-soft);margin-top:3px;line-height:1.5}
+.pItem .pEdit{flex-shrink:0;border:none;background:transparent;color:var(--accent-deep);font-size:13px;cursor:pointer;padding:2px 4px}
 
 /* 自习室 */
 #studyPage{position:fixed;inset:0;z-index:55;background:var(--bg);display:none;flex-direction:column;max-width:760px;margin:0 auto}
@@ -840,6 +853,34 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   <div id="calGrid"></div>
   <div class="hintText" style="padding:10px 18px 0">● 有备忘 · 底色♥ 经期 · 虚线圈 预计经期 · 点日期记一笔</div>
   <div class="hintText" id="calPredict" style="padding:4px 18px"></div>
+  <div style="padding:6px 18px 16px"><button class="primaryBtn" id="periodBtn" style="margin:0">🌸 生理期记录</button></div>
+</div>
+
+<!-- 生理期记录页 -->
+<div class="sheetScrim" id="periodSheet">
+  <div class="sheet" style="max-height:86vh;overflow-y:auto">
+    <div class="sheetTitle">生理期记录<button class="close" data-close="periodSheet">✕</button></div>
+    <div id="periodStats"></div>
+    <button class="primaryBtn" id="addPeriod" style="margin:6px 0 12px">➕ 记一次例假</button>
+    <div style="font-weight:600;font-size:14px;margin:2px 2px 6px">历史记录</div>
+    <div id="periodList"></div>
+    <div class="hintText" style="margin-top:8px">记录后日历也会自动标上🌸；TA 看得到你今天是不是生理期，会贴心一点。紊乱很正常，记着看趋势就好～</div>
+  </div>
+</div>
+
+<!-- 记一次例假 表单 -->
+<div class="sheetScrim" id="periodLogSheet">
+  <div class="sheet" style="max-height:86vh;overflow-y:auto">
+    <div class="sheetTitle" id="plTitle">记一次例假<button class="close" data-close="periodLogSheet">✕</button></div>
+    <div class="field"><label>开始日期</label><input type="date" id="plStart"></div>
+    <div class="field"><label>持续天数</label><input type="number" id="plDays" min="1" max="14" value="5"></div>
+    <div class="field"><label>流量</label><div id="plFlow" class="chipRow"></div></div>
+    <div class="field"><label>症状（可多选）</label><div id="plSymp" class="chipRow"></div></div>
+    <div class="field"><label>心情</label><div id="plMood" class="chipRow"></div></div>
+    <div class="field"><label>备注（可选）</label><textarea id="plNote" style="min-height:50px" placeholder="比如：这次特别痛、提前了好几天…"></textarea></div>
+    <button class="primaryBtn" id="plSave">保存</button>
+    <button class="ghostBtn" id="plDel" style="color:var(--danger);display:none">删除这次记录</button>
+  </div>
 </div>
 
 <!-- 某一天的备忘弹层 -->
@@ -1504,6 +1545,7 @@ let studyLog = load('xw_study_log', []);    // {date,min,charId}
 let studySt = load('xw_study_state', null); // {start,min,charId} 进行中的专注
 let calNotes = load('xw_cal_notes', []);    // {id,date:'YYYY-MM-DD',text}
 let periods = load('xw_periods', []);       // ['YYYY-MM-DD',...] 标记为经期的日子
+let periodMeta = load('xw_period_meta', {});// {'YYYY-MM-DD'(开始日):{days,flow:'少/中/多',symptoms:[],mood,note}}
 let photos = load('xw_photos', []);         // {id,charId,text,ts} TA随手拍的照片（文字描述）
 let gamesLog = load('xw_games', []);        // {charId,type,ts} 一起玩过的小游戏
 const persistStickers=()=>idbSet('stickers',stickers).catch(()=>{ try{save('xw_stickers',stickers)}catch(e){} });
@@ -1686,6 +1728,7 @@ const persistAll = ()=>{
   save('xw_moments',moments); save('xw_annivs',annivs); save('xw_injections',injections);
   save('xw_wishes',wishes);
   save('xw_diaries',diaries); save('xw_cal_notes',calNotes); save('xw_periods',periods);
+  save('xw_period_meta',periodMeta);
   save('xw_photos',photos); save('xw_games',gamesLog);
   idbSet('chats',chats).catch(()=>save('xw_chats',chats));
   idbSet('characters',characters).catch(()=>save('xw_characters',characters));
@@ -2879,7 +2922,13 @@ function buildDynamic(c,ch){
     const tdy=new Date(), tds=`${tdy.getFullYear()}-${String(tdy.getMonth()+1).padStart(2,'0')}-${String(tdy.getDate()).padStart(2,'0')}`;
     const todayNotes=calNotes.filter(n=>n.date===tds);
     if(todayNotes.length) parts.push(`【今日备忘】${userName()}的日历上今天记着：${todayNotes.map(n=>n.text).join('；')}。聊到相关话题时可以自然地帮TA记着、提醒TA。`);
-    if(periods.includes(tds)) parts.push(`【贴心】今天是${userName()}的生理期。多体贴一点，合适的时候提醒TA喝热水、别吃凉的、好好休息，但别说教。`);
+    if(periods.includes(tds)){
+      let s=tds; while(periods.includes(addDaysStr(s,-1))) s=addDaysStr(s,-1);   // 回溯到这段经期的开始日
+      const meta=periodMeta[s], bits=[];
+      if(meta){ if(meta.flow) bits.push('流量'+meta.flow); if(meta.symptoms&&meta.symptoms.length) bits.push('有'+meta.symptoms.join('、')); if(meta.mood) bits.push('心情'+meta.mood); }
+      const cram=meta&&meta.symptoms&&meta.symptoms.includes('痛经')?'TA这次有痛经，多心疼TA一点；':'';
+      parts.push(`【贴心】今天是${userName()}的生理期${bits.length?`（TA记录了：${bits.join('，')}）`:''}。多体贴一点，${cram}合适的时候提醒TA喝热水、别吃凉的、好好休息，但别说教。`);
+    }
   }
   const ce=injActive('chat_end');
   if(ce.length) parts.push(ce.map(i=>i.content).join('\n\n'));
@@ -3630,31 +3679,31 @@ const dayDiffD=(a,b)=>Math.round((new Date(b)-new Date(a))/864e5);
 function addDaysStr(d,n){ const t=new Date(d); t.setDate(t.getDate()+n); return dstr(t.getFullYear(),t.getMonth(),t.getDate()); }
 /* 经期：从标记的日子里找每段的开头，算平均周期和经期长度 */
 function periodInfo(){
-  const days=[...periods].sort();
-  const starts=[],lens=[];
+  const days=[...new Set(periods)].sort();
+  const runs=[];   // [{start,len}]
   let runStart=null,prev=null;
   for(const d of days){
     if(!prev||dayDiffD(prev,d)>1){
-      if(runStart) lens.push(dayDiffD(runStart,prev)+1);
-      runStart=d; starts.push(d);
+      if(runStart) runs.push({start:runStart,len:dayDiffD(runStart,prev)+1});
+      runStart=d;
     }
     prev=d;
   }
-  if(runStart&&prev) lens.push(dayDiffD(runStart,prev)+1);
+  if(runStart&&prev) runs.push({start:runStart,len:dayDiffD(runStart,prev)+1});
+  const starts=runs.map(r=>r.start), lens=runs.map(r=>r.len);
+  /* 相邻开始日的间隔（周期），过滤掉明显异常的（<15 或 >60，多半是漏记/补记） */
+  const gaps=[];
+  for(let i=1;i<starts.length;i++){
+    const g=dayDiffD(starts[i-1],starts[i]);
+    if(g>=15&&g<=60) gaps.push(g);
+  }
   let next=null,cycle=null;
-  if(starts.length>=2){
-    const gaps=[];
-    for(let i=1;i<starts.length;i++){
-      const g=dayDiffD(starts[i-1],starts[i]);
-      if(g>=15&&g<=60) gaps.push(g);
-    }
-    if(gaps.length){
-      cycle=Math.round(gaps.slice(-3).reduce((a,b)=>a+b,0)/Math.min(3,gaps.length));
-      next=addDaysStr(starts[starts.length-1],cycle);
-    }
+  if(gaps.length){
+    cycle=Math.round(gaps.slice(-3).reduce((a,b)=>a+b,0)/Math.min(3,gaps.length));
+    next=addDaysStr(starts[starts.length-1],cycle);
   }
   const len=lens.length?Math.round(lens.reduce((a,b)=>a+b,0)/lens.length):5;
-  return {starts,next,cycle,len:Math.min(10,Math.max(2,len))};
+  return {starts,runs,lens,gaps,next,cycle,len:Math.min(10,Math.max(2,len))};
 }
 function renderCal(){
   $('calTitle').textContent=`${calY}年${calM+1}月`;
@@ -3731,6 +3780,86 @@ $('calBtn').onclick=()=>{
 $('calBack').onclick=()=>$('calPage').classList.remove('show');
 $('calPrev').onclick=()=>{ calM--; if(calM<0){calM=11;calY--;} renderCal(); };
 $('calNext').onclick=()=>{ calM++; if(calM>11){calM=0;calY++;} renderCal(); };
+
+/* ================= 生理期记录 ================= */
+const PERIOD_FLOWS=['少','中','多'];
+const PERIOD_SYMPTOMS=['痛经','腰酸','头痛','乳房胀痛','恶心','疲惫','腹胀','长痘','腹泻','食欲变化'];
+const PERIOD_MOODS=['平静','烦躁','低落','焦虑','疲惫','开心'];
+let plEditStart=null;                         // 正在编辑的那次开始日（null=新建）
+let plPick={flow:'',symptoms:[],mood:''};     // 表单当前选择
+const fmtMD=ds=>{ const p=String(ds).split('-'); return p.length===3?`${+p[1]}月${+p[2]}日`:ds; };
+function renderPeriod(){
+  const info=periodInfo();
+  const stats=$('periodStats');
+  if(!info.starts.length){
+    stats.innerHTML='<div class="pStatCard"><div class="pStatBig">还没有记录</div><div class="pStatSub">点下面「记一次例假」开始记吧，记两次以上就能看出你的周期规律。</div></div>';
+  }else{
+    const g=info.gaps;
+    let cycLine;
+    if(g.length){
+      const avg=Math.round(g.reduce((a,b)=>a+b,0)/g.length), mn=Math.min(...g), mx=Math.max(...g);
+      cycLine=`平均周期 <b>${avg}</b> 天`+(mn!==mx?`（最短 ${mn}~最长 ${mx} 天）`:'')+(mx-mn>=9?'　·　波动较大，预测仅供参考':'');
+    }else cycLine='再记一次就能算周期啦';
+    const avgLen=info.lens.length?Math.round(info.lens.reduce((a,b)=>a+b,0)/info.lens.length):null;
+    let nextLine='继续记录就能预测下次';
+    if(info.next){ const dl=dayDiffD(todayStr(),info.next); nextLine=`预计下次约 ${fmtMD(info.next)}（${dl>=0?`还有 ${dl} 天`:'可能迟到了，留意一下'}）`; }
+    stats.innerHTML=`<div class="pStatCard"><div class="pStatBig">🌸 ${nextLine}</div><div class="pStatSub">${cycLine}${avgLen?`<br>平均每次持续 <b>${avgLen}</b> 天 · 共记录 ${info.starts.length} 次`:''}</div></div>`;
+  }
+  const list=$('periodList'); list.innerHTML='';
+  if(!info.runs.length){ list.innerHTML='<div class="hintText" style="text-align:center;padding:10px 0">暂无记录</div>'; return; }
+  [...info.runs].reverse().forEach((r,ri)=>{
+    const idx=info.runs.length-1-ri;
+    const meta=periodMeta[r.start]||{};
+    const tags=[]; if(meta.flow) tags.push('流量'+meta.flow); tags.push(r.len+'天');
+    if(idx>0) tags.push('距上次'+dayDiffD(info.runs[idx-1].start,r.start)+'天');
+    const extra=[]; if(meta.symptoms&&meta.symptoms.length) extra.push(meta.symptoms.join('、'));
+    if(meta.mood) extra.push('心情:'+meta.mood); if(meta.note) extra.push(meta.note);
+    const it=document.createElement('div'); it.className='pItem';
+    it.innerHTML=`<div class="pMain"><div class="pDate">${fmtMD(r.start)}</div><div class="pTags">${esc(tags.join(' · '))}${extra.length?'<br>'+esc(extra.join(' · ')):''}</div></div><button class="pEdit">编辑</button>`;
+    it.querySelector('.pEdit').onclick=()=>openPeriodLog(r.start,r.len);
+    list.appendChild(it);
+  });
+}
+function chipHtml(items,picked,multi){
+  return items.map(x=>`<button class="chip${(multi?picked.includes(x):picked===x)?' on':''}" data-v="${esc(x)}">${esc(x)}</button>`).join('');
+}
+function renderPlChips(){
+  $('plFlow').innerHTML=chipHtml(PERIOD_FLOWS,plPick.flow,false);
+  $('plSymp').innerHTML=chipHtml(PERIOD_SYMPTOMS,plPick.symptoms,true);
+  $('plMood').innerHTML=chipHtml(PERIOD_MOODS,plPick.mood,false);
+  $('plFlow').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{ plPick.flow=plPick.flow===b.dataset.v?'':b.dataset.v; renderPlChips(); });
+  $('plMood').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{ plPick.mood=plPick.mood===b.dataset.v?'':b.dataset.v; renderPlChips(); });
+  $('plSymp').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{ const v=b.dataset.v,i=plPick.symptoms.indexOf(v); if(i>=0)plPick.symptoms.splice(i,1); else plPick.symptoms.push(v); renderPlChips(); });
+}
+function openPeriodLog(start,days){
+  plEditStart=start||null;
+  const meta=start?(periodMeta[start]||{}):{};
+  $('plStart').value=start||todayStr();
+  $('plDays').value=days||meta.days||5;
+  plPick={flow:meta.flow||'',symptoms:(meta.symptoms||[]).slice(),mood:meta.mood||''};
+  $('plNote').value=meta.note||'';
+  $('plTitle').childNodes[0].textContent=start?'编辑这次记录':'记一次例假';
+  $('plDel').style.display=start?'block':'none';
+  renderPlChips(); openSheet('periodLogSheet');
+}
+function clearRun(start,days){ for(let i=0;i<days;i++){ const d=addDaysStr(start,i); periods=periods.filter(x=>x!==d); } }
+$('addPeriod').onclick=()=>openPeriodLog();
+$('plSave').onclick=()=>{
+  const start=$('plStart').value;
+  const days=Math.max(1,Math.min(14,Number($('plDays').value)||5));
+  if(!start){ toast('选一下开始日期叭'); return; }
+  if(plEditStart){ clearRun(plEditStart,(periodMeta[plEditStart]?.days)||days); delete periodMeta[plEditStart]; }
+  for(let i=0;i<days;i++){ const d=addDaysStr(start,i); if(!periods.includes(d)) periods.push(d); }
+  periodMeta[start]={days,flow:plPick.flow,symptoms:plPick.symptoms.slice(),mood:plPick.mood,note:$('plNote').value.trim().slice(0,200)};
+  plEditStart=null;
+  persistAll(); closeSheet('periodLogSheet'); renderPeriod(); renderCal(); toast('记好啦，照顾好自己🌸');
+};
+$('plDel').onclick=()=>{
+  if(!plEditStart) return;
+  clearRun(plEditStart,(periodMeta[plEditStart]?.days)||1); delete periodMeta[plEditStart]; plEditStart=null;
+  persistAll(); closeSheet('periodLogSheet'); renderPeriod(); renderCal(); toast('删掉了');
+};
+$('periodBtn').onclick=()=>{ renderPeriod(); openSheet('periodSheet'); };
 
 /* ================= 自习室 ================= */
 let studyTick=null, studyMin=25;
@@ -5303,7 +5432,7 @@ $('splashToggle').onclick=()=>{
 };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,photos,gamesLog},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,photos,gamesLog},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -5329,6 +5458,7 @@ $('importFile').onchange=async e=>{
     if(data.studyLog) studyLog=data.studyLog;
     if(data.calNotes) calNotes=data.calNotes;
     if(data.periods) periods=data.periods;
+    if(data.periodMeta) periodMeta=data.periodMeta;
     if(data.photos) photos=data.photos;
     if(data.gamesLog) gamesLog=data.gamesLog;
     if(data.presets){
