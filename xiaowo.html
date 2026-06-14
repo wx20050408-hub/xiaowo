@@ -397,6 +397,12 @@ body.ppNoCard #plusPanel .ppItem:active .ppIc{background:none}
 body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 /* 侧边栏底部线条图标 */
 .footBtn .ic svg{width:22px;height:22px;display:block}
+/* 重新生成的多版本翻看条（在 TA 气泡下方） */
+.swipeBar{display:flex;align-items:center;gap:7px;margin:-2px 0 9px 50px;font-size:13px;color:var(--ink-soft)}
+.swArrow{width:26px;height:24px;border-radius:9px;background:var(--card);box-shadow:var(--shadow);color:var(--ink);display:flex;align-items:center;justify-content:center;font-size:15px;line-height:1}
+.swArrow:active{transform:scale(.92)}
+.swArrow:disabled{opacity:.3}
+.swNum{min-width:26px;text-align:center;font-variant-numeric:tabular-nums}
 
 /* 表情包 */
 #stickerGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px}
@@ -2152,6 +2158,7 @@ function renderChat(){
           area.appendChild(el);
         });
         if(m.stats&&showStats()) area.appendChild(statsEl(m.stats));
+        addSwipe(area,m,i);
         return;
       }
     }
@@ -2166,6 +2173,7 @@ function renderChat(){
     wireTransfer(el,m); wireVoice(el,m);
     area.appendChild(el);
     if(m.role!=='user'&&m.stats&&showStats()) area.appendChild(statsEl(m.stats));
+    if(m.role==='assistant') addSwipe(area,m,i);
   });
   area.scrollTop=area.scrollHeight;
   /* 从搜索结果跳进来：滚到命中那条并高亮一下 */
@@ -3350,7 +3358,9 @@ async function runReply(c,api,body,ch){
     const stats=(out.usage&&(out.usage.in!=null||out.usage.out!=null))
       ?{in:out.usage.in,out:out.usage.out,cached:out.usage.cached||0,secs:out.t0?Math.round((Date.now()-out.t0)/100)/10:null}
       :null;
-    c.messages.push({role:'assistant',charId:ch?.id,content:out.acc,ts:Date.now(),online:isOnline,...(stats?{stats}:{})});
+    const _nm={role:'assistant',charId:ch?.id,content:out.acc,ts:Date.now(),online:isOnline,...(stats?{stats}:{})};
+    if(regenInto){ _nm.variants=regenInto.variants.concat([out.acc]); _nm.vi=_nm.variants.length-1; regenInto=null; }   // 重生成：旧版本保留，新版本追加到末尾
+    c.messages.push(_nm);
     c.ts=Date.now(); persistAll();
     const idx=c.messages.length-1;
     bub.onclick=()=>openMsgActions(idx);
@@ -4657,6 +4667,47 @@ async function regenFrom(i){
   persistAll(); renderChat();
   await generateReply(c,onlyChar);
 }
+/* ===== 重新生成 + 多版本翻看（像 Claude/酒馆那样，旧版本翻得回去） ===== */
+let regenInto=null;   // 非空时，saveMsg 把这次结果并入它的 variants 而不是新开一条
+async function regenLast(){
+  const c=curChat(); if(!c||streaming) return;
+  const i=c.messages.length-1;
+  const m=c.messages[i];
+  if(!m||m.role!=='assistant'){ toast('只能重抽最后一条 TA 的回复哦'); return; }
+  const onlyChar=(c.members&&c.members.length&&m.charId)?m.charId:null;
+  const variants=m.variants?m.variants.slice():[m.content];   // 把当前内容当成第一版留着
+  const backup=m;
+  c.messages.pop();
+  regenInto={variants};
+  persistAll(); renderChat();
+  await generateReply(c,onlyChar);
+  if(regenInto){ regenInto=null; c.messages.push(backup); toast('没抽出新的，保留原来那条'); }   // 失败/空回复 → 还原
+  persistAll(); renderChat();
+}
+function swipeTo(i,vi){
+  const c=curChat(); const m=c&&c.messages[i]; if(!m||!m.variants) return;
+  vi=Math.max(0,Math.min(m.variants.length-1,vi));
+  m.vi=vi; m.content=m.variants[vi];
+  persistAll(); renderChat();
+}
+function addSwipe(area,m,i){
+  const c=curChat(); if(!c) return;
+  const isLast=i===c.messages.length-1;
+  const n=m.variants?m.variants.length:1;
+  if(n<=1&&!isLast) return;                 // 没多版本、又不是最后一条 → 不显示
+  const vi=m.variants?(m.vi||0):0;
+  const atEnd=vi>=n-1;
+  const bar=document.createElement('div');
+  bar.className='swipeBar';
+  let html='';
+  if(n>1) html+=`<button class="swArrow" data-d="-1"${vi<=0?' disabled':''}>‹</button><span class="swNum">${(vi+1)} / ${n}</span>`;
+  const regen=isLast&&atEnd;                 // 最后一条且翻到最新 → 右键＝再抽一版
+  html+=`<button class="swArrow" data-d="1"${(!regen&&atEnd)?' disabled':''} title="${regen?'再抽一版':'下一版'}">${regen?'⟳':'›'}</button>`;
+  bar.innerHTML=html;
+  const left=bar.querySelector('[data-d="-1"]'); if(left) left.onclick=()=>swipeTo(i,vi-1);
+  bar.querySelector('[data-d="1"]').onclick=()=>{ if(regen) regenLast(); else swipeTo(i,vi+1); };
+  area.appendChild(bar);
+}
 function applyMsgEdit(){
   const c=curChat(); const m=c.messages[actMsgIdx];
   const t=$('meText').value;
@@ -4665,6 +4716,7 @@ function applyMsgEdit(){
     m.content=m.content.filter(b=>b.type!=='text');
     if(t.trim()) m.content.push({type:'text',text:t});
   }
+  if(m.variants&&typeof m.content==='string') m.variants[m.vi||0]=m.content;   // 编辑同步进当前版本，免得一翻就被覆盖
   persistAll(); renderChat();
 }
 $('editMsg').onclick=()=>{
@@ -4680,7 +4732,9 @@ $('saveRegenMsg').onclick=async()=>{
 };
 $('regenMsg').onclick=async()=>{
   closeSheet('msgActionSheet');
-  await regenFrom(actMsgIdx);
+  const c=curChat();
+  if(c&&actMsgIdx===c.messages.length-1&&c.messages[actMsgIdx].role==='assistant') await regenLast();
+  else await regenFrom(actMsgIdx);
 };
 $('branchMsg').onclick=()=>{
   const c=curChat();
