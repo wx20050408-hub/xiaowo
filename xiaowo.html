@@ -377,11 +377,26 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 #plusPanel.show{display:grid}
 .ppItem{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft)}
 .ppItem .ppIc{
-  width:54px;height:54px;border-radius:16px;background:var(--card);box-shadow:var(--shadow);
-  display:flex;align-items:center;justify-content:center;font-size:25px;
+  width:54px;height:54px;border-radius:18px;background:var(--card);box-shadow:var(--shadow);
+  display:flex;align-items:center;justify-content:center;color:var(--ink);
+  transition:transform .12s ease,background .12s ease;
 }
-.ppItem:active .ppIc{transform:scale(.94)}
+.ppItem .ppIc svg{width:26px;height:26px;display:block}
+.ppItem:active .ppIc{transform:scale(.92);background:var(--bg-soft)}
 .ppItem.dis{opacity:.35}
+/* 功能图标配色面板 */
+#ppColorGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px 6px;margin:10px 2px 6px}
+.ppcCell{display:flex;flex-direction:column;align-items:center;gap:5px}
+.ppcCell .ppIc{width:46px;height:46px;border-radius:14px;background:var(--card);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center}
+.ppcCell .ppIc svg{width:23px;height:23px;display:block}
+.ppcCell .lbl{font-size:10px;color:var(--ink-soft)}
+.ppScheme.on{background:var(--accent);color:#fff}
+/* ➕面板：无卡片极简模式（图标直接裸放、略放大） */
+body.ppNoCard #plusPanel .ppIc{background:none;box-shadow:none}
+body.ppNoCard #plusPanel .ppItem:active .ppIc{background:none}
+body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
+/* 侧边栏底部线条图标 */
+.footBtn .ic svg{width:22px;height:22px;display:block}
 
 /* 表情包 */
 #stickerGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px}
@@ -793,16 +808,16 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   </footer>
   <!-- ➕ 功能面板 -->
   <div id="plusPanel">
-    <button class="ppItem" id="ppImg"><span class="ppIc">🖼</span>图片</button>
-    <button class="ppItem" id="ppFile"><span class="ppIc">📎</span>文件</button>
-    <button class="ppItem" id="ppSticker"><span class="ppIc">😝</span>表情包</button>
-    <button class="ppItem" id="ppTransfer"><span class="ppIc">💸</span>转账</button>
-    <button class="ppItem" id="ppVoice"><span class="ppIc">🎤</span>语音</button>
-    <button class="ppItem" id="ppAlbum"><span class="ppIc">📷</span>相册</button>
-    <button class="ppItem" id="ppGame"><span class="ppIc">🎮</span>小游戏</button>
-    <button class="ppItem" id="ppStudy"><span class="ppIc">📚</span>自习</button>
-    <button class="ppItem" id="ppHome"><span class="ppIc">💕</span>恋爱主页</button>
-    <button class="ppItem" id="ppCall"><span class="ppIc">📞</span>通话</button>
+    <button class="ppItem" id="ppImg"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 15l-5-4.5L5 20"/></svg></span>图片</button>
+    <button class="ppItem" id="ppFile"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></span>文件</button>
+    <button class="ppItem" id="ppSticker"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4 4 0 0 0 7 0"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/></svg></span>表情包</button>
+    <button class="ppItem" id="ppTransfer"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M5.5 9.5h.01M18.5 14.5h.01"/></svg></span>转账</button>
+    <button class="ppItem" id="ppVoice"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/></svg></span>语音</button>
+    <button class="ppItem" id="ppAlbum"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2L8 4.8h8L17.5 7h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/><circle cx="12" cy="12.5" r="3.2"/></svg></span>相册</button>
+    <button class="ppItem" id="ppGame"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7.5" width="20" height="9" rx="4.5"/><path d="M6.5 11v3M5 12.5h3"/><circle cx="16" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="18.5" cy="13.5" r="1" fill="currentColor" stroke="none"/></svg></span>小游戏</button>
+    <button class="ppItem" id="ppStudy"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10.5 5 8 4.5 4 5v13c4-.5 6.5 0 8 1.5 1.5-1.5 4-2 8-1.5V5c-4-.5-6.5 0-8 1.5z"/><path d="M12 6.5v13"/></svg></span>自习</button>
+    <button class="ppItem" id="ppHome"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5S3.5 15.5 3.5 9.5C3.5 6.7 5.6 5 7.8 5c1.7 0 3.2.9 4.2 2.3C13 5.9 14.5 5 16.2 5c2.2 0 4.3 1.7 4.3 4.5 0 6-8.5 11-8.5 11z"/></svg></span>恋爱主页</button>
+    <button class="ppItem" id="ppCall"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.8 3.5c.6 0 1.1.4 1.3 1l.9 2.7c.2.5 0 1.1-.4 1.5L7.3 10c1 2 2.7 3.7 4.7 4.7l1.3-1.3c.4-.4 1-.6 1.5-.4l2.7.9c.6.2 1 .7 1 1.3 0 3-2.4 4-4 3.6C9.4 17.7 6.3 14.6 5 9.5 4.5 7.9 3.8 3.5 6.8 3.5z"/></svg></span>通话</button>
   </div>
 </div>
 
@@ -822,10 +837,10 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   <button id="newGroup">👥 开个群聊</button>
   <div id="historyList"></div>
   <div id="drawerFoot">
-    <button class="footBtn" id="charBtn"><span class="ic">☺</span>角色</button>
-    <button class="footBtn" id="momentsBtn"><span class="ic">🌸</span>朋友圈</button>
-    <button class="footBtn" id="calBtn"><span class="ic">📅</span>日历</button>
-    <button class="footBtn" id="boxBtn"><span class="ic">✧</span>百宝箱</button>
+    <button class="footBtn" id="charBtn"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.4-5.6 7-5.6s7 2 7 5.6"/></svg></span>角色</button>
+    <button class="footBtn" id="momentsBtn"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6.8" r="2.3"/><circle cx="16.9" cy="10.4" r="2.3"/><circle cx="15" cy="16" r="2.3"/><circle cx="9" cy="16" r="2.3"/><circle cx="7.1" cy="10.4" r="2.3"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span>朋友圈</button>
+    <button class="footBtn" id="calBtn"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 3v3M16 3v3"/></svg></span>日历</button>
+    <button class="footBtn" id="boxBtn"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l9-3.8L21 8l-9 3.8z"/><path d="M3 8v8.2L12 20l9-3.8V8"/><path d="M12 11.8V20"/></svg></span>百宝箱</button>
   </div>
 </aside>
 
@@ -1114,6 +1129,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     </div>
     <input type="file" id="skinFile" accept=".json" style="display:none">
     <div class="hintText" style="margin:0 2px 6px">挑一个皮肤一键换上；也能自己调颜色和圆角。喜欢的皮肤可以「导出」成文件发给朋友，别人发你的也能「导入」。</div>
+    <button class="boxRow" id="iconColorBtn" style="width:100%"><span class="ic">🖌</span><span class="grow" style="text-align:left">功能图标配色（➕ 那排）</span><span style="color:var(--ink-soft);font-size:12px">›</span></button>
     <button class="boxRow" id="cssBtn" style="width:100%"><span class="ic">🎨</span><span class="grow" style="text-align:left">高级美化（自定义 CSS）</span><span style="color:var(--ink-soft);font-size:12px">›</span></button>
     <button class="boxRow" id="timeBtn" style="width:100%"><span class="ic">⏳</span><span class="grow" style="text-align:left">时光机</span></button>
     <button class="boxRow" id="sleepBtn" style="width:100%"><span class="ic">😴</span><span class="grow" style="text-align:left">睡眠记录</span></button>
@@ -1163,6 +1179,22 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <button class="boxRow" id="importBtn" style="width:100%"><span class="ic">📥</span><span class="grow" style="text-align:left">从备份恢复</span></button>
     <input type="file" id="importFile" accept=".json" style="display:none">
     <div class="hintText">以后想到什么小玩意儿，都往这里塞。</div>
+  </div>
+</div>
+
+<!-- 功能图标配色弹层 -->
+<div class="sheetScrim" id="iconColorSheet">
+  <div class="sheet">
+    <div class="sheetTitle">功能图标配色<button class="close" data-close="iconColorSheet">✕</button></div>
+    <div class="boxRow" style="gap:8px">
+      <span class="grow" style="font-size:13px;color:var(--ink-soft)">一键预设</span>
+      <button class="ghostBtn ppScheme" data-scheme="multi" style="flex:0 0 auto;font-size:13px;margin:0;padding:6px 14px">多彩</button>
+      <button class="ghostBtn ppScheme" data-scheme="mono" style="flex:0 0 auto;font-size:13px;margin:0;padding:6px 14px">纯墨色</button>
+    </div>
+    <div id="ppColorGrid"></div>
+    <div class="boxRow"><span class="ic">🃏</span><span class="grow">图标卡片底（关掉＝裸图标极简风）</span><button class="wbToggle" id="ppCardToggle"></button></div>
+    <div class="hintText" style="margin:0 2px 6px">点每个图标下面的小色块，单独换成你喜欢的颜色。「纯墨色」会跟随主题深浅变化。</div>
+    <button id="ppColorReset" style="color:var(--ink-soft);width:100%;padding:8px">恢复默认多彩</button>
   </div>
 </div>
 
@@ -2192,6 +2224,60 @@ $('confirmVoice').onclick=()=>{
 };
 $('ppAlbum').onclick=()=>{ togglePlus(false); renderAlbum(); openSheet('albumSheet'); };
 $('ppGame').onclick=()=>{ togglePlus(false); openSheet('gameSheet'); };
+
+/* ===== 功能 ➕ 面板图标配色：默认多彩 / 纯墨色(跟随主题) / 每个图标可单独自定义 ===== */
+const PP_ICONS=[['ppImg','图片'],['ppFile','文件'],['ppSticker','表情'],['ppTransfer','转账'],['ppVoice','语音'],['ppAlbum','相册'],['ppGame','游戏'],['ppStudy','自习'],['ppHome','恋爱'],['ppCall','通话']];
+const DEFAULT_PP_COLORS={ppImg:'#E8A87C',ppFile:'#8C84C8',ppSticker:'#4A4036',ppTransfer:'#6FA88E',ppVoice:'#D98EA0',ppAlbum:'#7AA0C8',ppGame:'#C98AB8',ppStudy:'#C2954E',ppHome:'#E07A8B',ppCall:'#5FA89E'};
+/* 返回某图标该用的颜色：单独覆盖优先 → 纯墨色档返回''(空＝跟随CSS主题墨色) → 否则默认多彩 */
+function ppIconColor(id){
+  const ov=settings.ppColors&&settings.ppColors[id];
+  if(ov) return ov;
+  if(settings.ppScheme==='mono') return '';
+  return DEFAULT_PP_COLORS[id];
+}
+function applyPpColors(){
+  PP_ICONS.forEach(([id])=>{ const ic=document.querySelector('#'+id+' .ppIc'); if(ic) ic.style.color=ppIconColor(id); });
+}
+/* ➕面板卡片底开关：默认有卡片(settings.ppCard!==false) */
+function applyPpCard(){ document.body.classList.toggle('ppNoCard', settings.ppCard===false); }
+function renderIconColors(){
+  document.querySelectorAll('.ppScheme').forEach(b=>b.classList.toggle('on',(settings.ppScheme||'multi')===b.dataset.scheme));
+  $('ppCardToggle').classList.toggle('on',settings.ppCard!==false);
+  const grid=$('ppColorGrid'); if(!grid) return;
+  grid.innerHTML='';
+  PP_ICONS.forEach(([id,lbl])=>{
+    const src=document.querySelector('#'+id+' .ppIc');
+    const col=ppIconColor(id)||'#4A4036';
+    const cell=document.createElement('div'); cell.className='ppcCell';
+    cell.innerHTML=`<span class="ppIc" style="color:${col}">${src?src.innerHTML:''}</span><input type="color" class="colorDot" value="${col}" data-pp="${id}"><span class="lbl">${lbl}</span>`;
+    grid.appendChild(cell);
+  });
+  grid.querySelectorAll('input[data-pp]').forEach(inp=>{
+    inp.oninput=()=>{
+      settings.ppColors=settings.ppColors||{};
+      settings.ppColors[inp.dataset.pp]=inp.value;
+      save('xw_settings',settings);
+      const prev=inp.parentElement.querySelector('.ppIc'); if(prev) prev.style.color=inp.value;
+      applyPpColors();
+    };
+  });
+}
+document.querySelectorAll('.ppScheme').forEach(b=>b.onclick=()=>{
+  settings.ppScheme=b.dataset.scheme; settings.ppColors={};
+  save('xw_settings',settings); applyPpColors(); renderIconColors();
+});
+$('ppColorReset').onclick=()=>{
+  settings.ppScheme='multi'; settings.ppColors={};
+  save('xw_settings',settings); applyPpColors(); renderIconColors();
+};
+$('ppCardToggle').onclick=()=>{
+  settings.ppCard=(settings.ppCard===false);   // 翻转：原本关→开，原本开/默认→关
+  save('xw_settings',settings);
+  $('ppCardToggle').classList.toggle('on',settings.ppCard!==false);
+  applyPpCard();
+};
+$('iconColorBtn').onclick=()=>{ renderIconColors(); openSheet('iconColorSheet'); };
+applyPpColors(); applyPpCard();
 
 /* ===== 关系树（开屏页 + 恋爱主页复用）=====
    叶子数 ← 你们聊过的天数；颜色 ← 当前月份/季节；久没聊 → 落叶动画 */
