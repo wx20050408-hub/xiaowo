@@ -883,6 +883,21 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   </div>
 </div>
 
+<!-- 睡眠记录页 -->
+<div class="sheetScrim" id="sleepSheet">
+  <div class="sheet" style="max-height:86vh;overflow-y:auto">
+    <div class="sheetTitle">睡眠记录<button class="close" data-close="sleepSheet">✕</button></div>
+    <div id="sleepStats"></div>
+    <div class="field"><label>日期（记的是哪天晚上的睡眠）</label><input type="date" id="slDate"></div>
+    <div class="field"><label>睡了几小时</label><input type="number" id="slHours" min="0" max="24" step="0.5" placeholder="比如 7.5"></div>
+    <div class="field"><label>备注（可选）</label><input type="text" id="slNote" placeholder="比如：失眠、做梦、午睡补了1小时…"></div>
+    <button class="primaryBtn" id="slSave">保存这天</button>
+    <div style="font-weight:600;font-size:14px;margin:12px 2px 6px">最近记录</div>
+    <div id="sleepList"></div>
+    <div class="hintText" style="margin-top:8px">手动填就行～ TA 看得到你最近睡得好不好，会心疼你、提醒你早点休息。</div>
+  </div>
+</div>
+
 <!-- 某一天的备忘弹层 -->
 <div class="sheetScrim" id="daySheet">
   <div class="sheet">
@@ -1101,6 +1116,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
     <div class="hintText" style="margin:0 2px 6px">挑一个皮肤一键换上；也能自己调颜色和圆角。喜欢的皮肤可以「导出」成文件发给朋友，别人发你的也能「导入」。</div>
     <button class="boxRow" id="cssBtn" style="width:100%"><span class="ic">🎨</span><span class="grow" style="text-align:left">高级美化（自定义 CSS）</span><span style="color:var(--ink-soft);font-size:12px">›</span></button>
     <button class="boxRow" id="timeBtn" style="width:100%"><span class="ic">⏳</span><span class="grow" style="text-align:left">时光机</span></button>
+    <button class="boxRow" id="sleepBtn" style="width:100%"><span class="ic">😴</span><span class="grow" style="text-align:left">睡眠记录</span></button>
     <div class="boxRow">
       <span class="ic">📊</span><span class="grow">显示 token 统计</span>
       <button class="wbToggle" id="statsToggle"></button>
@@ -1546,6 +1562,7 @@ let studySt = load('xw_study_state', null); // {start,min,charId} 进行中的�
 let calNotes = load('xw_cal_notes', []);    // {id,date:'YYYY-MM-DD',text}
 let periods = load('xw_periods', []);       // ['YYYY-MM-DD',...] 标记为经期的日子
 let periodMeta = load('xw_period_meta', {});// {'YYYY-MM-DD'(开始日):{days,flow:'少/中/多',symptoms:[],mood,note}}
+let sleepLogs = load('xw_sleep', []);       // [{date:'YYYY-MM-DD',hours:Number,note}] 手动记的睡眠
 let photos = load('xw_photos', []);         // {id,charId,text,ts} TA随手拍的照片（文字描述）
 let gamesLog = load('xw_games', []);        // {charId,type,ts} 一起玩过的小游戏
 const persistStickers=()=>idbSet('stickers',stickers).catch(()=>{ try{save('xw_stickers',stickers)}catch(e){} });
@@ -1728,7 +1745,7 @@ const persistAll = ()=>{
   save('xw_moments',moments); save('xw_annivs',annivs); save('xw_injections',injections);
   save('xw_wishes',wishes);
   save('xw_diaries',diaries); save('xw_cal_notes',calNotes); save('xw_periods',periods);
-  save('xw_period_meta',periodMeta);
+  save('xw_period_meta',periodMeta); save('xw_sleep',sleepLogs);
   save('xw_photos',photos); save('xw_games',gamesLog);
   idbSet('chats',chats).catch(()=>save('xw_chats',chats));
   idbSet('characters',characters).catch(()=>save('xw_characters',characters));
@@ -2929,6 +2946,12 @@ function buildDynamic(c,ch){
       const cram=meta&&meta.symptoms&&meta.symptoms.includes('痛经')?'TA这次有痛经，多心疼TA一点；':'';
       parts.push(`【贴心】今天是${userName()}的生理期${bits.length?`（TA记录了：${bits.join('，')}）`:''}。多体贴一点，${cram}合适的时候提醒TA喝热水、别吃凉的、好好休息，但别说教。`);
     }
+    /* 睡眠：TA 知道你最近睡得好不好 */
+    if(sleepLogs.length){
+      const last=[...sleepLogs].sort((a,b)=>a.date<b.date?1:-1)[0];
+      const dd=dayDiffD(last.date,tds), h=Number(last.hours)||0;
+      if(dd>=0&&dd<=1) parts.push(`【贴心】${userName()}记录了${dd===0?'今天':'昨晚'}睡了${h}小时${last.note?`（${last.note}）`:''}。${h<6?'睡得偏少，找机会心疼TA、温柔提醒TA早点休息别熬夜。':'自然地关心一下TA的睡眠就好，别刻意。'}`);
+    }
   }
   const ce=injActive('chat_end');
   if(ce.length) parts.push(ce.map(i=>i.content).join('\n\n'));
@@ -3860,6 +3883,37 @@ $('plDel').onclick=()=>{
   persistAll(); closeSheet('periodLogSheet'); renderPeriod(); renderCal(); toast('删掉了');
 };
 $('periodBtn').onclick=()=>{ renderPeriod(); openSheet('periodSheet'); };
+
+/* ================= 睡眠记录 ================= */
+const sleepFace=h=>h>=7.5?'😴':h>=6.5?'🙂':h>=5?'😐':'😣';
+function renderSleep(){
+  const logs=[...sleepLogs].sort((a,b)=>a.date<b.date?1:-1);   // 新→旧
+  const stats=$('sleepStats');
+  const recent=logs.filter(l=>{ const d=dayDiffD(l.date,todayStr()); return d>=0&&d<7; });
+  if(recent.length){
+    const avg=recent.reduce((a,l)=>a+(Number(l.hours)||0),0)/recent.length;
+    stats.innerHTML=`<div class="pStatCard"><div class="pStatBig">${sleepFace(avg)} 近7天平均 <b>${avg.toFixed(1)}</b> 小时</div><div class="pStatSub">记录了 ${recent.length} 晚${avg<6.5?' · 最近睡得偏少，注意休息哦':''}</div></div>`;
+  }else stats.innerHTML='<div class="pStatCard"><div class="pStatBig">😴 还没有记录</div><div class="pStatSub">填一下今天睡了几小时吧，记多了能看出你的睡眠规律。</div></div>';
+  const list=$('sleepList'); list.innerHTML='';
+  if(!logs.length){ list.innerHTML='<div class="hintText" style="text-align:center;padding:10px 0">暂无记录</div>'; return; }
+  logs.slice(0,30).forEach(l=>{
+    const it=document.createElement('div'); it.className='pItem';
+    it.innerHTML=`<div class="pMain"><div class="pDate">${sleepFace(Number(l.hours)||0)} ${fmtMD(l.date)} · ${esc(String(l.hours))} 小时</div>${l.note?`<div class="pTags">${esc(l.note)}</div>`:''}</div><button class="pEdit">删除</button>`;
+    it.querySelector('.pEdit').onclick=()=>{ sleepLogs=sleepLogs.filter(x=>x!==l); persistAll(); renderSleep(); };
+    list.appendChild(it);
+  });
+}
+$('slSave').onclick=()=>{
+  const date=$('slDate').value, hours=Number($('slHours').value);
+  if(!date){ toast('选一下日期叭'); return; }
+  if(!(hours>0)){ toast('填一下睡了几小时'); return; }
+  const note=$('slNote').value.trim().slice(0,100);
+  const ex=sleepLogs.find(l=>l.date===date);
+  if(ex){ ex.hours=hours; ex.note=note; } else sleepLogs.push({date,hours,note});
+  $('slHours').value=''; $('slNote').value='';
+  persistAll(); renderSleep(); toast('记好啦，好好睡😴');
+};
+$('sleepBtn').onclick=()=>{ closeSheet('boxSheet'); $('slDate').value=todayStr(); $('slHours').value=''; $('slNote').value=''; renderSleep(); openSheet('sleepSheet'); };
 
 /* ================= 自习室 ================= */
 let studyTick=null, studyMin=25;
@@ -5432,7 +5486,7 @@ $('splashToggle').onclick=()=>{
 };
 document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,photos,gamesLog},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -5459,6 +5513,7 @@ $('importFile').onchange=async e=>{
     if(data.calNotes) calNotes=data.calNotes;
     if(data.periods) periods=data.periods;
     if(data.periodMeta) periodMeta=data.periodMeta;
+    if(data.sleepLogs) sleepLogs=data.sleepLogs;
     if(data.photos) photos=data.photos;
     if(data.gamesLog) gamesLog=data.gamesLog;
     if(data.presets){
