@@ -692,10 +692,13 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .homeTree .treeSvg{width:min(58vw,180px)}
 .homeTree .htCap{font-size:12px;color:var(--ink-soft);margin-top:-2px}
 /* 开屏：选角色头像条 */
-#splashPick{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;justify-content:center;max-width:90vw}
-.spAv{width:40px;height:40px;border-radius:50%;overflow:hidden;border:2px solid transparent;opacity:.55;transition:opacity .2s,border-color .2s,transform .2s;display:flex;align-items:center;justify-content:center;background:var(--bubble-me);font-size:20px;flex-shrink:0}
-.spAv img{width:100%;height:100%;object-fit:cover}
-.spAv.on{opacity:1;border-color:var(--accent);transform:scale(1.08)}
+#splashPick{display:flex;flex-direction:column;gap:8px;margin-top:16px;width:min(78vw,300px);max-height:38vh;overflow-y:auto;padding:2px}
+.spRow{display:flex;align-items:center;gap:10px;width:100%;padding:7px 12px;border-radius:14px;border:2px solid transparent;background:var(--bubble-me);opacity:.7;transition:opacity .2s,border-color .2s,background .2s;cursor:pointer;font:inherit;text-align:left}
+.spRow.on{opacity:1;border-color:var(--accent);background:var(--bubble-ta)}
+.spRow .spAv{width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--bubble-ta);font-size:18px}
+.spRow.on .spAv{background:var(--bubble-me)}
+.spRow .spAv img{width:100%;height:100%;object-fit:cover}
+.spRow .spName{font-size:14px;color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 我们的小报告 */
 .rpCard{background:var(--bg-soft);border-radius:14px;padding:14px 16px;margin-bottom:10px}
 .rpCard .rpHead{font-size:13px;color:var(--ink-soft);display:flex;align-items:center;gap:7px;margin-bottom:4px}
@@ -2252,14 +2255,14 @@ function renderSplash(){
     if(ls){ const ld=Math.floor((Date.now()-new Date(ls.date+'T00:00:00'))/86400000)+1;
       info.innerHTML=`<div class="splashHead">和 ${esc(ch.name)} 在一起</div><div class="splashDays">${ld}<small> 天</small></div><div class="splashSub">这棵树记着你们聊过的 ${st.days} 天 🌳${fall}</div>`;
     }else info.innerHTML=`<div class="splashHead">和 ${esc(ch.name)}</div><div class="splashDays">${st.days}<small> 天</small></div><div class="splashSub">你们一起聊过的日子${fall}</div>`;
-    // 多个角色才显示头像切换条
+    // 多个角色才显示切换列表（头像+名字一行，比小圆头像好点也好认）
     const ids=splashCharIds();
     if(ids.length>1){
       pick.innerHTML=ids.map(id=>{ const c=characters.find(x=>String(x.id)===String(id)); if(!c) return '';
         const on=String(c.id)===String(ch.id);
-        const inner=c.avatar?`<img src="${safeUrl(c.avatar)}">`:`<span>${esc(c.emoji||'☺')}</span>`;
-        return `<button class="spAv${on?' on':''}" data-cid="${esc(String(id))}" title="${esc(c.name)}">${inner}</button>`; }).join('');
-      pick.querySelectorAll('.spAv').forEach(b=>b.onclick=e=>{ e.stopPropagation(); settings.splashCharId=b.dataset.cid; persistAll(); renderSplash(); });
+        const av=c.avatar?`<img src="${safeUrl(c.avatar)}">`:`<span>${esc(c.emoji||'☺')}</span>`;
+        return `<button class="spRow${on?' on':''}" data-cid="${esc(String(id))}" title="${esc(c.name)}"><span class="spAv">${av}</span><span class="spName">${esc(c.name)}</span></button>`; }).join('');
+      pick.querySelectorAll('.spRow').forEach(b=>b.onclick=e=>{ e.stopPropagation(); settings.splashCharId=b.dataset.cid; persistAll(); renderSplash(); });
     }else pick.innerHTML='';
   }
   sp.style.display='flex'; sp.classList.remove('hide');
