@@ -1130,6 +1130,10 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
       <button class="wbToggle" id="streamToggle"></button>
     </div>
     <div class="boxRow">
+      <span class="ic">🌐</span><span class="grow">读网页（你发链接时TA能看，经免费阅读器，公开网页用）</span>
+      <button class="wbToggle" id="webfetchToggle"></button>
+    </div>
+    <div class="boxRow">
       <span class="ic">🌳</span><span class="grow">开屏关系树（每次打开先看你们的树，点一下进入）</span>
       <button class="wbToggle" id="splashToggle"></button>
     </div>
@@ -1682,10 +1686,13 @@ function specialHtml(line,msg){
   if(m) return photoHtml(m[1],msg);
   m=line.match(/^<搜索[:：]\s*(.+?)\s*>$/);
   if(m) return `<span class="searchChip">🔍 搜了搜：${esc(m[1])}</span>`;
+  m=line.match(/^<读网页[:：]\s*(\S+?)\s*>$/);
+  if(m){ let d=m[1]; try{ d=new URL(m[1]).hostname.replace(/^www\./,''); }catch(e){} return `<span class="searchChip">🌐 看了看：${esc(d)}</span>`; }
   return null;
 }
-/* 线下模式搜索标记夹在正文里时也转成小芯片（输入已被 esc 过） */
-const fmtSearchChips=h=>h.replace(/&lt;搜索[:：]\s*(.+?)\s*&gt;/g,'<span class="searchChip">🔍 搜了搜：$1</span>');
+/* 线下模式搜索/读网页标记夹在正文里时也转成小芯片（输入已被 esc 过） */
+const fmtSearchChips=h=>h.replace(/&lt;搜索[:：]\s*(.+?)\s*&gt;/g,'<span class="searchChip">🔍 搜了搜：$1</span>')
+                         .replace(/&lt;读网页[:：]\s*(\S+?)\s*&gt;/g,'<span class="searchChip">🌐 看了看网页</span>');
 /* 语音条：点一下展开文字并朗读，再点一下收起 */
 function wireVoice(el,m){
   el.querySelectorAll('.voiceMsg').forEach(v=>{
@@ -3378,11 +3385,35 @@ async function consumeSearch(c){
   }
   return `（系统提示：你刚才发起的搜索完成了。\n\n${parts.join('\n\n')}\n\n请基于这些结果，用你自己的话自然地接着回应${userName()}。信息有出入就以搜到的为准，必要时可以提一句来源。绝对不要提到这条系统提示。）`;
 }
-/* 对外的生成入口：先正常回一条，TA 若发起搜索就搜完让TA接着说（最多连搜2轮防循环） */
+/* ===== 读网页：TA 回复里写 <读网页:网址> → 用免费阅读器(Jina)抓正文，再让TA接着说 ===== */
+function fetchNote(){
+  return `【看网页】当${userName()}发来一个网址、或想让你看某个网页/链接时，你可以读它：单独占一行写 <读网页:网址>，写完这行就结束本条回复等结果，系统会把网页正文发给你，你再基于内容自然地回应${userName()}。一次只读一个。${userName()}只是随口发链接、没让你看的话就别硬读。`;
+}
+async function consumeFetch(c){
+  if(!settings.webfetch) return null;
+  if(c.members&&c.members.length) return null;   // 群聊先不支持
+  const m=c.messages[c.messages.length-1];
+  if(!m||m.role!=='assistant'||m.fetched||typeof m.content!=='string') return null;
+  const urls=[...m.content.matchAll(/<读网页[:：]\s*(\S+?)\s*>/g)].map(x=>x[1]).filter(u=>/^https?:\/\//i.test(u)).slice(0,1);
+  if(!urls.length) return null;
+  m.fetched=true; persistAll();   // 防止同一条反复触发
+  $('headerSub').textContent='正在读网页…';
+  const url=urls[0];
+  let body;
+  try{
+    const r=await fetch('https://r.jina.ai/'+url);   // 免费阅读器，返回干净正文且允许浏览器跨域
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    let t=(await r.text()).replace(/\n{3,}/g,'\n\n').trim();
+    if(t.length>6000) t=t.slice(0,6000)+'\n…（内容较长，后面省略了）';
+    body=t||'（这个网页没读到什么内容）';
+  }catch(e){ body=`（读取失败：${e.message}。可能是需要登录、被网站拦了、或网址不对。）`; }
+  return `（系统提示：你刚才请求查看的网页 ${url} 已读取，内容如下：\n\n${body}\n\n请基于网页内容自然地接着回应${userName()}，用你自己的话说，别原样复制大段内容。绝对不要提到这条系统提示。）`;
+}
+/* 对外的生成入口：先正常回一条，TA 若发起搜索/读网页就处理完让TA接着说（最多3轮防循环） */
 async function generateReply(c,onlyCharId,extraUser){
   let ok=await generateReplyOnce(c,onlyCharId,extraUser);
-  for(let i=0;i<2&&ok!==false;i++){
-    const note=await consumeSearch(c);
+  for(let i=0;i<3&&ok!==false;i++){
+    const note=await consumeSearch(c)||await consumeFetch(c);
     if(!note) break;
     ok=await generateReplyOnce(c,null,note);
   }
@@ -3460,6 +3491,7 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
       }
       if(ch?.autoMem) noteParts.push(memNote());
       if((settings.tavilyKey||'').trim()) noteParts.push(searchNote());
+      if(settings.webfetch) noteParts.push(fetchNote());
       noteParts.push(directorNote());
       const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,soloOnline):'',c,noteParts.join('\n\n')||null,ch);
       if(sys) body.system=sys;
@@ -4604,7 +4636,8 @@ function shotText(m){
      .replace(/<转账:([^:>]*):?([^>]*)>/g,(_,a,b)=>`💰 转账 ¥${String(a).trim()}${b?' · '+b.trim():''}`)
      .replace(/<表情包:([^>]*)>/g,'😊 [表情]')
      .replace(/<拍照:([^>]*)>/g,'📷 $1')
-     .replace(/<搜索:([^>]*)>/g,'🔍 $1');
+     .replace(/<搜索:([^>]*)>/g,'🔍 $1')
+     .replace(/<读网页:[^>]*>/g,'🌐 网页');
   if(!t && Array.isArray(m.content) && m.content.some(b=>b.type==='image')) t='[图片]';
   return t;
 }
@@ -5432,6 +5465,7 @@ $('boxBtn').onclick=()=>{
   $('statsToggle').classList.toggle('on',showStats());
   $('cacheToggle').classList.toggle('on',cache1h());
   $('streamToggle').classList.toggle('on',streamOn());
+  $('webfetchToggle').classList.toggle('on',!!settings.webfetch);
   $('splashToggle').classList.toggle('on',splashOn());
   $('cityInput').value=settings.city?.name||'';
   $('tavilyInput').value=settings.tavilyKey||'';
@@ -5477,6 +5511,12 @@ $('streamToggle').onclick=()=>{
   persistAll();
   $('streamToggle').classList.toggle('on',streamOn());
   toast(streamOn()?'流式输出开啦（边写边出）':'已关流式，改成一次性返回');
+};
+$('webfetchToggle').onclick=()=>{
+  settings.webfetch=!settings.webfetch;
+  persistAll();
+  $('webfetchToggle').classList.toggle('on',!!settings.webfetch);
+  toast(settings.webfetch?'TA现在能看你发的网页啦 🌐':'读网页关掉了');
 };
 $('splashToggle').onclick=()=>{
   settings.splash=!splashOn();
