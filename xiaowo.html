@@ -4694,7 +4694,7 @@ function addSwipe(area,m,i){
   const c=curChat(); if(!c) return;
   const isLast=i===c.messages.length-1;
   const n=m.variants?m.variants.length:1;
-  if(n<=1&&!isLast) return;                 // 没多版本、又不是最后一条 → 不显示
+  if(n<=1) return;                          // 只有一版 → 不显示翻看条（重新生成走消息菜单），抽过出现多版后才显示
   const vi=m.variants?(m.vi||0):0;
   const atEnd=vi>=n-1;
   const bar=document.createElement('div');
