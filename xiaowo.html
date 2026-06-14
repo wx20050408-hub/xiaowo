@@ -4602,7 +4602,7 @@ function momentAv(by){
   return ch?.avatar?im(ch.avatar):em(ch?.emoji||'☺');
 }
 
-let cmtOpenId=null, postingFor=null, autoPosting=false;
+let cmtOpenId=null, postingFor=null;
 function renderMoments(){
   const feed=$('momentsFeed'); feed.innerHTML='';
   if(postingFor){
@@ -4731,27 +4731,10 @@ async function addComment(m,text){
     persistAll(); renderMoments();
   }
 }
-/* 自动发动态：打开朋友圈时，有人设、且 6 小时没发过的角色发一条（最多两个，没配 Key 安静跳过） */
-async function autoPostMoments(){
-  if(autoPosting||postingFor) return;
-  if(!apiKeys.find(k=>k.id===selKeyId)?.key) return;
-  autoPosting=true;
-  try{
-    const due=characters.filter(ch=>{
-      if(!ch.prompt||!ch.prompt.trim()) return false;
-      const last=Math.max(0,...moments.filter(m=>m.charId===ch.id).map(m=>m.ts));
-      return Date.now()-last>6*3600e3;
-    }).slice(0,2);
-    for(const ch of due){
-      if(!$('momentsPage').classList.contains('show')) break;
-      if(await genMoment(ch)) toast(`${ch.name}发了条新动态`);
-    }
-  }finally{ autoPosting=false; }
-}
 $('momentsBtn').onclick=()=>{
   openDrawer(false); cmtOpenId=null;
   renderMoments(); $('momentsPage').classList.add('show');
-  autoPostMoments();
+  /* 打开朋友圈只看不发——发动态只走右上角 ✨（nudgeMoment），免得一进来就被自动刷屏 */
 };
 $('momentsBack').onclick=()=>$('momentsPage').classList.remove('show');
 $('nudgeMoment').onclick=async()=>{
