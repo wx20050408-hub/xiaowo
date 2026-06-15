@@ -1353,9 +1353,25 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div class="sheet">
     <div class="sheetTitle">表情包<button class="close" data-close="stickerSheet">✕</button></div>
     <div id="stickerGrid"></div>
-    <button class="ghostBtn" id="addSticker">＋ 添加表情包</button>
+    <div style="display:flex;gap:8px">
+      <button class="ghostBtn" id="addSticker" style="flex:1">＋ 上传图片</button>
+      <button class="ghostBtn" id="impSticker" style="flex:1">📋 批量导入网址</button>
+    </div>
     <div class="hintText">点一个直接发出去。文件名就是表情包的名字，TA 靠名字挑表情，所以起名直白点（比如"开心抱抱.jpg"）。TA 聊嗨了也会发给你。</div>
     <input type="file" id="stickerFile" accept="image/*" multiple style="display:none">
+  </div>
+</div>
+
+<!-- 表情包批量导入弹层 -->
+<div class="sheetScrim" id="stickerImportSheet">
+  <div class="sheet">
+    <div class="sheetTitle">批量导入表情包<button class="close" data-close="stickerImportSheet">✕</button></div>
+    <div class="field">
+      <label>每行一个，格式：名字:网址</label>
+      <textarea id="stkImportTxt" style="min-height:200px;font-size:13px;line-height:1.6" placeholder="眼睛亮晶晶/期待:https://files.catbox.moe/i0ov5h.png&#10;爱心:https://files.catbox.moe/ne6dii.png&#10;……"></textarea>
+    </div>
+    <button class="ghostBtn" id="doStkImport">导入</button>
+    <div class="hintText">网址会直接当图源（不占本地空间，但图床挂了表情就显示不出来）。名字相同的会覆盖更新，方便补图重导。支持 http/https 图片链接。</div>
   </div>
 </div>
 
@@ -4282,6 +4298,26 @@ $('stickerFile').onchange=async e=>{
   }
   persistStickers(); renderStickers();
   e.target.value='';
+};
+$('impSticker').onclick=()=>{ $('stkImportTxt').value=''; openSheet('stickerImportSheet'); };
+$('doStkImport').onclick=()=>{
+  const lines=$('stkImportTxt').value.split('\n');
+  let added=0,updated=0,bad=0;
+  for(let raw of lines){
+    const line=raw.trim();
+    if(!line) continue;
+    const m=line.match(/^(.+?)\s*[:：]\s*(https?:\/\/\S+)$/);
+    if(!m){ bad++; continue; }
+    const name=m[1].trim().slice(0,16), url=m[2].trim();
+    if(!name||!safeUrl(url)){ bad++; continue; }
+    const ex=stickers.find(s=>s.name===name);
+    if(ex){ ex.data=url; updated++; }
+    else{ stickers.push({id:'st'+Date.now()+Math.random().toString(36).slice(2,5),name,data:url}); added++; }
+  }
+  if(!added&&!updated){ toast(bad?'没认出有效的「名字:网址」':'空的哦'); return; }
+  persistStickers(); renderStickers();
+  closeSheet('stickerImportSheet');
+  toast(`导入好啦：新增${added}个${updated?`，更新${updated}个`:''}${bad?`，${bad}行没认出`:''}`);
 };
 $('confirmTransfer').onclick=()=>{
   const amt=Number($('tfAmt').value);
