@@ -54,6 +54,20 @@
   --shadow:0 6px 24px rgba(0,0,0,.35);
   --danger:#E08A7B;
 }
+[data-theme="celadon"]{
+  --bg:#F4F7F3;
+  --bg-soft:#E5ECE2;
+  --card:#FFFFFF;
+  --ink:#3A4238;
+  --ink-soft:#8A9888;
+  --accent:#7EAA8A;
+  --accent-deep:#5E8E6E;
+  --bubble-me:#D4E8D8;
+  --bubble-ta:#FFFFFF;
+  --line:#DCE8DC;
+  --shadow:0 6px 24px rgba(70,110,80,.10);
+  --danger:#C47A6A;
+}
 [data-theme="night"] .bubble.err{background:#4A2E28}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
@@ -311,6 +325,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .boxRow .grow{flex:1}
 .themeDot{width:26px;height:26px;border-radius:50%;border:2px solid var(--line)}
 .themeDot.on{border-color:var(--accent-deep);box-shadow:0 0 0 3px var(--bg-soft)}
+.themeDot.themeAdd{background:var(--bg-soft);color:var(--ink-soft);font-size:16px;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-style:dashed}
 .toast{
   position:fixed;left:50%;bottom:90px;transform:translateX(-50%);
   background:var(--ink);color:var(--bg);padding:9px 18px;border-radius:20px;
@@ -1114,7 +1129,10 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <span class="ic">🎨</span><span class="grow">主题</span>
       <button class="themeDot" data-theme="cream" style="background:#F6DCC4"></button>
       <button class="themeDot" data-theme="mist" style="background:#DEDEF5"></button>
+      <button class="themeDot" data-theme="celadon" style="background:#D4E8D8"></button>
       <button class="themeDot" data-theme="night" style="background:#46362A"></button>
+      <span id="customThemeDots" style="display:contents"></span>
+      <button class="themeDot themeAdd" id="themeImpBtn" title="粘贴色卡导入主题">＋</button>
     </div>
     <div class="boxRow"><span class="ic">🎈</span><span class="grow">气泡皮肤</span></div>
     <div id="skinChips" style="display:flex;flex-wrap:wrap;gap:8px;margin:2px 2px 10px"></div>
@@ -1546,6 +1564,24 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   </div>
 </div>
 
+<div class="sheetScrim" id="themeImpSheet">
+  <div class="sheet">
+    <div class="sheetTitle">导入色卡主题<button class="close" data-close="themeImpSheet">✕</button></div>
+    <div class="hintText" style="margin-bottom:8px;line-height:1.7">把设计师给的色卡整段粘进来——支持 <code>[data-theme="名字"]{ --bg:…; }</code> 这种格式，<b>一次粘几套都行</b>，每套会变成一颗小色块。名字相同会覆盖更新。</div>
+    <div class="field">
+      <textarea id="themeImpTxt" spellcheck="false" placeholder='[data-theme="celadon"]{
+  --bg:#F4F7F3;
+  --accent:#7EAA8A;
+  --bubble-me:#D4E8D8;
+  …
+}' style="min-height:200px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.5;white-space:pre"></textarea>
+    </div>
+    <button class="primaryBtn" id="themeImpDo">导入</button>
+    <div class="boxRow" style="background:none;box-shadow:none;padding:0;margin:8px 0 2px"><span class="grow" style="font-size:13px;color:var(--ink-soft)">我导入的色卡</span></div>
+    <div id="themeImpList" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+</div>
+
 <!-- 通话模式全屏 -->
 <div id="callScreen" class="callVideo">
   <div class="callTop">
@@ -1630,6 +1666,14 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 /* 只放行真正的图片地址（自己拍的/导入的图都是 data:image 或 http(s)），挡掉伪造 src 的注入 */
 const safeUrl = u => (typeof u==='string' && /^(data:image\/(png|jpe?g|gif|webp|bmp)|https?:\/\/)[^"'<>\s]*$/i.test(u)) ? u : '';
+/* 图片代理：外链图被防盗链挡住时，让 weserv 服务器代抓一道（顺带 http→https）。只对 http(s) 外链生效，data: 本地图原样返回 */
+const imgProxy = u => {
+  if(typeof u!=='string' || !/^https?:\/\//i.test(u)) return u||'';
+  const pre = /^https/i.test(u) ? 'ssl:' : '';
+  return 'https://images.weserv.nl/?url=' + encodeURIComponent(pre + u.replace(/^https?:\/\//i,''));
+};
+/* 给外链 <img> 加「直连失败→自动走代理」兜底属性 */
+const imgFallback = u => (/^https?:\/\//i.test(u)) ? ` onerror="this.onerror=null;this.src='${imgProxy(u)}'"` : '';
 /* 代码块：```lang … ``` 渲染成代码框（可复制，HTML 还能预览） */
 function looksHtml(lang,code){
   if(/^(html|htm|xml|svg)$/i.test(lang)) return true;
@@ -1731,7 +1775,7 @@ function photoHtml(text,msg){
 /* 整行是特殊消息 → 返回特殊气泡的 html，否则 null */
 function specialHtml(line,msg){
   let m=line.match(/^<表情包[:：]\s*(.+?)\s*>$/);
-  if(m){ const st=findSticker(m[1]); return st?`<img class="stickerImg" src="${safeUrl(st.data)}">`:null; }
+  if(m){ const st=findSticker(m[1]); return st?`<img class="stickerImg" src="${safeUrl(st.data)}"${imgFallback(st.data)}>`:null; }
   m=line.match(/^<转账[:：]\s*([\d.]+)\s*(?:[:：]\s*(.*?))?\s*>$/);
   if(m&&Number(m[1])>0) return transferHtml(Number(m[1]),m[2]||'',msg?.received);
   m=line.match(/^<语音[:：]\s*([\s\S]+?)\s*>$/);
@@ -1813,14 +1857,20 @@ const persistAll = ()=>{
 };
 
 /* ================= 主题 ================= */
+const THEME_VARS=['--bg','--bg-soft','--card','--ink','--ink-soft','--accent','--accent-deep','--bubble-me','--bubble-ta','--line','--shadow','--radius','--danger'];
+function customTheme(id){ return (settings.customThemes||[]).find(t=>t.id===id); }
 function applyTheme(){
-  const t=['mist','night'].includes(settings.theme)?settings.theme:'';
+  const ct=customTheme(settings.theme);
+  const t=(!ct&&['mist','night','celadon'].includes(settings.theme))?settings.theme:'';
   document.documentElement.dataset.theme=t;
+  const root=document.documentElement.style;
+  /* 先清掉上一套自定义色卡的内联变量，再按需铺上 */
+  THEME_VARS.forEach(v=>root.removeProperty(v));
+  if(ct){ for(const k in ct.vars) root.setProperty(k,ct.vars[k]); }
   document.querySelectorAll('.themeDot').forEach(d=>d.classList.toggle('on', d.dataset.theme===settings.theme));
   const mc=document.querySelector('meta[name="theme-color"]');
-  if(mc) mc.content = t==='night'?'#201C17' : t==='mist'?'#F2F2FA' : '#FBF6EE';
+  if(mc) mc.content = ct?(ct.vars['--bg']||'#FBF6EE') : t==='night'?'#201C17' : t==='mist'?'#F2F2FA' : t==='celadon'?'#F4F7F3' : '#FBF6EE';
   /* 自定义气泡颜色盖在主题上面 */
-  const root=document.documentElement.style;
   if(settings.bubbleMe) root.setProperty('--bubble-me',settings.bubbleMe); else root.removeProperty('--bubble-me');
   if(settings.bubbleTa) root.setProperty('--bubble-ta',settings.bubbleTa); else root.removeProperty('--bubble-ta');
   if(settings.bubbleMeText) root.setProperty('--bubble-me-text',settings.bubbleMeText); else root.removeProperty('--bubble-me-text');
@@ -1828,6 +1878,66 @@ function applyTheme(){
   if(settings.bubbleRadius!=null) root.setProperty('--bubble-radius',settings.bubbleRadius+'px'); else root.removeProperty('--bubble-radius');
   if(settings.bubbleTail!=null) root.setProperty('--bubble-tail',settings.bubbleTail+'px'); else root.removeProperty('--bubble-tail');
 }
+/* ===== 导入色卡主题：粘贴 [data-theme]{--vars} 块，可一次多套 ===== */
+function parseThemeCards(text){
+  const blocks=[]; let m;
+  const blockRe=/\[data-theme=["']?([\w-]+)["']?\]\s*\{([^}]*)\}/g;
+  while(m=blockRe.exec(text)) blocks.push({name:m[1],body:m[2]});
+  if(!blocks.length){ const rm=text.match(/\{([^}]*)\}/); blocks.push({name:'',body:rm?rm[1]:text}); }
+  return blocks.map(b=>{
+    const vars={}; let v; const vre=/(--[\w-]+)\s*:\s*([^;\n}]+)/g;
+    while(v=vre.exec(b.body)){ vars[v[1].trim()]=v[2].trim(); }
+    return {name:(b.name||'').trim(),vars};
+  }).filter(t=>THEME_VARS.some(k=>k in t.vars));
+}
+function renderThemeDots(){
+  const box=$('customThemeDots'); if(!box) return;
+  box.innerHTML='';
+  (settings.customThemes||[]).forEach(t=>{
+    const b=document.createElement('button');
+    b.className='themeDot'; b.dataset.theme=t.id;
+    b.style.background=t.vars['--bubble-me']||t.vars['--accent']||t.vars['--bg']||'#ccc';
+    b.title=t.name||'自定义';
+    b.classList.toggle('on', settings.theme===t.id);
+    b.onclick=()=>{ settings.theme=t.id; persistAll(); applyTheme(); };
+    box.appendChild(b);
+  });
+}
+function renderThemeImpList(){
+  const list=$('themeImpList'); if(!list) return;
+  const arr=settings.customThemes||[];
+  if(!arr.length){ list.innerHTML='<div class="hintText" style="opacity:.7">还没有导入的色卡～</div>'; return; }
+  list.innerHTML='';
+  arr.forEach(t=>{
+    const row=document.createElement('div');
+    row.className='boxRow'; row.style.cssText='gap:8px;padding:8px 10px';
+    row.innerHTML=`<span class="themeDot" style="background:${esc(t.vars['--bubble-me']||t.vars['--accent']||t.vars['--bg']||'#ccc')};pointer-events:none"></span>`
+      +`<span class="grow" style="font-size:14px">${esc(t.name||'自定义')}</span>`
+      +`<button class="ghostBtn" style="margin:0;width:auto;padding:5px 12px;font-size:13px;color:var(--danger)">删除</button>`;
+    row.querySelector('button').onclick=()=>{
+      settings.customThemes=arr.filter(x=>x.id!==t.id);
+      if(settings.theme===t.id) settings.theme='cream';
+      persistAll(); applyTheme(); renderThemeDots(); renderThemeImpList();
+    };
+    list.appendChild(row);
+  });
+}
+$('themeImpBtn').onclick=()=>{ $('themeImpTxt').value=''; renderThemeImpList(); openSheet('themeImpSheet'); };
+$('themeImpDo').onclick=()=>{
+  const parsed=parseThemeCards($('themeImpTxt').value||'');
+  if(!parsed.length){ toast('没认出色卡，确认是 [data-theme="名字"]{ --bg:…; } 这种格式哦'); return; }
+  if(!settings.customThemes) settings.customThemes=[];
+  let add=0,upd=0;
+  parsed.forEach((t,i)=>{
+    const name=t.name||('色卡'+(settings.customThemes.length+1));
+    const ex=settings.customThemes.find(x=>x.name===name);
+    if(ex){ ex.vars=t.vars; upd++; }
+    else{ settings.customThemes.push({id:'ct'+Date.now().toString(36)+i,name,vars:t.vars}); add++; }
+  });
+  persistAll(); renderThemeDots(); renderThemeImpList(); applyTheme();
+  $('themeImpTxt').value='';
+  toast(`导入好啦：新增${add}套${upd?`，更新${upd}套`:''}`);
+};
 /* ===== 气泡皮肤：内置可选 + 导入导出 ===== */
 const BUBBLE_SKINS=[
   {name:'奶油',me:'#F6DCC4',ta:'#FFFFFF',meText:'',taText:'',radius:18,tail:8},
@@ -4267,7 +4377,7 @@ function renderStickers(){
   stickers.forEach(st=>{
     const d=document.createElement('div');
     d.className='stkItem';
-    d.innerHTML=`<img src="${safeUrl(st.data)}"><div class="nm">✎ ${esc(st.name)}</div><button class="rm">✕</button>`;
+    d.innerHTML=`<img src="${safeUrl(st.data)}"${imgFallback(st.data)}><div class="nm">✎ ${esc(st.name)}</div><button class="rm">✕</button>`;
     d.querySelector('img').onclick=()=>{
       closeSheet('stickerSheet');
       sendRaw(`<表情包:${st.name}>`,'[表情包]');
@@ -5711,7 +5821,7 @@ $('splashToggle').onclick=()=>{
   $('splashToggle').classList.toggle('on',splashOn());
   toast(splashOn()?'开屏关系树开啦，下次打开就能看到 🌳':'已关开屏，直接进聊天');
 };
-document.querySelectorAll('.themeDot').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
+document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
   const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog},null,2)],{type:'application/json'});
   const a=document.createElement('a');
@@ -5755,6 +5865,7 @@ $('importFile').onchange=async e=>{
 };
 
 /* ================= 启动 ================= */
+renderThemeDots();
 applyTheme();
 applyCustomCss();
 renderProfile();
