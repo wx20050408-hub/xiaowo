@@ -219,8 +219,9 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 }
 #profileText{min-width:0;flex:1}
 #profileName{font-weight:600;font-size:15px;border:none;background:none;width:100%;padding:0}
-#avatar{overflow:hidden;cursor:pointer;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-#avatar img{width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#avatar{overflow:hidden;cursor:pointer}
+#avatar img{width:100%;height:100%;object-fit:cover}
+#menuBtn{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #profileStatus{font-size:12px;color:var(--ink-soft);border:none;background:none;width:100%;padding:0}
 
 #searchWrap{margin:0 16px 6px;position:relative}
@@ -2163,7 +2164,7 @@ $('bubReset').onclick=()=>{
 
 /* ================= 侧边栏 ================= */
 function openDrawer(o){ $('drawer').classList.toggle('open',o); $('scrim').classList.toggle('show',o); }
-$('menuBtn').onclick = ()=>{ renderHistory(); openDrawer(true) };
+$('menuBtn').onclick = ()=>{ if(privSuppressClick){ privSuppressClick=false; return; } renderHistory(); openDrawer(true) };
 $('scrim').onclick = ()=>openDrawer(false);
 $('profileStatus').value = settings.status||'';
 $('profileStatus').onchange = e=>{ settings.status=e.target.value; persistAll(); };
@@ -2175,7 +2176,7 @@ $('profileName').onchange = e=>{
 function renderProfile(){
   $('avatar').innerHTML = settings.myAvatar ? `<img src="${safeUrl(settings.myAvatar)}">` : '₍ᵔ·̫ᵔ₎';
 }
-$('avatar').onclick = ()=>{ if(privSuppressClick){ privSuppressClick=false; return; } $('myAvFile').click(); };
+$('avatar').onclick = ()=>$('myAvFile').click();
 $('myAvFile').onchange = async e=>{
   const f=e.target.files[0]; if(!f) return;
   try{
@@ -5515,7 +5516,7 @@ function privHost(){ return charOf(privHostId()); }
 
 /* —— 隐藏入口：长按头像 3 秒 —— */
 (function(){
-  const av=$('avatar'); if(!av) return;
+  const av=$('menuBtn'); if(!av) return;
   let t=null, sx=0, sy=0;
   const pt=e=>e.touches&&e.touches[0]?e.touches[0]:e;
   const fire=()=>{ privSuppressClick=true; try{ navigator.vibrate&&navigator.vibrate(35); }catch(_){} openPrivEntry(); };
