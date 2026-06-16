@@ -312,6 +312,11 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 #privLiveBar input{flex:1;padding:11px;border-radius:14px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:14px;min-width:0}
 #privLiveBar button{padding:10px 13px;border-radius:14px;background:var(--accent);color:#fff;font-size:14px;flex-shrink:0}
 .pvIconBtn{background:var(--bg-soft)!important;color:var(--accent-deep)!important;font-size:18px!important;padding:9px 10px!important}
+#privCoinDisp{font-size:13px;font-weight:700;color:#E8A33D;background:rgba(232,163,61,.14);padding:4px 10px;border-radius:20px;white-space:nowrap;cursor:pointer}
+#privDirector{display:flex;gap:7px;padding:6px 14px 0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+#privDirector::-webkit-scrollbar{display:none}
+.privDirBtn{flex-shrink:0;padding:7px 12px;border-radius:20px;background:var(--bg-soft);color:var(--accent-deep);font-size:13px;font-weight:600;white-space:nowrap;transition:transform .1s}
+.privDirBtn:active{transform:scale(.93)}
 /* 订阅 OF */
 #privFeedTop{display:flex;gap:8px;padding:6px 14px 4px}
 #privGenPost{flex:1;padding:12px;border-radius:14px;background:linear-gradient(135deg,var(--accent),#d06aa8);color:#fff;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.12)}
@@ -970,6 +975,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div id="privHeader">
     <button class="iconBtn" id="privBack" aria-label="返回">‹</button>
     <div class="ttl">私密小屋</div>
+    <span id="privCoinDisp" title="点我领今日金币">🪙 0</span>
     <button class="iconBtn" id="privGear" title="设置">⚙</button>
   </div>
   <div id="privTabs">
@@ -995,6 +1001,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     </div>
     <button id="privLiveStart">🔴 请TA上播</button>
     <div id="privChatLog"></div>
+    <div id="privDirector"></div>
     <div id="privLiveBar">
       <button class="pvIconBtn" id="privGiftBtn" title="送礼物">🎁</button>
       <button class="pvIconBtn" id="privTipBtn" title="打赏">💝</button>
@@ -1023,6 +1030,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 <div class="sheetScrim" id="privGearSheet">
   <div class="sheet">
     <div class="sheetTitle">私密小屋设置<button class="close" data-close="privGearSheet">✕</button></div>
+    <button id="privClaimCoin" style="width:100%;margin-bottom:10px;padding:11px;border-radius:13px;background:var(--bg-soft);color:#E8A33D;font-size:14px;text-align:left;font-weight:600">🪙 领今日金币（+520）</button>
     <button id="privChgPass" style="width:100%;margin-bottom:10px;padding:11px;border-radius:13px;background:var(--bg-soft);color:var(--ink);font-size:14px;text-align:left">🔑 修改进入密码</button>
     <button id="privClearLive" style="width:100%;margin-bottom:10px;padding:11px;border-radius:13px;background:var(--bg-soft);color:var(--ink);font-size:14px;text-align:left">🧹 清空当前直播聊天记录</button>
     <button id="privClearAll" style="width:100%;padding:11px;border-radius:13px;background:var(--bg-soft);color:var(--danger);font-size:14px;text-align:left">🗑 清空私密小屋全部内容</button>
@@ -5613,6 +5621,7 @@ $('privGateReset').onclick=()=>{
 };
 function enterPriv(){
   openDrawer&&openDrawer(false);
+  buildDirector(); renderCoins();
   renderPrivHosts(); switchPrivTab('live'); renderPrivFeed(); renderPrivLive();
   if(privLiveOn) startDanmu();
   $('privPage').classList.add('show');
@@ -5658,6 +5667,30 @@ document.querySelectorAll('.privModeBtn').forEach(b=>b.onclick=()=>{
 $('privSceneBtn').onclick=()=>{ if(!privHostId()){ toast('先选个出演的角色'); return; } $('privSceneTxt').value=privScene(); openSheet('privSceneSheet'); };
 $('privSceneOk').onclick=()=>{ const h=privHostId(); if(!h){ toast('先选个出演的角色'); return; } const v=$('privSceneTxt').value.trim().slice(0,500); if(v) privScenes[h]=v; else delete privScenes[h]; persistAll(); renderPrivMode(); closeSheet('privSceneSheet'); toast(v?'这场设定好啦🎬':'已清空设定'); };
 $('privSceneClear').onclick=()=>{ const h=privHostId(); if(h) delete privScenes[h]; $('privSceneTxt').value=''; persistAll(); renderPrivMode(); closeSheet('privSceneSheet'); toast('已清空设定'); };
+
+/* —— 金币系统：解锁/打赏花金币，每日可领 —— */
+function privCoins(){ return settings.privCoins==null?1314:settings.privCoins; }
+function setCoins(n){ settings.privCoins=Math.max(0,Math.round(n)); persistAll(); renderCoins(); }
+function renderCoins(){ const el=$('privCoinDisp'); if(el) el.textContent='🪙 '+privCoins(); }
+function claimDailyCoin(){
+  if(settings.privCoinDay===todayStr()){ toast('今天领过啦，明天再来~ 现在 '+privCoins()+' 🪙'); return; }
+  settings.privCoinDay=todayStr(); setCoins(privCoins()+520); toast('领到今日金币 +520 🪙');
+}
+$('privCoinDisp').onclick=claimDailyCoin;
+$('privClaimCoin').onclick=()=>{ claimDailyCoin(); closeSheet('privGearSheet'); };
+
+/* —— 快捷导演键：一点就推进剧情 —— */
+const PRIV_DIRECTS=[['🎬','特写','把镜头推成大特写，聚焦此刻最撩人的部位和表情，细致描写这个画面'],['🔄','换姿势','换一个更大胆、更勾人的姿势，并描写新姿势的画面'],['🎭','换场景','切换到另一个场景或地点继续这场，描写新场景'],['🐢','再慢点','把节奏放慢下来，更缠绵、更挑逗地拖着来'],['🔥','更激烈','升级，更激烈、更放浪地继续'],['👀','看着我','直勾勾盯着镜头，对着我说最下流撩人的话']];
+function buildDirector(){
+  const box=$('privDirector'); if(!box||box.dataset.built) return; box.dataset.built='1';
+  PRIV_DIRECTS.forEach(d=>{ const b=document.createElement('button'); b.className='privDirBtn'; b.textContent=d[0]+d[1]; b.onclick=()=>privDirect(d[1],d[2]); box.appendChild(b); });
+}
+function privDirect(name,instr){
+  const ch=privHost(); if(!ch){ toast('先选个出演的角色'); return; }
+  if(!privLiveOn){ privLiveOn=true; startDanmu(); }
+  pushLive('me','🎬 导演·'+name,'sys'); renderPrivLive();
+  privLiveReply(ch,'',`【导演指令】${userName()}喊话：${instr}。请照这个把这场直播继续演下去。`);
+}
 
 /* —— 私密系统提示词：人设/记忆 + 成人模式声明 —— */
 function privSystem(ch){
@@ -5789,14 +5822,17 @@ $('privLiveInput').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); sendP
 
 /* 打赏 / 礼物：撩拨升级 */
 const PRIV_GIFTS=[['🌹','玫瑰','99'],['💋','飞吻','188'],['🍓','草莓','520'],['🍷','小酒','666'],['💎','钻戒','1314'],['🔥','火箭','3344']];
-$('privTipBtn').onclick=()=>privDoTip('💝 一个么么哒','一个甜甜的打赏');
+$('privTipBtn').onclick=()=>privDoTip('💝 一个么么哒','一个甜甜的打赏',66);
 $('privGiftBtn').onclick=()=>{
   const grid=$('privGiftGrid'); grid.innerHTML='';
-  PRIV_GIFTS.forEach(g=>{ const b=document.createElement('button'); b.innerHTML=`<span class="gIc">${g[0]}</span>${g[1]}<span style="color:var(--ink-soft);font-size:11px">${g[2]}</span>`; b.onclick=()=>{ closeSheet('privGiftSheet'); privDoTip(`${g[0]} 送出「${g[1]}」`,`「${g[1]}」(${g[2]})`); }; grid.appendChild(b); });
+  PRIV_GIFTS.forEach(g=>{ const b=document.createElement('button'); b.innerHTML=`<span class="gIc">${g[0]}</span>${g[1]}<span style="color:var(--ink-soft);font-size:11px">${g[2]}🪙</span>`; b.onclick=()=>{ closeSheet('privGiftSheet'); privDoTip(`${g[0]} 送出「${g[1]}」`,`「${g[1]}」(${g[2]}🪙)`,Number(g[2])); }; grid.appendChild(b); });
   openSheet('privGiftSheet');
 };
-async function privDoTip(label,desc){
+async function privDoTip(label,desc,cost){
   const ch=privHost(); if(!ch){ toast('先选个出演的角色'); return; }
+  cost=cost||0;
+  if(cost>privCoins()){ toast('金币不够啦，点右上角 🪙 领今日金币'); return; }
+  if(cost) setCoins(privCoins()-cost);
   if(!privLiveOn){ privLiveOn=true; startDanmu(); }
   pushLive('me',label,'sys'); renderPrivLive();
   await privLiveReply(ch,'',`${userName()}刚刚给你打赏了${desc}，你又惊又喜又害羞。`);
@@ -5855,7 +5891,15 @@ function ofCard(p){
     <div class="ofDmRow" style="display:none"><input placeholder="给TA发条私信…" maxlength="400"><button>发送</button></div>
     ${fans.length?`<div class="ofFans"><div class="ofFanHd">💬 粉丝评论 ${fans.length}</div>${fans.map(f=>`<div class="ofFan"><span class="fAv" style="background:${fanColor(f.name)}">${esc(String(f.name).slice(0,1))}</span><span class="fTx"><b>${esc(f.name)}</b>${fmt(f.text)}</span></div>`).join('')}<button class="ofMoreFans">＋ 再刷出更多评论</button></div>`:''}`;
   card.querySelector('.del').onclick=()=>{ if(confirm('删掉这条？')){ privPosts=privPosts.filter(x=>x.id!==p.id); persistAll(); renderPrivFeed(); } };
-  const unlock=card.querySelector('.unlock'); if(unlock) unlock.onclick=()=>{ p.unlocked=true; persistAll(); renderPrivFeed(); };
+  const unlock=card.querySelector('.unlock');
+  if(unlock){
+    if(p.unlockCost==null) p.unlockCost=20+Math.floor(Math.random()*50);
+    unlock.textContent='解锁 ·'+p.unlockCost+'🪙';
+    unlock.onclick=()=>{
+      if(privCoins()<p.unlockCost){ toast('金币不够啦，点右上角 🪙 领今日金币'); return; }
+      setCoins(privCoins()-p.unlockCost); p.unlocked=true; persistAll(); renderPrivFeed(); toast('解锁啦💗');
+    };
+  }
   card.querySelector('.likeBtn').onclick=()=>{ p.likes=p.likes||[]; const i=p.likes.indexOf('me'); if(i>=0)p.likes.splice(i,1); else p.likes.push('me'); persistAll(); renderPrivFeed(); };
   const dmRow=card.querySelector('.ofDmRow');
   card.querySelector('.dmBtn').onclick=()=>{ dmRow.style.display=dmRow.style.display==='none'?'flex':'none'; if(dmRow.style.display==='flex') dmRow.querySelector('input').focus(); };
