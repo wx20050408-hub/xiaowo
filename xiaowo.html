@@ -5455,7 +5455,7 @@ $('confirmPost').onclick=async()=>{
 let privSuppressClick=false;          // 长按头像后压掉那次 click（免得弹出换头像）
 let privGateMode='unlock';            // 'unlock' | 'set' | 'change'
 let privTabCur='live';
-let privDanmuTimer=null, privLiveOn=false;
+let privDanmuTimer=null, privLiveOn=false, privDanmuQueue=[], privDanmuFetching=false;
 function privHashStr(s){ let h=5381; for(const ch of String(s)) h=((h*33)^ch.codePointAt(0))>>>0; return 'p'+h.toString(36); }
 function privHostId(){
   if(settings.privHostId && characters.some(c=>c.id===settings.privHostId)) return settings.privHostId;
@@ -5554,20 +5554,37 @@ function setStage(text){
   const st=$('privStage'); st.style.background=stageGrad(text||'');
   $('privStageText').innerHTML=fmt(text||'');
 }
+/* 弹幕由 AI 实时生成，跟着此刻画面+TA刚说的话起哄，更真实；批量取回排队飘出，快用完自动补，没回来前先用本地词兜底不冷场 */
+async function refillDanmu(){
+  if(privDanmuFetching || !privLiveOn) return;
+  const ch=privHost(); const api=getApi(); if(!ch||!api) return;
+  privDanmuFetching=true;
+  const stage=($('privStageText')?.textContent||'').slice(0,60);
+  const last=privLiveLog().filter(m=>m.kind==='msg'&&m.by===ch.id).slice(-1)[0];
+  const ask=`「${ch.name}」正在开一场很撩人的私密直播。此刻镜头画面：「${stage}」。`
+    +(last?`TA刚说：「${String(last.text).slice(0,60)}」。`:'')
+    +`\n请你扮演直播间里一大群起哄的观众，生成 12 条弹幕。要求：每条单独一行，口语化、超短（12字以内），混着夸的、起哄的、调情暧昧的、吃醋的、刷礼物喊话的，越真实越好，可以露骨。只输出弹幕本身，每行一条，不要编号、不要解释。`;
+  const txt=await quickGen(api,'你在为一个成人向私密直播间生成观众弹幕，氛围热烈暧昧。只输出弹幕文字，每行一条。',ask,320);
+  privDanmuFetching=false;
+  if(txt) txt.split('\n').map(s=>s.replace(/^[\s\-\d.、)*。]+/,'').trim()).filter(s=>s&&s.length<=22).forEach(s=>privDanmuQueue.push(s));
+}
 function startDanmu(){
   stopDanmu();
+  refillDanmu();
   privDanmuTimer=setInterval(()=>{
     if(!privLiveOn) return;
     const wrap=$('privDanmu'); if(!wrap) return;
+    if(privDanmuQueue.length<3 && !privDanmuFetching) refillDanmu();
+    const text=privDanmuQueue.length?privDanmuQueue.shift():DANMU_POOL[Math.floor(Math.random()*DANMU_POOL.length)];
     const d=document.createElement('span'); d.className='dm';
-    d.textContent=DANMU_POOL[Math.floor(Math.random()*DANMU_POOL.length)];
+    d.textContent=text;
     d.style.top=Math.floor(Math.random()*64)+'px';
     d.style.animationDuration=(5+Math.random()*4)+'s';
     wrap.appendChild(d);
     setTimeout(()=>d.remove(),9000);
   },1700);
 }
-function stopDanmu(){ if(privDanmuTimer){ clearInterval(privDanmuTimer); privDanmuTimer=null; } const w=$('privDanmu'); if(w)w.innerHTML=''; }
+function stopDanmu(){ if(privDanmuTimer){ clearInterval(privDanmuTimer); privDanmuTimer=null; } privDanmuQueue=[]; const w=$('privDanmu'); if(w)w.innerHTML=''; }
 function privLiveLog(){ const h=privHostId(); return h?(privLives[h]=privLives[h]||[]):[]; }
 function pushLive(by,text,kind){ const log=privLiveLog(); log.push({by,text,ts:Date.now(),kind:kind||'msg'}); persistAll(); }
 function renderPrivLive(){
