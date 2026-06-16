@@ -274,61 +274,79 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 #privPage{position:fixed;inset:0;z-index:55;background:var(--bg);display:none;flex-direction:column;overflow:hidden}
 #privPage.show{display:flex}
 #privHeader{display:flex;align-items:center;gap:6px;padding:14px 12px;border-bottom:1px solid var(--line);background:var(--card)}
-#privHeader .ttl{flex:1;font-weight:600;font-size:16px;letter-spacing:.5px}
-#privTabs{display:flex;gap:8px;padding:10px 14px 6px;background:var(--card)}
-.privTab{flex:1;padding:9px;border-radius:14px;background:var(--bg-soft);color:var(--ink-soft);font-size:14px;font-weight:600}
-.privTab.on{background:var(--accent);color:#fff;box-shadow:var(--shadow)}
-#privHostRow{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--line)}
-#privHostRow select{flex:1;padding:8px;border-radius:12px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:13px}
+#privHeader .ttl{flex:1;font-weight:700;font-size:16px;letter-spacing:1px;background:linear-gradient(90deg,var(--accent-deep),#d06aa8);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+#privTabs{display:flex;gap:4px;margin:10px 14px 6px;padding:4px;background:var(--bg-soft);border-radius:16px}
+.privTab{flex:1;padding:9px;border-radius:12px;background:transparent;color:var(--ink-soft);font-size:14px;font-weight:600;transition:background .2s,color .2s}
+.privTab.on{background:var(--card);color:var(--accent-deep);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+#privHostRow{display:flex;align-items:center;gap:8px;padding:4px 14px 10px}
+#privHostRow span{flex-shrink:0;font-size:13px;color:var(--ink-soft)}
+#privHostRow select{flex:1;padding:9px 10px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:13px;box-shadow:var(--shadow)}
 .privPane{flex:1;overflow:hidden;display:none;flex-direction:column}
 .privPane.on{display:flex}
 /* 直播 */
-#privStage{position:relative;margin:8px 14px;border-radius:18px;min-height:150px;display:flex;align-items:flex-end;padding:14px;color:#fff;font-size:14px;line-height:1.55;text-shadow:0 1px 5px rgba(0,0,0,.5);overflow:hidden;background:linear-gradient(135deg,#7F7FD5,#86A8E7,#91EAE4)}
-#privLiveTag{position:absolute;top:10px;left:12px;background:#e0245e;color:#fff;font-size:11px;padding:3px 9px;border-radius:9px;font-weight:700;letter-spacing:.5px;z-index:3}
-#privLiveTag.off{background:rgba(0,0,0,.42)}
-#privDanmu{position:absolute;top:32px;left:0;right:0;height:84px;overflow:hidden;pointer-events:none;z-index:2}
+#privStage{position:relative;margin:2px 14px 8px;border-radius:20px;min-height:160px;display:flex;align-items:flex-end;padding:16px;color:#fff;font-size:14px;line-height:1.55;overflow:hidden;background:linear-gradient(135deg,#7F7FD5,#86A8E7,#91EAE4);box-shadow:0 6px 20px rgba(0,0,0,.18)}
+#privStage::before{content:'';position:absolute;left:0;right:0;bottom:0;height:62%;background:linear-gradient(to top,rgba(0,0,0,.55),transparent);z-index:0}
+#privLiveTag{position:absolute;top:12px;left:12px;background:#e0245e;color:#fff;font-size:11px;padding:4px 10px;border-radius:10px;font-weight:700;letter-spacing:.5px;z-index:3;display:flex;align-items:center;gap:5px}
+#privLiveTag::before{content:'';width:6px;height:6px;border-radius:50%;background:#fff;animation:livePulse 1.2s infinite}
+#privLiveTag.off{background:rgba(0,0,0,.45)}
+#privLiveTag.off::before{display:none}
+@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.7)}}
+#privDanmu{position:absolute;top:36px;left:0;right:0;height:84px;overflow:hidden;pointer-events:none;z-index:2}
 .dm{position:absolute;white-space:nowrap;font-size:12px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.7);animation:dmfly linear forwards}
 @keyframes dmfly{from{transform:translateX(110%)}to{transform:translateX(-130%)}}
-#privStageText{position:relative;z-index:1}
-#privLiveStart{margin:0 14px 6px;padding:11px;border-radius:15px;background:var(--accent);color:#fff;font-weight:600}
+#privStageText{position:relative;z-index:1;text-shadow:0 1px 6px rgba(0,0,0,.65)}
+#privLiveStart{margin:0 14px 8px;padding:12px;border-radius:16px;background:linear-gradient(135deg,var(--accent),#e0245e);color:#fff;font-weight:700;letter-spacing:.5px;box-shadow:0 4px 14px rgba(224,36,94,.26)}
 #privChatLog{flex:1;overflow-y:auto;padding:8px 14px;display:flex;flex-direction:column;gap:8px}
-.pvMsg{max-width:82%;padding:8px 12px;border-radius:15px;font-size:14px;line-height:1.55;word-break:break-word;white-space:pre-wrap}
-.pvMsg.me{align-self:flex-end;background:var(--bubble-me);color:var(--bubble-me-text,var(--ink))}
-.pvMsg.ta{align-self:flex-start;background:var(--bubble-ta);color:var(--bubble-ta-text,var(--ink))}
-.pvMsg.sys{align-self:center;background:transparent;color:var(--accent-deep);font-size:12.5px;text-align:center}
+.pvMsg{max-width:82%;padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.55;word-break:break-word;white-space:pre-wrap;box-shadow:var(--shadow)}
+.pvMsg.me{align-self:flex-end;background:var(--bubble-me);color:var(--bubble-me-text,var(--ink));border-bottom-right-radius:5px}
+.pvMsg.ta{align-self:flex-start;background:var(--bubble-ta);color:var(--bubble-ta-text,var(--ink));border-bottom-left-radius:5px}
+.pvMsg.sys{align-self:center;background:rgba(0,0,0,.06);color:var(--accent-deep);font-size:12px;text-align:center;box-shadow:none;border-radius:20px;padding:5px 13px}
 #privLiveBar{display:flex;gap:6px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);background:var(--card)}
-#privLiveBar input{flex:1;padding:10px;border-radius:14px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:14px;min-width:0}
-#privLiveBar button{padding:9px 12px;border-radius:13px;background:var(--accent);color:#fff;font-size:14px;flex-shrink:0}
-.pvIconBtn{background:var(--bg-soft)!important;color:var(--accent-deep)!important;font-size:17px!important;padding:9px 10px!important}
+#privLiveBar input{flex:1;padding:11px;border-radius:14px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:14px;min-width:0}
+#privLiveBar button{padding:10px 13px;border-radius:14px;background:var(--accent);color:#fff;font-size:14px;flex-shrink:0}
+.pvIconBtn{background:var(--bg-soft)!important;color:var(--accent-deep)!important;font-size:18px!important;padding:9px 10px!important}
 /* 订阅 OF */
-#privFeedTop{display:flex;gap:8px;padding:10px 14px 4px}
-#privGenPost{flex:1;padding:11px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600}
-#privFeed{flex:1;overflow-y:auto;padding:8px 14px 24px;display:flex;flex-direction:column;gap:16px}
-.ofEmpty{text-align:center;color:var(--ink-soft);font-size:13px;padding:30px 10px;line-height:1.7}
-.ofCard{background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
-.ofHead{display:flex;align-items:center;gap:8px;padding:10px 12px}
-.ofHead .nm{font-weight:600;font-size:14px;flex:1}
-.ofHead .tm{font-size:11px;color:var(--ink-soft)}
-.ofHead .del{color:var(--ink-soft);font-size:14px;margin-left:6px}
-.ofPhoto{position:relative;min-height:190px;display:flex;align-items:center;justify-content:center;text-align:center;padding:22px;color:#fff;font-size:14px;line-height:1.65;text-shadow:0 1px 5px rgba(0,0,0,.45)}
-.ofPhoto .pt{transition:filter .25s}
+#privFeedTop{display:flex;gap:8px;padding:6px 14px 4px}
+#privGenPost{flex:1;padding:12px;border-radius:14px;background:linear-gradient(135deg,var(--accent),#d06aa8);color:#fff;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+#privFeed{flex:1;overflow-y:auto;padding:10px 14px 28px;display:flex;flex-direction:column;gap:18px}
+.ofEmpty{text-align:center;color:var(--ink-soft);font-size:13px;padding:36px 10px;line-height:1.8}
+.ofCard{background:var(--card);border-radius:20px;box-shadow:0 6px 18px rgba(0,0,0,.08);overflow:hidden;border:1px solid var(--line)}
+.ofHead{display:flex;align-items:center;gap:10px;padding:11px 13px}
+.ofHead .avSm{width:38px;height:38px}
+.ofHead .nmwrap{flex:1;min-width:0}
+.ofHead .nm{font-weight:700;font-size:14px;display:flex;align-items:center;gap:4px}
+.ofHead .vf{color:#d06aa8;font-size:12px}
+.ofHead .hd{font-size:11px;color:var(--ink-soft);margin-top:1px}
+.ofHead .del{color:var(--ink-soft);font-size:14px;align-self:flex-start}
+.ofPhoto{position:relative;min-height:200px;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:#fff;font-size:14px;line-height:1.65;text-shadow:0 1px 5px rgba(0,0,0,.45)}
+.ofPhoto .pt{transition:filter .25s;position:relative;z-index:1}
 .ofPhoto.locked .pt{filter:blur(15px)}
 .ofPhoto .ptImg{position:absolute;inset:0;background-size:cover;background-position:center;transition:filter .25s}
 .ofPhoto.locked .ptImg{filter:blur(18px)}
 #privMyPhotoPrev{width:100%;max-height:200px;object-fit:cover;border-radius:14px;margin-bottom:10px;display:none}
 .privField{width:100%;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:14px;box-sizing:border-box;margin-bottom:10px;resize:vertical;font-family:inherit}
-.ofLock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;background:rgba(0,0,0,.22);text-shadow:0 1px 4px rgba(0,0,0,.5)}
-.ofLock button{padding:8px 18px;border-radius:20px;background:rgba(255,255,255,.94);color:#333;font-weight:600;font-size:13px}
-.ofCap{padding:10px 14px 4px;font-size:14px;line-height:1.55}
-.ofActs{display:flex;gap:16px;padding:6px 14px 12px;color:var(--ink-soft);font-size:13px}
-.ofActs button{color:var(--ink-soft)}
+.ofLock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;background:rgba(0,0,0,.3);text-shadow:0 1px 4px rgba(0,0,0,.5);font-size:24px;z-index:2}
+.ofLock button{padding:9px 20px;border-radius:22px;background:rgba(255,255,255,.95);color:#333;font-weight:700;font-size:13px}
+.ofCap{padding:11px 14px 2px;font-size:14px;line-height:1.6}
+.ofActs{display:flex;align-items:center;gap:18px;padding:8px 14px 10px;color:var(--ink-soft);font-size:13px}
+.ofActs button{color:var(--ink-soft);font-weight:600}
 .ofActs .liked{color:#e0245e}
-.ofThread{padding:0 14px 12px;display:flex;flex-direction:column;gap:6px}
+.ofActs .spacer{flex:1}
+/* 粉丝评论 */
+.ofFans{padding:11px 14px 12px;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line)}
+.ofFanHd{font-size:11px;color:var(--ink-soft);font-weight:600;letter-spacing:.5px}
+.ofFan{display:flex;gap:8px;align-items:flex-start}
+.fAv{width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700}
+.fTx{font-size:13px;line-height:1.5;min-width:0}
+.fTx b{color:var(--accent-deep);margin-right:5px;font-size:12.5px}
+.ofMoreFans{align-self:flex-start;color:var(--accent-deep);font-size:12px;font-weight:600;padding:2px 0}
+/* 我↔TA 私信 */
+.ofThread{padding:4px 14px 12px;display:flex;flex-direction:column;gap:6px}
 .ofThread .ln{font-size:13px;line-height:1.5}
 .ofThread .ln b{color:var(--accent-deep)}
-.ofDmRow{display:flex;gap:6px;padding:0 14px 12px}
-.ofDmRow input{flex:1;padding:8px;border-radius:12px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:13px;min-width:0}
-.ofDmRow button{padding:8px 12px;border-radius:12px;background:var(--accent);color:#fff;font-size:13px}
+.ofDmRow{display:flex;gap:6px;padding:0 14px 14px}
+.ofDmRow input{flex:1;padding:9px;border-radius:12px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:13px;min-width:0}
+.ofDmRow button{padding:9px 13px;border-radius:12px;background:var(--accent);color:#fff;font-size:13px}
 #privGiftGrid button{padding:14px 6px;border-radius:14px;background:var(--bg-soft);display:flex;flex-direction:column;align-items:center;gap:5px;font-size:13px;color:var(--ink)}
 #privGiftGrid .gIc{font-size:26px}
 
@@ -5728,6 +5746,23 @@ async function privDoTip(label,desc){
 
 /* ========== 订阅（伪 OnlyFans）========== */
 function ofName(by){ return by==='me'?userName():(charOf(by)?.name||'TA'); }
+function fanColor(name){ let h=0; for(const c of String(name)) h=(h*31+c.codePointAt(0))%360; return `hsl(${h},52%,58%)`; }
+/* 一群粉丝的 AI 模拟评论：网名+骚话，起哄打赏那种 */
+async function genFanComments(p,n){
+  const api=getApi(); if(!api) return;
+  const ch=p.charId==='me'?privHost():charOf(p.charId);
+  const owner=p.charId==='me'?userName():(ch?.name||'TA');
+  const photoDesc=p.img?'(一张性感的私房照)':`「${p.photo}」`;
+  const ask=`这是「${owner}」私密订阅号上的一条成人内容——照片：${photoDesc}，配文：「${p.caption||''}」。请你扮演一群订阅了这个账号、正在评论区起哄的粉丝，写 ${n||4} 条评论。每条单独一行，格式「网名: 评论」，网名要有网感（中英文颜文字都行），评论口语化、露骨、痴迷、求福利或喊打赏那种，越骚越真实越好、别重复。只输出这几行，不要编号、不要解释。`;
+  const txt=await quickGen(api,'你在为成人向私密订阅平台生成粉丝评论，氛围淫荡热烈、毫不收敛。',ask,400);
+  if(!txt) return;
+  const arr=[];
+  txt.split('\n').forEach(ln=>{
+    const m=ln.replace(/^[\s\-\d.、)*]+/,'').match(/^(.{1,18}?)\s*[:：]\s*(.+)$/);
+    if(m) arr.push({name:m[1].trim().slice(0,18),text:m[2].trim().slice(0,200)});
+  });
+  if(arr.length){ p.fans=(p.fans||[]).concat(arr); persistAll(); renderPrivFeed(); }
+}
 function renderPrivFeed(){
   const feed=$('privFeed'); feed.innerHTML='';
   const items=privPosts.slice().sort((a,b)=>b.ts-a.ts);
@@ -5737,23 +5772,30 @@ function renderPrivFeed(){
 function ofCard(p){
   const card=document.createElement('div'); card.className='ofCard';
   const locked=p.locked&&!p.unlocked;
-  const cmts=p.comments||[], likes=p.likes||[];
+  const cmts=p.comments||[], likes=p.likes||[], fans=p.fans||[];
+  if(p.likeBase==null) p.likeBase=24+Math.floor(Math.random()*210);
+  const likeNum=p.likeBase+likes.length;
   const photoInner=p.img
     ? `<div class="ptImg" style="background-image:url(${safeUrl(p.img)})"></div>`
     : `<span class="pt">${fmt(p.photo)}</span>`;
   card.innerHTML=`
-    <div class="ofHead">${momentAv(p.charId)}<span class="nm">${esc(ofName(p.charId))}</span><span class="tm">${fmtMsgTime(p.ts)}</span><button class="del">✕</button></div>
+    <div class="ofHead">${momentAv(p.charId)}
+      <div class="nmwrap"><div class="nm">${esc(ofName(p.charId))}<span class="vf">✔</span></div><div class="hd">🔒 仅你可见 · ${fmtMsgTime(p.ts)}</div></div>
+      <button class="del">✕</button></div>
     <div class="ofPhoto ${locked?'locked':''}" style="${p.img?'':'background:'+stageGrad(p.photo)}">
       ${photoInner}
       ${locked?'<div class="ofLock">🔒<button class="unlock">解锁这张</button></div>':''}
     </div>
     <div class="ofCap">${fmt(p.caption||'')}</div>
     <div class="ofActs">
-      <button class="likeBtn ${likes.includes('me')?'liked':''}">${likes.includes('me')?'❤️ '+likes.length:'♡ 喜欢'}</button>
+      <button class="likeBtn ${likes.includes('me')?'liked':''}">${likes.includes('me')?'❤️':'♡'} ${likeNum}</button>
       <button class="dmBtn">💬 私信</button>
+      <span class="spacer"></span>
+      <button class="fansBtn">👀 ${fans.length?fans.length+' 条':'看看'}评论</button>
     </div>
     ${cmts.length?`<div class="ofThread">${cmts.map(c=>`<div class="ln"><b>${esc(ofName(c.by))}</b>：${fmt(c.text)}</div>`).join('')}</div>`:''}
-    <div class="ofDmRow" style="display:none"><input placeholder="给TA发条私信…" maxlength="400"><button>发送</button></div>`;
+    <div class="ofDmRow" style="display:none"><input placeholder="给TA发条私信…" maxlength="400"><button>发送</button></div>
+    ${fans.length?`<div class="ofFans"><div class="ofFanHd">💬 粉丝评论 ${fans.length}</div>${fans.map(f=>`<div class="ofFan"><span class="fAv" style="background:${fanColor(f.name)}">${esc(String(f.name).slice(0,1))}</span><span class="fTx"><b>${esc(f.name)}</b>${fmt(f.text)}</span></div>`).join('')}<button class="ofMoreFans">＋ 再刷出更多评论</button></div>`:''}`;
   card.querySelector('.del').onclick=()=>{ if(confirm('删掉这条？')){ privPosts=privPosts.filter(x=>x.id!==p.id); persistAll(); renderPrivFeed(); } };
   const unlock=card.querySelector('.unlock'); if(unlock) unlock.onclick=()=>{ p.unlocked=true; persistAll(); renderPrivFeed(); };
   card.querySelector('.likeBtn').onclick=()=>{ p.likes=p.likes||[]; const i=p.likes.indexOf('me'); if(i>=0)p.likes.splice(i,1); else p.likes.push('me'); persistAll(); renderPrivFeed(); };
@@ -5762,6 +5804,8 @@ function ofCard(p){
   const send=()=>{ const inp=dmRow.querySelector('input'); const t=inp.value.trim(); if(t){ inp.value=''; ofDM(p,t); } };
   dmRow.querySelector('button').onclick=send;
   dmRow.querySelector('input').onkeydown=e=>{ if(e.key==='Enter') send(); };
+  const fansBtn=card.querySelector('.fansBtn'); if(fansBtn) fansBtn.onclick=()=>{ fansBtn.textContent='刷新中…'; genFanComments(p,fans.length?3:5); };
+  const more=card.querySelector('.ofMoreFans'); if(more) more.onclick=()=>{ more.textContent='刷新中…'; genFanComments(p,3); };
   return card;
 }
 let privPosting=false;
@@ -5783,8 +5827,10 @@ $('privGenPost').onclick=async()=>{
     else if(m=ln.match(/^\s*\[锁[:：]?\]?\s*(.+)$/)) lock=/是|yes|true|锁/i.test(m[1]);
   });
   if(!photo){ photo=txt.trim(); }
-  privPosts.push({id:'of'+Date.now(),charId:ch.id,photo:photo.slice(0,200),caption:caption.slice(0,300),locked:lock,unlocked:false,likes:[],comments:[],ts:Date.now()});
+  const np={id:'of'+Date.now(),charId:ch.id,photo:photo.slice(0,200),caption:caption.slice(0,300),locked:lock,unlocked:false,likes:[],comments:[],fans:[],ts:Date.now()};
+  privPosts.push(np);
   persistAll(); renderPrivFeed(); toast(`${ch.name}更新了一条💗`);
+  genFanComments(np,4);   // 一群粉丝来评论起哄
 };
 async function ofDM(p,text){
   p.comments=p.comments||[]; p.comments.push({by:'me',text,ts:Date.now()}); persistAll(); renderPrivFeed();
@@ -5820,10 +5866,11 @@ $('privMyPhotoFile').onchange=async e=>{
 $('privMyPostOk').onclick=async()=>{
   const desc=$('privMyDesc').value.trim(), cap=$('privMyCap').value.trim();
   if(!privMyImg && !desc){ toast('传张照片，或写句描述吧'); return; }
-  const p={id:'of'+Date.now(),charId:'me',img:privMyImg||null,photo:desc.slice(0,200),caption:cap.slice(0,300),locked:false,unlocked:true,likes:[],comments:[],ts:Date.now()};
+  const p={id:'of'+Date.now(),charId:'me',img:privMyImg||null,photo:desc.slice(0,200),caption:cap.slice(0,300),locked:false,unlocked:true,likes:[],comments:[],fans:[],ts:Date.now()};
   privPosts.push(p); persistAll();
   privMyImg=null; closeSheet('privMyPostSheet'); renderPrivFeed();
   privTaReactMyPost(p);
+  genFanComments(p,4);   // 你的粉丝也来舔屏起哄
 };
 async function privTaReactMyPost(p){
   const ch=privHost(); if(!ch) return;
