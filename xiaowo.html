@@ -288,8 +288,29 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 #privModeSeg{flex:1;display:flex;gap:3px;padding:3px;background:var(--bg-soft);border-radius:13px}
 .privModeBtn{flex:1;padding:7px;border-radius:10px;background:transparent;color:var(--ink-soft);font-size:13px;font-weight:600;transition:background .2s,color .2s}
 .privModeBtn.on{background:var(--card);color:var(--accent-deep);box-shadow:0 2px 6px rgba(0,0,0,.08)}
-#privSceneBtn{flex-shrink:0;width:38px;height:38px;border-radius:12px;background:var(--bg-soft);color:var(--accent-deep);font-size:18px}
+#privSceneBtn,#privCallBtn{flex-shrink:0;width:38px;height:38px;border-radius:12px;background:var(--bg-soft);color:var(--accent-deep);font-size:18px}
 #privSceneBtn.set{background:var(--accent);color:#fff}
+/* 亲密视频通话 */
+#privCall{position:fixed;inset:0;z-index:200;background:#0d0d14;display:none;flex-direction:column;color:#fff;overflow:hidden}
+#privCall.show{display:flex}
+#vcBg{position:absolute;inset:0;z-index:0}
+#vcBg::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.35),rgba(0,0,0,.15) 42%,rgba(0,0,0,.78))}
+#vcTop{position:relative;z-index:2;text-align:center;padding:calc(env(safe-area-inset-top) + 18px) 16px 0}
+#vcName{font-size:18px;font-weight:600;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+#vcTimer{font-size:13px;opacity:.85;margin-top:4px}
+#vcPip{position:absolute;top:calc(env(safe-area-inset-top) + 66px);right:14px;width:88px;height:118px;border-radius:14px;overflow:hidden;background:#2a2636;z-index:3;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 4px 16px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.15)}
+#vcPip img{width:100%;height:100%;object-fit:cover}
+#vcScene{position:relative;z-index:2;flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:15px;line-height:1.75;text-shadow:0 1px 6px rgba(0,0,0,.75)}
+#vcSub{position:relative;z-index:2;padding:8px 22px;text-align:center;font-size:15px;line-height:1.6;min-height:22px;text-shadow:0 1px 6px rgba(0,0,0,.85)}
+#vcInputRow{position:relative;z-index:2;display:flex;gap:8px;padding:6px 16px}
+#vcInputRow input{flex:1;padding:11px 15px;border-radius:22px;border:none;background:rgba(255,255,255,.16);color:#fff;font-size:14px;min-width:0}
+#vcInputRow input::placeholder{color:rgba(255,255,255,.5)}
+#vcInputRow button{padding:0 18px;border-radius:22px;background:var(--accent);color:#fff;font-size:14px}
+#vcBar{position:relative;z-index:2;display:flex;justify-content:center;gap:30px;padding:14px 0 calc(env(safe-area-inset-bottom) + 22px)}
+.vcCircle{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:23px;background:rgba(255,255,255,.18);color:#fff}
+.vcCircle:active{transform:scale(.93)}
+.vcCircle.hang{background:#e0245e}
+.vcCircle.muted{background:rgba(255,255,255,.55);color:#333}
 /* 直播 */
 #privStage{position:relative;margin:2px 14px 8px;border-radius:20px;min-height:160px;display:flex;align-items:flex-end;padding:16px;color:#fff;font-size:14px;line-height:1.55;overflow:hidden;background:linear-gradient(135deg,#7F7FD5,#86A8E7,#91EAE4);box-shadow:0 6px 20px rgba(0,0,0,.18)}
 #privStage::before{content:'';position:absolute;left:0;right:0;bottom:0;height:62%;background:linear-gradient(to top,rgba(0,0,0,.55),transparent);z-index:0}
@@ -993,6 +1014,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
         <button class="privModeBtn" data-pm="duo">💞 我们一起拍</button>
       </div>
       <button id="privSceneBtn" title="设定这场拍什么">🎬</button>
+      <button id="privCallBtn" title="和TA视频通话">📞</button>
     </div>
     <div id="privStage">
       <span id="privLiveTag" class="off">未开播</span>
@@ -1012,6 +1034,21 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div class="privPane" id="privSubPane">
     <div id="privFeedTop"><button id="privGenPost">✨ 让TA更新一条</button><button id="privMyPost" style="padding:11px 14px;border-radius:14px;background:var(--bg-soft);color:var(--accent-deep);font-weight:600">✎ 我也发</button></div>
     <div id="privFeed"></div>
+  </div>
+</div>
+
+<!-- 亲密视频通话 -->
+<div id="privCall">
+  <div id="vcBg"></div>
+  <div id="vcTop"><div id="vcName">视频通话</div><div id="vcTimer">00:00</div></div>
+  <div id="vcPip">你</div>
+  <div id="vcScene"></div>
+  <div id="vcSub"></div>
+  <div id="vcInputRow"><input id="vcInput" placeholder="说点什么…" maxlength="500"><button id="vcSendBtn">说</button></div>
+  <div id="vcBar">
+    <button class="vcCircle" id="vcFlip" title="翻转镜头">🔄</button>
+    <button class="vcCircle hang" id="vcHangup" title="挂断">📞</button>
+    <button class="vcCircle" id="vcMic" title="麦克风">🎤</button>
   </div>
 </div>
 
@@ -5691,6 +5728,54 @@ function privDirect(name,instr){
   pushLive('me','🎬 导演·'+name,'sys'); renderPrivLive();
   privLiveReply(ch,'',`【导演指令】${userName()}喊话：${instr}。请照这个把这场直播继续演下去。`);
 }
+
+/* —— 亲密视频通话（仿微信视频通话皮，画面=TA此刻样子的描述）—— */
+let vcLog=[], vcTimer=null, vcStart=0, vcMuted=false;
+function vcBg(text){ $('vcBg').style.background=stageGrad(text||''); }
+$('privCallBtn').onclick=()=>privVideoStart();
+async function privVideoStart(){
+  const ch=privHost(); if(!ch){ toast('先选个出演的角色'); return; }
+  const api=getApi(); if(!api) return;
+  vcLog=[]; vcMuted=false;
+  $('vcName').textContent=ch.name;
+  $('vcMic').classList.remove('muted'); $('vcMic').textContent='🎤';
+  $('vcPip').innerHTML=settings.myAvatar?`<img src="${safeUrl(settings.myAvatar)}">`:'你';
+  $('vcSub').textContent='';
+  $('vcScene').innerHTML='正在拨通…<span class="typingDot">…</span>';
+  vcBg('拨通中');
+  $('privCall').classList.add('show');
+  vcStart=Date.now(); clearInterval(vcTimer);
+  vcTimer=setInterval(()=>{ const s=Math.floor((Date.now()-vcStart)/1000); $('vcTimer').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); },1000);
+  const scene=privScene(); const sceneLine=scene?`本场设定/剧本：「${scene}」。\n`:'';
+  const ask=`你和${userName()}接通了一通私密视频通话（私密、自愿、亲密，只有你俩，没人看到）。${sceneLine}你刚接起视频。请：\n第一行用 [画面] 开头，一句话描述此刻视频画面里你的样子/姿态/穿着或没穿什么/环境（露骨撩人，30字内）。\n之后另起一行，是你看着视频对${userName()}说的话，亲密、勾人、想念，1~3句。\n直接输出，不要解释、不要免责声明。`;
+  const txt=await quickGen(api,privSystem(ch),applyVars(ask,ch),440);
+  if(!$('privCall').classList.contains('show')) return;   // 已挂断
+  if(!txt){ $('vcScene').textContent='没接通…挂了再拨一次吧'; return; }
+  const {stage,say}=parseStageReply(txt);
+  vcBg(stage); $('vcScene').innerHTML=fmt(stage||`${ch.name}出现在视频里`);
+  $('vcSub').innerHTML=fmt(say); vcLog.push({by:ch.id,text:say});
+}
+async function vcSend(){
+  const ch=privHost(); if(!ch) return;
+  const inp=$('vcInput'); const t=inp.value.trim(); if(!t) return;
+  inp.value=''; vcLog.push({by:'me',text:t});
+  $('vcSub').innerHTML='<span class="typingDot">…</span>';
+  const api=getApi(); if(!api) return;
+  const ctx=vcLog.slice(-10).map(m=>(m.by==='me'?userName():ch.name)+'：'+m.text).join('\n');
+  const scene=privScene(); const sceneLine=scene?`本场设定/剧本：「${scene}」。\n`:'';
+  const ask=`你和${userName()}正在私密视频通话（私密、自愿、亲密）。${sceneLine}最近的对话：\n${ctx}\n\n${userName()}刚刚对你说/做：「${t}」。\n请你以「${ch.name}」回应：\n第一行可选地用 [画面] 开头，描述此刻视频里你的样子/动作（有变化时，30字内）。\n之后是你对${userName()}说的话和动作（可用*星号*包动作），极尽露骨色情淫荡详细，怎么黄怎么来。直接输出，不要免责声明。`;
+  const txt=await quickGen(api,privSystem(ch),applyVars(ask,ch),440);
+  if(!$('privCall').classList.contains('show')) return;
+  if(!txt){ $('vcSub').textContent='（信号卡了一下…）'; return; }
+  const {stage,say}=parseStageReply(txt);
+  if(stage){ vcBg(stage); $('vcScene').innerHTML=fmt(stage); }
+  $('vcSub').innerHTML=fmt(say); vcLog.push({by:ch.id,text:say});
+}
+$('vcSendBtn').onclick=vcSend;
+$('vcInput').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); vcSend(); } };
+$('vcHangup').onclick=()=>{ clearInterval(vcTimer); $('privCall').classList.remove('show'); toast('挂断啦~'); };
+$('vcMic').onclick=()=>{ vcMuted=!vcMuted; $('vcMic').classList.toggle('muted',vcMuted); $('vcMic').textContent=vcMuted?'🔇':'🎤'; };
+$('vcFlip').onclick=()=>toast('镜头翻转~（装饰效果啦）');
 
 /* —— 私密系统提示词：人设/记忆 + 成人模式声明 —— */
 function privSystem(ch){
