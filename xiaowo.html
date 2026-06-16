@@ -268,6 +268,64 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .footBtn:active{transform:scale(.96)}
 .footBtn .ic{font-size:19px}
 
+/* ============ 私密小屋（成人向，密码进入） ============ */
+#privPage{position:fixed;inset:0;z-index:55;background:var(--bg);display:none;flex-direction:column;overflow:hidden}
+#privPage.show{display:flex}
+#privHeader{display:flex;align-items:center;gap:6px;padding:14px 12px;border-bottom:1px solid var(--line);background:var(--card)}
+#privHeader .ttl{flex:1;font-weight:600;font-size:16px;letter-spacing:.5px}
+#privTabs{display:flex;gap:8px;padding:10px 14px 6px;background:var(--card)}
+.privTab{flex:1;padding:9px;border-radius:14px;background:var(--bg-soft);color:var(--ink-soft);font-size:14px;font-weight:600}
+.privTab.on{background:var(--accent);color:#fff;box-shadow:var(--shadow)}
+#privHostRow{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--line)}
+#privHostRow select{flex:1;padding:8px;border-radius:12px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:13px}
+.privPane{flex:1;overflow:hidden;display:none;flex-direction:column}
+.privPane.on{display:flex}
+/* 直播 */
+#privStage{position:relative;margin:8px 14px;border-radius:18px;min-height:150px;display:flex;align-items:flex-end;padding:14px;color:#fff;font-size:14px;line-height:1.55;text-shadow:0 1px 5px rgba(0,0,0,.5);overflow:hidden;background:linear-gradient(135deg,#7F7FD5,#86A8E7,#91EAE4)}
+#privLiveTag{position:absolute;top:10px;left:12px;background:#e0245e;color:#fff;font-size:11px;padding:3px 9px;border-radius:9px;font-weight:700;letter-spacing:.5px;z-index:3}
+#privLiveTag.off{background:rgba(0,0,0,.42)}
+#privDanmu{position:absolute;top:32px;left:0;right:0;height:84px;overflow:hidden;pointer-events:none;z-index:2}
+.dm{position:absolute;white-space:nowrap;font-size:12px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.7);animation:dmfly linear forwards}
+@keyframes dmfly{from{transform:translateX(110%)}to{transform:translateX(-130%)}}
+#privStageText{position:relative;z-index:1}
+#privLiveStart{margin:0 14px 6px;padding:11px;border-radius:15px;background:var(--accent);color:#fff;font-weight:600}
+#privChatLog{flex:1;overflow-y:auto;padding:8px 14px;display:flex;flex-direction:column;gap:8px}
+.pvMsg{max-width:82%;padding:8px 12px;border-radius:15px;font-size:14px;line-height:1.55;word-break:break-word;white-space:pre-wrap}
+.pvMsg.me{align-self:flex-end;background:var(--bubble-me);color:var(--bubble-me-text,var(--ink))}
+.pvMsg.ta{align-self:flex-start;background:var(--bubble-ta);color:var(--bubble-ta-text,var(--ink))}
+.pvMsg.sys{align-self:center;background:transparent;color:var(--accent-deep);font-size:12.5px;text-align:center}
+#privLiveBar{display:flex;gap:6px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);background:var(--card)}
+#privLiveBar input{flex:1;padding:10px;border-radius:14px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:14px;min-width:0}
+#privLiveBar button{padding:9px 12px;border-radius:13px;background:var(--accent);color:#fff;font-size:14px;flex-shrink:0}
+.pvIconBtn{background:var(--bg-soft)!important;color:var(--accent-deep)!important;font-size:17px!important;padding:9px 10px!important}
+/* 订阅 OF */
+#privFeedTop{display:flex;gap:8px;padding:10px 14px 4px}
+#privGenPost{flex:1;padding:11px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600}
+#privFeed{flex:1;overflow-y:auto;padding:8px 14px 24px;display:flex;flex-direction:column;gap:16px}
+.ofEmpty{text-align:center;color:var(--ink-soft);font-size:13px;padding:30px 10px;line-height:1.7}
+.ofCard{background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.ofHead{display:flex;align-items:center;gap:8px;padding:10px 12px}
+.ofHead .nm{font-weight:600;font-size:14px;flex:1}
+.ofHead .tm{font-size:11px;color:var(--ink-soft)}
+.ofHead .del{color:var(--ink-soft);font-size:14px;margin-left:6px}
+.ofPhoto{position:relative;min-height:190px;display:flex;align-items:center;justify-content:center;text-align:center;padding:22px;color:#fff;font-size:14px;line-height:1.65;text-shadow:0 1px 5px rgba(0,0,0,.45)}
+.ofPhoto .pt{transition:filter .25s}
+.ofPhoto.locked .pt{filter:blur(15px)}
+.ofLock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;background:rgba(0,0,0,.22);text-shadow:0 1px 4px rgba(0,0,0,.5)}
+.ofLock button{padding:8px 18px;border-radius:20px;background:rgba(255,255,255,.94);color:#333;font-weight:600;font-size:13px}
+.ofCap{padding:10px 14px 4px;font-size:14px;line-height:1.55}
+.ofActs{display:flex;gap:16px;padding:6px 14px 12px;color:var(--ink-soft);font-size:13px}
+.ofActs button{color:var(--ink-soft)}
+.ofActs .liked{color:#e0245e}
+.ofThread{padding:0 14px 12px;display:flex;flex-direction:column;gap:6px}
+.ofThread .ln{font-size:13px;line-height:1.5}
+.ofThread .ln b{color:var(--accent-deep)}
+.ofDmRow{display:flex;gap:6px;padding:0 14px 12px}
+.ofDmRow input{flex:1;padding:8px;border-radius:12px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:13px;min-width:0}
+.ofDmRow button{padding:8px 12px;border-radius:12px;background:var(--accent);color:#fff;font-size:13px}
+#privGiftGrid button{padding:14px 6px;border-radius:14px;background:var(--bg-soft);display:flex;flex-direction:column;align-items:center;gap:5px;font-size:13px;color:var(--ink)}
+#privGiftGrid .gIc{font-size:26px}
+
 /* ============ 弹层通用 ============ */
 .sheetScrim{
   position:fixed;inset:0;background:rgba(60,48,35,.32);z-index:60;
@@ -874,6 +932,71 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <button class="iconBtn" id="postMomentBtn" title="我也发一条">✎</button>
   </header>
   <div id="momentsFeed"></div>
+</div>
+
+<!-- 私密小屋（成人向，长按头像 3 秒 + 密码进入） -->
+<div id="privPage">
+  <div id="privHeader">
+    <button class="iconBtn" id="privBack" aria-label="返回">‹</button>
+    <div class="ttl">私密小屋</div>
+    <button class="iconBtn" id="privGear" title="设置">⚙</button>
+  </div>
+  <div id="privTabs">
+    <button class="privTab on" data-pt="live">🔴 直播</button>
+    <button class="privTab" data-pt="sub">🔒 订阅</button>
+  </div>
+  <div id="privHostRow">
+    <span style="font-size:13px;color:var(--ink-soft);flex-shrink:0">出演</span>
+    <select id="privHostSel"></select>
+  </div>
+  <div class="privPane on" id="privLivePane">
+    <div id="privStage">
+      <span id="privLiveTag" class="off">未开播</span>
+      <div id="privDanmu"></div>
+      <span id="privStageText">点下面「请TA上播」，TA就来陪你直播啦～</span>
+    </div>
+    <button id="privLiveStart">🔴 请TA上播</button>
+    <div id="privChatLog"></div>
+    <div id="privLiveBar">
+      <button class="pvIconBtn" id="privGiftBtn" title="送礼物">🎁</button>
+      <button class="pvIconBtn" id="privTipBtn" title="打赏">💝</button>
+      <input id="privLiveInput" placeholder="和TA说点什么…" maxlength="500">
+      <button id="privLiveSend">发送</button>
+    </div>
+  </div>
+  <div class="privPane" id="privSubPane">
+    <div id="privFeedTop"><button id="privGenPost">✨ 让TA更新一条</button></div>
+    <div id="privFeed"></div>
+  </div>
+</div>
+
+<!-- 私密小屋 密码门 -->
+<div class="sheetScrim" id="privGate">
+  <div class="sheet" style="max-width:360px">
+    <div class="sheetTitle"><span id="privGateTtl">输入密码</span><button class="close" data-close="privGate">✕</button></div>
+    <div class="hintText" id="privGateHint" style="margin:0 2px 10px"></div>
+    <input id="privGateInput" type="password" placeholder="密码" autocomplete="off" style="width:100%;padding:11px;border-radius:14px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:15px;box-sizing:border-box">
+    <button id="privGateOk" style="width:100%;margin-top:12px;padding:12px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600">进入</button>
+    <button id="privGateReset" style="width:100%;margin-top:8px;padding:8px;background:transparent;color:var(--danger);font-size:12px;display:none">忘记密码？清空私密小屋全部内容并重设</button>
+  </div>
+</div>
+
+<!-- 私密小屋 设置 -->
+<div class="sheetScrim" id="privGearSheet">
+  <div class="sheet">
+    <div class="sheetTitle">私密小屋设置<button class="close" data-close="privGearSheet">✕</button></div>
+    <button id="privChgPass" style="width:100%;margin-bottom:10px;padding:11px;border-radius:13px;background:var(--bg-soft);color:var(--ink);font-size:14px;text-align:left">🔑 修改进入密码</button>
+    <button id="privClearLive" style="width:100%;margin-bottom:10px;padding:11px;border-radius:13px;background:var(--bg-soft);color:var(--ink);font-size:14px;text-align:left">🧹 清空当前直播聊天记录</button>
+    <button id="privClearAll" style="width:100%;padding:11px;border-radius:13px;background:var(--bg-soft);color:var(--danger);font-size:14px;text-align:left">🗑 清空私密小屋全部内容</button>
+  </div>
+</div>
+
+<!-- 礼物选择 -->
+<div class="sheetScrim" id="privGiftSheet">
+  <div class="sheet">
+    <div class="sheetTitle">送TA一个礼物<button class="close" data-close="privGiftSheet">✕</button></div>
+    <div id="privGiftGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
+  </div>
 </div>
 
 <!-- 日历页 -->
@@ -1659,6 +1782,8 @@ let periodMeta = load('xw_period_meta', {});// {'YYYY-MM-DD'(开始日):{days,fl
 let sleepLogs = load('xw_sleep', []);       // [{date:'YYYY-MM-DD',hours:Number,note}] 手动记的睡眠
 let photos = load('xw_photos', []);         // {id,charId,text,ts} TA随手拍的照片（文字描述）
 let gamesLog = load('xw_games', []);        // {charId,type,ts} 一起玩过的小游戏
+let privPosts = load('xw_priv_posts', []);  // 私密订阅(OF式)动态 {id,charId,photo,caption,locked,unlocked,likes:[by],comments:[{by,text,ts}],ts}
+let privLives = load('xw_priv_lives', {});  // {[charId]:[{by:'me'|charId,text,ts,kind:'msg'|'sys'}]} 直播聊天记录
 const persistStickers=()=>idbSet('stickers',stickers).catch(()=>{ try{save('xw_stickers',stickers)}catch(e){} });
 let streaming = false, aborter = null;
 
@@ -1852,6 +1977,7 @@ const persistAll = ()=>{
   save('xw_diaries',diaries); save('xw_cal_notes',calNotes); save('xw_periods',periods);
   save('xw_period_meta',periodMeta); save('xw_sleep',sleepLogs);
   save('xw_photos',photos); save('xw_games',gamesLog);
+  save('xw_priv_posts',privPosts); save('xw_priv_lives',privLives);
   idbSet('chats',chats).catch(()=>save('xw_chats',chats));
   idbSet('characters',characters).catch(()=>save('xw_characters',characters));
 };
@@ -2025,7 +2151,7 @@ $('profileName').onchange = e=>{
 function renderProfile(){
   $('avatar').innerHTML = settings.myAvatar ? `<img src="${safeUrl(settings.myAvatar)}">` : '₍ᵔ·̫ᵔ₎';
 }
-$('avatar').onclick = ()=>$('myAvFile').click();
+$('avatar').onclick = ()=>{ if(privSuppressClick){ privSuppressClick=false; return; } $('myAvFile').click(); };
 $('myAvFile').onchange = async e=>{
   const f=e.target.files[0]; if(!f) return;
   try{
@@ -5325,6 +5451,273 @@ $('confirmPost').onclick=async()=>{
   }
 };
 
+/* ================= 私密小屋（成人向：伪直播 + 伪订阅，密码进入） ================= */
+let privSuppressClick=false;          // 长按头像后压掉那次 click（免得弹出换头像）
+let privGateMode='unlock';            // 'unlock' | 'set' | 'change'
+let privTabCur='live';
+let privDanmuTimer=null, privLiveOn=false;
+function privHashStr(s){ let h=5381; for(const ch of String(s)) h=((h*33)^ch.codePointAt(0))>>>0; return 'p'+h.toString(36); }
+function privHostId(){
+  if(settings.privHostId && characters.some(c=>c.id===settings.privHostId)) return settings.privHostId;
+  return selCharId || (characters[0]&&characters[0].id) || null;
+}
+function privHost(){ return charOf(privHostId()); }
+
+/* —— 隐藏入口：长按头像 3 秒 —— */
+(function(){
+  const av=$('avatar'); if(!av) return;
+  let t=null;
+  const start=()=>{ clearTimeout(t); t=setTimeout(()=>{ privSuppressClick=true; openPrivEntry(); }, 1500); };
+  const cancel=()=>clearTimeout(t);
+  av.addEventListener('pointerdown',start);
+  av.addEventListener('pointerup',cancel);
+  av.addEventListener('pointerleave',cancel);
+  av.addEventListener('pointercancel',cancel);
+})();
+function openPrivEntry(){
+  privGateMode = settings.privPassHash ? 'unlock' : 'set';
+  $('privGateInput').value='';
+  $('privGateReset').style.display = settings.privPassHash ? 'block' : 'none';
+  if(privGateMode==='set'){
+    $('privGateTtl').textContent='设置私密小屋密码';
+    $('privGateHint').textContent='第一次进来，先设一个只有你和TA知道的密码。忘了可以清空重设。';
+    $('privGateInput').placeholder='设置密码';
+  }else{
+    $('privGateTtl').textContent='输入密码';
+    $('privGateHint').textContent='这里是只属于你们的私密小屋💗';
+    $('privGateInput').placeholder='密码';
+  }
+  openSheet('privGate'); setTimeout(()=>$('privGateInput').focus(),120);
+}
+$('privGateOk').onclick=()=>{
+  const v=$('privGateInput').value.trim();
+  if(!v){ toast('写点什么当密码吧'); return; }
+  if(privGateMode==='set'){
+    settings.privPassHash=privHashStr(v); persistAll();
+    closeSheet('privGate'); toast('密码设好啦，记牢哦'); enterPriv();
+  }else if(privGateMode==='change'){
+    settings.privPassHash=privHashStr(v); persistAll();
+    closeSheet('privGate'); toast('密码改好啦');
+  }else{
+    if(privHashStr(v)===settings.privPassHash){ closeSheet('privGate'); enterPriv(); }
+    else toast('密码不对哦');
+  }
+};
+$('privGateInput').onkeydown=e=>{ if(e.key==='Enter') $('privGateOk').click(); };
+$('privGateReset').onclick=()=>{
+  if(!confirm('忘记密码只能清空私密小屋的全部内容（直播记录+订阅动态）来重设，确定？')) return;
+  privPosts=[]; privLives={}; settings.privPassHash=null; persistAll();
+  closeSheet('privGate'); toast('已清空，重新设个密码吧'); openPrivEntry();
+};
+function enterPriv(){
+  openDrawer&&openDrawer(false);
+  renderPrivHosts(); switchPrivTab('live'); renderPrivFeed(); renderPrivLive();
+  if(privLiveOn) startDanmu();
+  $('privPage').classList.add('show');
+}
+$('privBack').onclick=()=>{ stopDanmu(); $('privPage').classList.remove('show'); };
+$('privGear').onclick=()=>openSheet('privGearSheet');
+$('privChgPass').onclick=()=>{ closeSheet('privGearSheet'); privGateMode='change'; $('privGateInput').value=''; $('privGateReset').style.display='none'; $('privGateTtl').textContent='修改密码'; $('privGateHint').textContent='输入新的密码'; $('privGateInput').placeholder='新密码'; openSheet('privGate'); setTimeout(()=>$('privGateInput').focus(),120); };
+$('privClearLive').onclick=()=>{ const h=privHostId(); if(h&&confirm('清空当前这场直播的聊天记录？')){ delete privLives[h]; persistAll(); renderPrivLive(); toast('清空了'); } closeSheet('privGearSheet'); };
+$('privClearAll').onclick=()=>{ if(confirm('清空私密小屋的全部内容（所有直播记录 + 所有订阅动态）？此操作不可恢复。')){ privPosts=[]; privLives={}; persistAll(); renderPrivLive(); renderPrivFeed(); toast('都清空啦'); } closeSheet('privGearSheet'); };
+
+/* —— Tab 切换 + 出演角色 —— */
+document.querySelectorAll('.privTab').forEach(b=>b.onclick=()=>switchPrivTab(b.dataset.pt));
+function switchPrivTab(pt){
+  privTabCur=pt;
+  document.querySelectorAll('.privTab').forEach(b=>b.classList.toggle('on',b.dataset.pt===pt));
+  $('privLivePane').classList.toggle('on',pt==='live');
+  $('privSubPane').classList.toggle('on',pt==='sub');
+  if(pt!=='live') stopDanmu();
+}
+function renderPrivHosts(){
+  const sel=$('privHostSel'); sel.innerHTML='';
+  const list=characters.slice();
+  if(!list.length){ sel.innerHTML='<option>先去「角色」建个角色</option>'; return; }
+  const cur=privHostId();
+  list.forEach(c=>{ const o=document.createElement('option'); o.value=c.id; o.textContent=(c.emoji||'☺')+' '+c.name; if(c.id===cur)o.selected=true; sel.appendChild(o); });
+}
+$('privHostSel').onchange=e=>{ settings.privHostId=e.target.value; persistAll(); stopDanmu(); privLiveOn=false; renderPrivLive(); renderPrivFeed(); };
+
+/* —— 私密系统提示词：人设/记忆 + 成人模式声明 —— */
+function privSystem(ch){
+  const base=momentSystem(ch);
+  const adult=`【私密模式·成人向】这是${userName()}和你之间完全私密、彼此自愿、没有任何旁人的亲密空间。你可以大胆、直白、露骨、性感地表达，尽情迎合${userName()}的喜好去撩拨、调情和亲密互动，不必回避情色或身体的描写。始终保持「${ch.name}」的人格、语气和你们之间的关系感，像真正想取悦TA的恋人那样。`;
+  return [base,adult].filter(Boolean).join('\n\n');
+}
+
+/* ========== 直播 ========== */
+const PRIV_STAGE_GRADS=['linear-gradient(135deg,#6a3093,#a044ff)','linear-gradient(135deg,#c31432,#240b36)','linear-gradient(135deg,#ff5f6d,#ffc371)','linear-gradient(135deg,#8e2de2,#4a00e0)','linear-gradient(135deg,#eb3349,#f45c43)','linear-gradient(135deg,#41295a,#2F0743)'];
+const DANMU_POOL=['哇好美😍','宝宝看这边~','今天好性感','只看TA一个','心动了心动了','嫁给我吧!','灯光好暖','声音好甜🥰','想抱抱','为TA上头','这颜值绝了','悄悄爱了','偷偷截图了','晚上别下播','么么哒','TA好会撩','脸红了///','在线营业中','这眼神受不了','贴贴'];
+function stageGrad(text){ let h=0; for(const ch of String(text)) h=(h*31+ch.codePointAt(0))%997; return PRIV_STAGE_GRADS[h%PRIV_STAGE_GRADS.length]; }
+function setStage(text){
+  const st=$('privStage'); st.style.background=stageGrad(text||'');
+  $('privStageText').innerHTML=fmt(text||'');
+}
+function startDanmu(){
+  stopDanmu();
+  privDanmuTimer=setInterval(()=>{
+    if(!privLiveOn) return;
+    const wrap=$('privDanmu'); if(!wrap) return;
+    const d=document.createElement('span'); d.className='dm';
+    d.textContent=DANMU_POOL[Math.floor(Math.random()*DANMU_POOL.length)];
+    d.style.top=Math.floor(Math.random()*64)+'px';
+    d.style.animationDuration=(5+Math.random()*4)+'s';
+    wrap.appendChild(d);
+    setTimeout(()=>d.remove(),9000);
+  },1700);
+}
+function stopDanmu(){ if(privDanmuTimer){ clearInterval(privDanmuTimer); privDanmuTimer=null; } const w=$('privDanmu'); if(w)w.innerHTML=''; }
+function privLiveLog(){ const h=privHostId(); return h?(privLives[h]=privLives[h]||[]):[]; }
+function pushLive(by,text,kind){ const log=privLiveLog(); log.push({by,text,ts:Date.now(),kind:kind||'msg'}); persistAll(); }
+function renderPrivLive(){
+  const ch=privHost();
+  const tag=$('privLiveTag');
+  tag.textContent=privLiveOn?'● LIVE':'未开播'; tag.classList.toggle('off',!privLiveOn);
+  $('privLiveStart').textContent=privLiveOn?'⏹ 请TA下播':'🔴 请TA上播';
+  const box=$('privChatLog'); box.innerHTML='';
+  const log=privLiveLog();
+  if(!log.length && !privLiveOn){ setStage(ch?`「${ch.name}」还没上播，点上面按钮叫TA吧～`:'先去「角色」建个角色'); }
+  log.forEach(m=>{
+    const d=document.createElement('div');
+    if(m.kind==='sys'){ d.className='pvMsg sys'; d.innerHTML=fmt(m.text); }
+    else { d.className='pvMsg '+(m.by==='me'?'me':'ta'); d.innerHTML=fmt(m.text); }
+    box.appendChild(d);
+  });
+  box.scrollTop=box.scrollHeight;
+}
+function parseStageReply(txt){
+  // 模型回复首行可能是 [画面]xxx，抽出来当镜头画面，其余当TA的话
+  const lines=String(txt).split('\n'); let stage='',rest=[];
+  for(const ln of lines){ const m=ln.match(/^\s*\[画面[:：]?\]?\s*(.+)$/); if(m&&!stage){ stage=m[1].trim(); } else rest.push(ln); }
+  return {stage, say:rest.join('\n').trim()||txt.trim()};
+}
+function liveContext(ch){
+  const log=privLiveLog().slice(-10).filter(m=>m.kind!=='sys');
+  return log.map(m=>(m.by==='me'?userName():ch.name)+'：'+m.text).join('\n');
+}
+$('privLiveStart').onclick=async()=>{
+  const ch=privHost(); if(!ch){ toast('先去「角色」建个角色'); return; }
+  if(privLiveOn){ privLiveOn=false; stopDanmu(); pushLive(null,`${ch.name}下播了，下次再约哦～`,'sys'); renderPrivLive(); return; }
+  const api=getApi(); if(!api) return;
+  privLiveOn=true; startDanmu(); renderPrivLive();
+  setStage('正在连线…'); $('privStageText').innerHTML='正在连线…<span class="typingDot">…</span>';
+  const now=new Date();
+  const ask=`现在是${now.getHours()}点多，你为${userName()}一个人开了一场私密直播，只有你们两个人。请你「上播」开场：\n第一行用 [画面] 开头，一句话描述此刻直播镜头里你的样子/姿态/穿着/环境（性感撩人的画面感，30字内）。\n之后另起一行，是你看着镜头对${userName()}说的开场话，亲密、撩人、期待，1~3句。\n直接输出，不要解释。`;
+  const txt=await quickGen(api,privSystem(ch),applyVars(ask,ch),420);
+  if(!txt){ privLiveOn=false; stopDanmu(); setStage('TA这会儿没连上，过会儿再试试'); renderPrivLive(); toast('没连上，再试一次'); return; }
+  const {stage,say}=parseStageReply(txt);
+  setStage(stage||`${ch.name}正看着镜头里的你`);
+  pushLive(ch.id,say,'msg'); renderPrivLive();
+};
+async function privLiveReply(ch,userMsg,special){
+  const api=getApi(); if(!api) return;
+  const box=$('privChatLog');
+  const wait=document.createElement('div'); wait.className='pvMsg ta'; wait.innerHTML='<span class="typingDot">…</span>';
+  box.appendChild(wait); box.scrollTop=box.scrollHeight;
+  const ctx=liveContext(ch);
+  const ask=`你正在为${userName()}一个人直播（私密、自愿、亲密）。\n最近的互动：\n${ctx||'（刚开始）'}\n\n`
+    +(special||`${userName()}刚刚对你说：「${userMsg}」`)
+    +`\n\n请你以「${ch.name}」的身份实时回应：\n第一行可选地用 [画面] 开头描述此刻镜头里你的样子/动作（如果画面有变化，30字内，没变化可省略这行）。\n之后是你对${userName()}说的话和动作（可用*星号*包动作），大胆、撩人、亲密。直接输出。`;
+  const txt=await quickGen(api,privSystem(ch),applyVars(ask,ch),460);
+  wait.remove();
+  if(!txt){ toast('TA这会儿卡了一下'); return; }
+  const {stage,say}=parseStageReply(txt);
+  if(stage) setStage(stage);
+  pushLive(ch.id,say,'msg'); renderPrivLive();
+}
+async function sendPrivLive(){
+  const ch=privHost(); if(!ch){ toast('先选个出演的角色'); return; }
+  const inp=$('privLiveInput'); const t=inp.value.trim(); if(!t) return;
+  if(!privLiveOn){ privLiveOn=true; startDanmu(); }
+  inp.value=''; pushLive('me',t,'msg'); renderPrivLive();
+  await privLiveReply(ch,t);
+}
+$('privLiveSend').onclick=sendPrivLive;
+$('privLiveInput').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); sendPrivLive(); } };
+
+/* 打赏 / 礼物：撩拨升级 */
+const PRIV_GIFTS=[['🌹','玫瑰','99'],['💋','飞吻','188'],['🍓','草莓','520'],['🍷','小酒','666'],['💎','钻戒','1314'],['🔥','火箭','3344']];
+$('privTipBtn').onclick=()=>privDoTip('💝 一个么么哒','一个甜甜的打赏');
+$('privGiftBtn').onclick=()=>{
+  const grid=$('privGiftGrid'); grid.innerHTML='';
+  PRIV_GIFTS.forEach(g=>{ const b=document.createElement('button'); b.innerHTML=`<span class="gIc">${g[0]}</span>${g[1]}<span style="color:var(--ink-soft);font-size:11px">${g[2]}</span>`; b.onclick=()=>{ closeSheet('privGiftSheet'); privDoTip(`${g[0]} 送出「${g[1]}」`,`「${g[1]}」(${g[2]})`); }; grid.appendChild(b); });
+  openSheet('privGiftSheet');
+};
+async function privDoTip(label,desc){
+  const ch=privHost(); if(!ch){ toast('先选个出演的角色'); return; }
+  if(!privLiveOn){ privLiveOn=true; startDanmu(); }
+  pushLive('me',label,'sys'); renderPrivLive();
+  await privLiveReply(ch,'',`${userName()}刚刚给你打赏了${desc}，你又惊又喜又害羞。`);
+}
+
+/* ========== 订阅（伪 OnlyFans）========== */
+function ofName(by){ return by==='me'?userName():(charOf(by)?.name||'TA'); }
+function renderPrivFeed(){
+  const feed=$('privFeed'); feed.innerHTML='';
+  const items=privPosts.slice().sort((a,b)=>b.ts-a.ts);
+  if(!items.length){ feed.innerHTML='<div class="ofEmpty">这里是TA的私密订阅号～<br>点上面「✨ 让TA更新一条」，TA就会发一张写真给你💗</div>'; return; }
+  items.forEach(p=>feed.appendChild(ofCard(p)));
+}
+function ofCard(p){
+  const card=document.createElement('div'); card.className='ofCard';
+  const ch=charOf(p.charId); const locked=p.locked&&!p.unlocked;
+  const cmts=p.comments||[], likes=p.likes||[];
+  card.innerHTML=`
+    <div class="ofHead">${momentAv(p.charId)}<span class="nm">${esc(ch?.name||'TA')}</span><span class="tm">${fmtMsgTime(p.ts)}</span><button class="del">✕</button></div>
+    <div class="ofPhoto ${locked?'locked':''}" style="background:${stageGrad(p.photo)}">
+      <span class="pt">${fmt(p.photo)}</span>
+      ${locked?'<div class="ofLock">🔒<button class="unlock">解锁这张</button></div>':''}
+    </div>
+    <div class="ofCap">${fmt(p.caption||'')}</div>
+    <div class="ofActs">
+      <button class="likeBtn ${likes.includes('me')?'liked':''}">${likes.includes('me')?'❤️ '+likes.length:'♡ 喜欢'}</button>
+      <button class="dmBtn">💬 私信</button>
+    </div>
+    ${cmts.length?`<div class="ofThread">${cmts.map(c=>`<div class="ln"><b>${esc(ofName(c.by))}</b>：${fmt(c.text)}</div>`).join('')}</div>`:''}
+    <div class="ofDmRow" style="display:none"><input placeholder="给TA发条私信…" maxlength="400"><button>发送</button></div>`;
+  card.querySelector('.del').onclick=()=>{ if(confirm('删掉这条？')){ privPosts=privPosts.filter(x=>x.id!==p.id); persistAll(); renderPrivFeed(); } };
+  const unlock=card.querySelector('.unlock'); if(unlock) unlock.onclick=()=>{ p.unlocked=true; persistAll(); renderPrivFeed(); };
+  card.querySelector('.likeBtn').onclick=()=>{ p.likes=p.likes||[]; const i=p.likes.indexOf('me'); if(i>=0)p.likes.splice(i,1); else p.likes.push('me'); persistAll(); renderPrivFeed(); };
+  const dmRow=card.querySelector('.ofDmRow');
+  card.querySelector('.dmBtn').onclick=()=>{ dmRow.style.display=dmRow.style.display==='none'?'flex':'none'; if(dmRow.style.display==='flex') dmRow.querySelector('input').focus(); };
+  const send=()=>{ const inp=dmRow.querySelector('input'); const t=inp.value.trim(); if(t){ inp.value=''; ofDM(p,t); } };
+  dmRow.querySelector('button').onclick=send;
+  dmRow.querySelector('input').onkeydown=e=>{ if(e.key==='Enter') send(); };
+  return card;
+}
+let privPosting=false;
+$('privGenPost').onclick=async()=>{
+  if(privPosting) return;
+  const ch=privHost(); if(!ch){ toast('先去「角色」建个角色'); return; }
+  const api=getApi(); if(!api) return;
+  privPosting=true; $('privGenPost').textContent='TA正在拍…';
+  const now=new Date();
+  const ask=`你在自己的私密订阅号上发一条新内容给${userName()}（私密、自愿、成人向，只有TA能看）。请输出三行：\n[图] 后面跟这张写真/自拍照片里的画面描述（你在哪、什么姿态、穿着或氛围，性感大胆，给${userName()}看的，40字内）\n[文] 后面跟配文（撩人的一两句话）\n[锁] 后面只写 是 或 否（是否设为需要解锁的私密内容，偶尔写"是"增加期待）\n直接输出这三行，不要解释。`;
+  const txt=await quickGen(api,privSystem(ch),applyVars(ask,ch),420);
+  privPosting=false; $('privGenPost').textContent='✨ 让TA更新一条';
+  if(!txt){ toast('TA这会儿没灵感，过会儿再试'); return; }
+  let photo='',caption='',lock=false;
+  txt.split('\n').forEach(ln=>{
+    let m;
+    if(m=ln.match(/^\s*\[图[:：]?\]?\s*(.+)$/)) photo=m[1].trim();
+    else if(m=ln.match(/^\s*\[文[:：]?\]?\s*(.+)$/)) caption=m[1].trim();
+    else if(m=ln.match(/^\s*\[锁[:：]?\]?\s*(.+)$/)) lock=/是|yes|true|锁/i.test(m[1]);
+  });
+  if(!photo){ photo=txt.trim(); }
+  privPosts.push({id:'of'+Date.now(),charId:ch.id,photo:photo.slice(0,200),caption:caption.slice(0,300),locked:lock,unlocked:false,likes:[],comments:[],ts:Date.now()});
+  persistAll(); renderPrivFeed(); toast(`${ch.name}更新了一条💗`);
+};
+async function ofDM(p,text){
+  p.comments=p.comments||[]; p.comments.push({by:'me',text,ts:Date.now()}); persistAll(); renderPrivFeed();
+  const ch=charOf(p.charId); if(!ch) return;
+  const api=getApi(); if(!api) return;
+  const thread=p.comments.map(c=>ofName(c.by)+'：'+c.text).join('\n');
+  const ask=`你在私密订阅号发了一条内容——照片：「${p.photo}」，配文：「${p.caption||''}」。\n${userName()}在私信里和你聊这条：\n${thread}\n\n请你以「${ch.name}」的身份回一条私信：亲密、撩人、口语化，一两句话。直接输出内容本身。`;
+  const txt=await quickGen(api,privSystem(ch),applyVars(ask,ch),260);
+  if(txt){ p.comments.push({by:ch.id,text:txt.slice(0,300),ts:Date.now()}); persistAll(); renderPrivFeed(); }
+}
+
 /* ================= 世界书 ================= */
 let editingWb=null, wbMode='always', curWbBook=null;
 $('wbBtn').onclick=()=>{ renderWb(); openSheet('wbSheet'); };
@@ -5823,7 +6216,7 @@ $('splashToggle').onclick=()=>{
 };
 document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:''},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -5853,6 +6246,8 @@ $('importFile').onchange=async e=>{
     if(data.sleepLogs) sleepLogs=data.sleepLogs;
     if(data.photos) photos=data.photos;
     if(data.gamesLog) gamesLog=data.gamesLog;
+    if(data.privPosts) privPosts=data.privPosts;
+    if(data.privLives) privLives=data.privLives;
     if(data.presets){
       presets=data.presets;
       selPresetId=presets.some(p=>p.id===data.selPresetId)?data.selPresetId:null;
