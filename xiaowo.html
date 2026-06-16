@@ -5984,6 +5984,7 @@ async function privDoTip(label,desc,cost){
 }
 
 /* ========== 订阅（伪 OnlyFans）========== */
+let ofOpenFans=new Set();   // 记住哪些帖子的粉丝评论是展开的（不存进备份）
 function ofName(by){ return by==='me'?userName():(charOf(by)?.name||'TA'); }
 function fanColor(name){ let h=0; for(const c of String(name)) h=(h*31+c.codePointAt(0))%360; return `hsl(${h},52%,58%)`; }
 /* 一群粉丝的 AI 模拟评论：网名+骚话，起哄打赏那种 */
@@ -6035,9 +6036,9 @@ function ofCard(p){
       <span class="spacer"></span>
       <button class="fansBtn">👀 ${fans.length?fans.length+' 条':'看看'}评论</button>
     </div>
+    ${fans.length?`<div class="ofFans" style="display:${ofOpenFans.has(p.id)?'flex':'none'}"><div class="ofFanHd">💬 粉丝评论 ${fans.length}</div>${fans.map(f=>`<div class="ofFan"><span class="fAv" style="background:${fanColor(f.name)}">${esc(String(f.name).slice(0,1))}</span><span class="fTx"><b>${esc(f.name)}</b>${fmt(f.text)}</span></div>`).join('')}<button class="ofMoreFans">＋ 再刷出更多评论</button></div>`:''}
     ${cmts.length?`<div class="ofThread">${cmts.map(c=>`<div class="ln"><b>${esc(ofName(c.by))}</b>：${fmt(c.text)}</div>`).join('')}</div>`:''}
-    <div class="ofDmRow" style="display:none"><input placeholder="给TA发条私信…" maxlength="400"><button>发送</button></div>
-    ${fans.length?`<div class="ofFans"><div class="ofFanHd">💬 粉丝评论 ${fans.length}</div>${fans.map(f=>`<div class="ofFan"><span class="fAv" style="background:${fanColor(f.name)}">${esc(String(f.name).slice(0,1))}</span><span class="fTx"><b>${esc(f.name)}</b>${fmt(f.text)}</span></div>`).join('')}<button class="ofMoreFans">＋ 再刷出更多评论</button></div>`:''}`;
+    <div class="ofDmRow" style="display:none"><input placeholder="给TA发条私信…" maxlength="400"><button>发送</button></div>`;
   card.querySelector('.del').onclick=()=>{ if(confirm('删掉这条？')){ privPosts=privPosts.filter(x=>x.id!==p.id); persistAll(); renderPrivFeed(); } };
   const unlock=card.querySelector('.unlock');
   if(unlock){
@@ -6057,10 +6058,14 @@ function ofCard(p){
   const fansBox=card.querySelector('.ofFans');
   const fansBtn=card.querySelector('.fansBtn');
   if(fansBtn) fansBtn.onclick=()=>{
-    if(!fans.length){ fansBtn.textContent='刷新中…'; genFanComments(p,5); return; }   // 还没有评论 → 让粉丝来刷一波
-    if(fansBox){ const hidden=fansBox.style.display==='none'; fansBox.style.display=hidden?'flex':'none'; }   // 已有评论 → 点一下展开/收起
+    if(!fans.length){ ofOpenFans.add(p.id); fansBtn.textContent='刷新中…'; genFanComments(p,5); return; }   // 还没有评论 → 让粉丝来刷一波（刷完自动展开）
+    if(!fansBox) return;
+    const show=fansBox.style.display==='none';   // 点一下展开/收起
+    fansBox.style.display=show?'flex':'none';
+    if(show){ ofOpenFans.add(p.id); fansBox.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+    else ofOpenFans.delete(p.id);
   };
-  const more=card.querySelector('.ofMoreFans'); if(more) more.onclick=()=>{ more.textContent='刷新中…'; genFanComments(p,3); };
+  const more=card.querySelector('.ofMoreFans'); if(more) more.onclick=()=>{ ofOpenFans.add(p.id); more.textContent='刷新中…'; genFanComments(p,3); };
   return card;
 }
 let privPosting=false;
