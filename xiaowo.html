@@ -1263,6 +1263,8 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <label>次要 API（省钱：弹幕、模拟评论这类随意内容走它）</label>
       <select id="secKeySel"></select>
       <input id="secModelInput" placeholder="次要模型名（留空＝用主模型）" style="margin-top:8px">
+      <button class="ghostBtn" id="secFetchModels" style="margin-top:8px;font-size:13px">🔄 拉取这个 Key 的模型列表</button>
+      <select id="secModelPick" style="margin-top:8px;display:none"></select>
       <div class="hintText">主聊天、发朋友圈这些重要内容，用上面选中的<b>主 Key + 主模型</b>；<b>直播弹幕、粉丝模拟评论</b>这类凑数内容改走这里设的次要 Key / 模型（比如便宜的 haiku），更省钱。选「不设置」＝全用主 API。</div>
     </div>
     <button class="primaryBtn" id="saveSettings">保存</button>
@@ -4868,6 +4870,16 @@ function fillSecKeySel(){
   sel.innerHTML='<option value="">不设置（都用主 API）</option>'+apiKeys.map(k=>`<option value="${k.id}">${esc(k.label||'未命名')}</option>`).join('');
   sel.value=apiKeys.some(k=>k.id===settings.secKeyId)?settings.secKeyId:'';
   $('secModelInput').value=settings.secModel||'';
+  fillSecModelPick();
+}
+/* 把某个 Key 已拉到的模型，灌进次要的「挑一个」下拉；没拉过就藏起来 */
+function fillSecModelPick(){
+  const sel=$('secModelPick'); if(!sel) return;
+  const k=apiKeys.find(x=>x.id===$('secKeySel').value);
+  const models=k&&k.models||[];
+  if(!models.length){ sel.style.display='none'; sel.innerHTML=''; return; }
+  sel.style.display='block';
+  sel.innerHTML='<option value="">↓ 从拉到的模型里挑一个填进上面</option>'+models.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
 }
 $('gearBtn').onclick=()=>{
   renderKeyList();
@@ -4878,25 +4890,46 @@ $('gearBtn').onclick=()=>{
   $('setMaxTokens').value=settings.maxTokens||'';
   openSheet('settingsSheet');
 };
+/* 从某个 api 拉 /v1/models，返回排好序的模型 id 列表（主、次要共用） */
+async function fetchModelList(api){
+  const url=api.apiUrl.includes('/v1/')
+    ?api.apiUrl.replace(/\/v1\/.*$/,'/v1/models')
+    :api.apiUrl.replace(/\/+$/,'')+'/v1/models';
+  const res=await fetch(url,{headers:apiHeaders(api)});
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const j=await res.json();
+  const ids=(j.data||[]).map(m=>m.id).filter(Boolean).sort();
+  if(!ids.length) throw new Error('返回的列表是空的');
+  return ids;
+}
 $('fetchModels').onclick=async()=>{
   const api=getApi(); if(!api) return;
   const btn=$('fetchModels');
   btn.textContent='拉取中…';
   try{
-    const url=api.apiUrl.includes('/v1/')
-      ?api.apiUrl.replace(/\/v1\/.*$/,'/v1/models')
-      :api.apiUrl.replace(/\/+$/,'')+'/v1/models';
-    const res=await fetch(url,{headers:apiHeaders(api)});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const j=await res.json();
-    const ids=(j.data||[]).map(m=>m.id).filter(Boolean).sort();
-    if(!ids.length) throw new Error('返回的列表是空的');
+    const ids=await fetchModelList(api);
     const curKey=apiKeys.find(k=>k.id===selKeyId);
     if(curKey){ curKey.models=ids; persistAll(); }
     buildModelSelect(); syncModelSelect();
     toast(`拉到 ${ids.length} 个模型 ✓ 去下拉里挑`);
   }catch(e){ toast('拉取失败：'+(e.message||'').slice(0,60)); }
   btn.textContent='🔄 从当前选中的 Key 拉取模型列表';
+};
+$('secKeySel').onchange=fillSecModelPick;
+$('secModelPick').onchange=e=>{ if(e.target.value){ $('secModelInput').value=e.target.value; e.target.value=''; } };
+$('secFetchModels').onclick=async()=>{
+  const k=apiKeys.find(x=>x.id===$('secKeySel').value);
+  if(!k){ toast('先在上面选一个次要 Key'); return; }
+  const api=apiFromKey(k); if(!api||!api.key){ toast('这个 Key 还没填好'); return; }
+  const btn=$('secFetchModels');
+  btn.textContent='拉取中…';
+  try{
+    const ids=await fetchModelList(api);
+    k.models=ids; persistAll();
+    fillSecModelPick();
+    toast(`拉到 ${ids.length} 个模型 ✓ 去下面挑`);
+  }catch(e){ toast('拉取失败：'+(e.message||'').slice(0,60)); }
+  btn.textContent='🔄 拉取这个 Key 的模型列表';
 };
 $('setModel').onchange=e=>{ $('setModelCustom').style.display=e.target.value==='custom'?'block':'none'; };
 $('saveSettings').onclick=()=>{
