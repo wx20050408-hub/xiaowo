@@ -219,8 +219,8 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 }
 #profileText{min-width:0;flex:1}
 #profileName{font-weight:600;font-size:15px;border:none;background:none;width:100%;padding:0}
-#avatar{overflow:hidden;cursor:pointer}
-#avatar img{width:100%;height:100%;object-fit:cover}
+#avatar{overflow:hidden;cursor:pointer;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#avatar img{width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #profileStatus{font-size:12px;color:var(--ink-soft);border:none;background:none;width:100%;padding:0}
 
 #searchWrap{margin:0 16px 6px;position:relative}
@@ -5516,13 +5516,20 @@ function privHost(){ return charOf(privHostId()); }
 /* —— 隐藏入口：长按头像 3 秒 —— */
 (function(){
   const av=$('avatar'); if(!av) return;
-  let t=null;
-  const start=()=>{ clearTimeout(t); t=setTimeout(()=>{ privSuppressClick=true; openPrivEntry(); }, 1500); };
+  let t=null, sx=0, sy=0;
+  const pt=e=>e.touches&&e.touches[0]?e.touches[0]:e;
+  const fire=()=>{ privSuppressClick=true; try{ navigator.vibrate&&navigator.vibrate(35); }catch(_){} openPrivEntry(); };
+  const start=e=>{ const p=pt(e); sx=p.clientX; sy=p.clientY; clearTimeout(t); t=setTimeout(fire,900); };
+  const move=e=>{ const p=pt(e); if(Math.abs(p.clientX-sx)>14||Math.abs(p.clientY-sy)>14) clearTimeout(t); };
   const cancel=()=>clearTimeout(t);
   av.addEventListener('pointerdown',start);
+  av.addEventListener('pointermove',move);
   av.addEventListener('pointerup',cancel);
-  av.addEventListener('pointerleave',cancel);
   av.addEventListener('pointercancel',cancel);
+  /* 触屏兜底：部分内置浏览器 pointer 事件不稳，再挂一套 touch */
+  av.addEventListener('touchstart',start,{passive:true});
+  av.addEventListener('touchmove',move,{passive:true});
+  av.addEventListener('touchend',cancel);
 })();
 function openPrivEntry(){
   privGateMode = settings.privPassHash ? 'unlock' : 'set';
