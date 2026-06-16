@@ -1259,6 +1259,12 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <input type="number" id="setMaxTokens" min="256" max="64000" placeholder="留空＝不限制（推荐）">
       <div class="hintText">不懂就留空——等于不限制，TA 想说多长说多长，说完会自然停笔，<b>设大也不多花钱</b>，只是个保险丝。想自己设也行：个别模型上限低，填超了会报错，调小即可。</div>
     </div>
+    <div class="field">
+      <label>次要 API（省钱：弹幕、模拟评论这类随意内容走它）</label>
+      <select id="secKeySel"></select>
+      <input id="secModelInput" placeholder="次要模型名（留空＝用主模型）" style="margin-top:8px">
+      <div class="hintText">主聊天、发朋友圈这些重要内容，用上面选中的<b>主 Key + 主模型</b>；<b>直播弹幕、粉丝模拟评论</b>这类凑数内容改走这里设的次要 Key / 模型（比如便宜的 haiku），更省钱。选「不设置」＝全用主 API。</div>
+    </div>
     <button class="primaryBtn" id="saveSettings">保存</button>
     <div class="hintText">Key 只存在这台手机的浏览器里，不会发给除 Anthropic 之外的任何地方。</div>
   </div>
@@ -3563,15 +3569,25 @@ function groupApiMessages(c,member){
 }
 
 /* 当前选中 Key → {apiUrl, key, fmt}，没配好就提示并返回 null */
-function getApi(){
-  const curKey=apiKeys.find(k=>k.id===selKeyId);
-  if(!curKey?.key){ toast('先去 ⚙ 里添加并选中一个 API Key'); openSheet('settingsSheet'); return null; }
+function apiFromKey(curKey){
   const fmt=curKey.fmt==='openai'?'openai':'anthropic';
   let apiUrl=(curKey.url||'').trim()||'https://api.anthropic.com';
   if(!apiUrl.includes('/v1/'))
     apiUrl=apiUrl.replace(/\/+$/,'')+(fmt==='openai'?'/v1/chat/completions':'/v1/messages');
   return {apiUrl,key:curKey.key,fmt};
 }
+function getApi(){
+  const curKey=apiKeys.find(k=>k.id===selKeyId);
+  if(!curKey?.key){ toast('先去 ⚙ 里添加并选中一个 API Key'); openSheet('settingsSheet'); return null; }
+  return apiFromKey(curKey);
+}
+/* 次要 API：弹幕、模拟评论这类随意内容走它（省钱）；没设就回退主 API */
+function getApi2(){
+  const k=apiKeys.find(k=>k.id===settings.secKeyId);
+  if(k?.key) return apiFromKey(k);
+  return getApi();
+}
+function secModel(){ return (settings.secModel||'').trim()||settings.model; }
 
 /* Anthropic 格式请求体 → OpenAI 格式 */
 function toOpenAI(body){
@@ -4845,11 +4861,18 @@ function syncModelSelect(){
   $('setModelCustom').style.display=known?'none':'block';
   $('setModelCustom').value=known?'':settings.model;
 }
+function fillSecKeySel(){
+  const sel=$('secKeySel'); if(!sel) return;
+  sel.innerHTML='<option value="">不设置（都用主 API）</option>'+apiKeys.map(k=>`<option value="${k.id}">${esc(k.label||'未命名')}</option>`).join('');
+  sel.value=apiKeys.some(k=>k.id===settings.secKeyId)?settings.secKeyId:'';
+  $('secModelInput').value=settings.secModel||'';
+}
 $('gearBtn').onclick=()=>{
   renderKeyList();
   $('addKeyForm').style.display='none'; $('addKeyBtn').style.display='block';
   buildModelSelect();
   syncModelSelect();
+  fillSecKeySel();
   $('setMaxTokens').value=settings.maxTokens||'';
   openSheet('settingsSheet');
 };
@@ -4877,6 +4900,8 @@ $('setModel').onchange=e=>{ $('setModelCustom').style.display=e.target.value==='
 $('saveSettings').onclick=()=>{
   settings.model=$('setModel').value==='custom'?$('setModelCustom').value.trim():$('setModel').value;
   settings.maxTokens=$('setMaxTokens').value.trim()?Number($('setMaxTokens').value):'';
+  settings.secKeyId=$('secKeySel').value||null;
+  settings.secModel=$('secModelInput').value.trim();
   persistAll(); closeSheet('settingsSheet'); toast('存好啦');
 };
 
@@ -5490,8 +5515,8 @@ function momentCard(m){
 }
 
 /* 一次性小请求（不流式）：发动态、回评论用 */
-async function quickGen(api,system,userText,maxTok){
-  const body={model:settings.model,max_tokens:maxTok||300,stream:false,messages:[{role:'user',content:userText}]};
+async function quickGen(api,system,userText,maxTok,model){
+  const body={model:model||settings.model,max_tokens:maxTok||300,stream:false,messages:[{role:'user',content:userText}]};
   if(system) body.system=system;
   try{
     const isOA=api.fmt==='openai';
@@ -5795,14 +5820,14 @@ function setStage(text){
 /* 弹幕由 AI 实时生成，跟着此刻画面+TA刚说的话起哄，更真实；批量取回排队飘出，快用完自动补，没回来前先用本地词兜底不冷场 */
 async function refillDanmu(){
   if(privDanmuFetching || !privLiveOn) return;
-  const ch=privHost(); const api=getApi(); if(!ch||!api) return;
+  const ch=privHost(); const api=getApi2(); if(!ch||!api) return;
   privDanmuFetching=true;
   const stage=($('privStageText')?.textContent||'').slice(0,60);
   const last=privLiveLog().filter(m=>m.kind==='msg'&&m.by===ch.id).slice(-1)[0];
   const ask=`「${ch.name}」正在开一场很撩人的私密直播${privMode()==='duo'?`，TA的恋人${userName()}也一起出镜在镜头里和TA互动`:''}。此刻镜头画面：「${stage}」。`
     +(last?`TA刚说：「${String(last.text).slice(0,60)}」。`:'')
     +`\n请你扮演私密直播间里一大群发情起哄的观众，生成 8 条弹幕。要求：每条单独一行，口语化、超短（12字以内），混着夸的、起哄的、露骨调情下流的、吃醋的、刷礼物喊话求福利的，越骚越真实越好。只输出弹幕本身，每行一条，不要编号、不要解释。`;
-  const txt=await quickGen(api,'你在为一个成人向私密直播间生成观众弹幕，氛围淫荡热烈、毫不收敛。只输出弹幕文字，每行一条。',ask,280);
+  const txt=await quickGen(api,'你在为一个成人向私密直播间生成观众弹幕，氛围淫荡热烈、毫不收敛。只输出弹幕文字，每行一条。',ask,280,secModel());
   privDanmuFetching=false;
   if(txt) txt.split('\n').map(s=>s.replace(/^[\s\-\d.、)*。]+/,'').trim()).filter(s=>s&&s.length<=22).forEach(s=>privDanmuQueue.push(s));
 }
@@ -5928,12 +5953,12 @@ function ofName(by){ return by==='me'?userName():(charOf(by)?.name||'TA'); }
 function fanColor(name){ let h=0; for(const c of String(name)) h=(h*31+c.codePointAt(0))%360; return `hsl(${h},52%,58%)`; }
 /* 一群粉丝的 AI 模拟评论：网名+骚话，起哄打赏那种 */
 async function genFanComments(p,n){
-  const api=getApi(); if(!api) return;
+  const api=getApi2(); if(!api) return;
   const ch=p.charId==='me'?privHost():charOf(p.charId);
   const owner=p.charId==='me'?userName():(ch?.name||'TA');
   const photoDesc=p.img?'(一张性感的私房照)':`「${p.photo}」`;
   const ask=`这是「${owner}」私密订阅号上的一条成人内容——照片：${photoDesc}，配文：「${p.caption||''}」。请你扮演一群订阅了这个账号、正在评论区起哄的粉丝，写 ${n||4} 条评论。每条单独一行，格式「网名: 评论」，网名要有网感（中英文颜文字都行），评论口语化、露骨、痴迷、求福利或喊打赏那种，越骚越真实越好、别重复。只输出这几行，不要编号、不要解释。`;
-  const txt=await quickGen(api,'你在为成人向私密订阅平台生成粉丝评论，氛围淫荡热烈、毫不收敛。',ask,400);
+  const txt=await quickGen(api,'你在为成人向私密订阅平台生成粉丝评论，氛围淫荡热烈、毫不收敛。',ask,400,secModel());
   if(!txt) return;
   const arr=[];
   txt.split('\n').forEach(ln=>{
