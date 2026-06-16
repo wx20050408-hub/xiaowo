@@ -2080,7 +2080,7 @@ function dlFile(name,content,mime){
 const textOf = ct => typeof ct==='string' ? ct : ct.filter(b=>b.type==='text').map(b=>b.text).join('\n');
 const contentHtml = ct => typeof ct==='string' ? fmtFiles(ct) :
   ct.map(b=>{
-    if(b.type==='image') return `<img class="msgImg" src="data:${b.source.media_type};base64,${b.source.data}">`;
+    if(b.type==='image') return `<img class="msgImg" src="${safeUrl('data:'+b.source.media_type+';base64,'+b.source.data)}">`;
     if(b.type==='text') return fmtFiles(b.text);
     return '';
   }).join('');
@@ -3259,7 +3259,7 @@ function renderImgPreview(){
   pendingImgs.forEach((p,i)=>{
     const d=document.createElement('div');
     d.className='pimg';
-    d.innerHTML=`<img src="data:${p.media_type};base64,${p.data}"><button class="rm">✕</button>`;
+    d.innerHTML=`<img src="${safeUrl('data:'+p.media_type+';base64,'+p.data)}"><button class="rm">✕</button>`;
     d.querySelector('.rm').onclick=()=>{ pendingImgs.splice(i,1); renderImgPreview(); };
     box.appendChild(d);
   });
@@ -6021,7 +6021,12 @@ function ofCard(p){
   const send=()=>{ const inp=dmRow.querySelector('input'); const t=inp.value.trim(); if(t){ inp.value=''; ofDM(p,t); } };
   dmRow.querySelector('button').onclick=send;
   dmRow.querySelector('input').onkeydown=e=>{ if(e.key==='Enter') send(); };
-  const fansBtn=card.querySelector('.fansBtn'); if(fansBtn) fansBtn.onclick=()=>{ fansBtn.textContent='刷新中…'; genFanComments(p,fans.length?3:5); };
+  const fansBox=card.querySelector('.ofFans');
+  const fansBtn=card.querySelector('.fansBtn');
+  if(fansBtn) fansBtn.onclick=()=>{
+    if(!fans.length){ fansBtn.textContent='刷新中…'; genFanComments(p,5); return; }   // 还没有评论 → 让粉丝来刷一波
+    if(fansBox){ const hidden=fansBox.style.display==='none'; fansBox.style.display=hidden?'flex':'none'; }   // 已有评论 → 点一下展开/收起
+  };
   const more=card.querySelector('.ofMoreFans'); if(more) more.onclick=()=>{ more.textContent='刷新中…'; genFanComments(p,3); };
   return card;
 }
@@ -6510,7 +6515,7 @@ $('expHtml').onclick=()=>{
     const me=m.role==='user';
     let inner;
     if(typeof m.content==='string') inner=fmt(stripThink(m.content));
-    else inner=m.content.map(b=>b.type==='image'?`<img src="data:${b.source.media_type};base64,${b.source.data}">`:fmt(b.text||'')).join('');
+    else inner=m.content.map(b=>b.type==='image'?`<img src="${safeUrl('data:'+b.source.media_type+';base64,'+b.source.data)}">`:fmt(b.text||'')).join('');
     return `<div class="m ${me?'me':'ta'}"><div class="w">${esc(msgAuthor(m,c))}${m.ts?' · '+fmtMsgTime(m.ts):''}</div><div class="b">${inner}</div></div>`;
   }).join('\n');
   const d=new Date();
