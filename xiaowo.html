@@ -3025,24 +3025,25 @@ const CSS_DEMO=`/* 小窝 · iMessage 蓝（示范主题，随便改）by 小克
 #sendBtn{background:#0a84ff !important;color:#fff !important}`;
 const CSS_WECHAT=`/* 小窝 · 仿微信（绿气泡白底，随便改）by 小克 */
 #msgArea{background:#ededed !important}
-.bubble{position:relative !important;border-radius:6px !important;box-shadow:none !important;font-size:15px !important;line-height:1.5 !important}
+.bubble{position:relative !important;border-radius:6px !important;box-shadow:none !important;font-size:16px !important;line-height:1.55 !important;padding:9px 13px !important}
 .msg.me .bubble{background:#95ec69 !important;color:#111 !important;border-radius:6px !important}
 .msg.ta .bubble{background:#ffffff !important;color:#111 !important;border-radius:6px !important}
 /* 气泡小尖角，指向头像 */
-.msg.ta .bubble::after{content:'' !important;position:absolute !important;left:-5px !important;top:13px !important;width:0;height:0;border:5px solid transparent !important;border-right-color:#ffffff !important;border-left:0 !important}
-.msg.me .bubble::after{content:'' !important;position:absolute !important;right:-5px !important;top:13px !important;width:0;height:0;border:5px solid transparent !important;border-left-color:#95ec69 !important;border-right:0 !important}
+.msg.ta .bubble::after{content:'' !important;position:absolute !important;left:-5px !important;top:12px !important;width:0;height:0;border:5px solid transparent !important;border-right-color:#ffffff !important;border-left:0 !important}
+.msg.me .bubble::after{content:'' !important;position:absolute !important;right:-5px !important;top:12px !important;width:0;height:0;border:5px solid transparent !important;border-left-color:#95ec69 !important;border-right:0 !important}
 /* 表情包/图片去掉气泡底和尖角 */
 .bubble:has(.stickerImg),.bubble:has(.msgImg){background:transparent !important;box-shadow:none !important;padding:0 !important}
 .bubble:has(.stickerImg)::after,.bubble:has(.msgImg)::after{display:none !important}
-/* 头像改成微信圆角方块，靠齐气泡顶部 */
+/* 头像：微信圆角方块，约40px，顶部对齐气泡 */
 .msg .av,.avSm{border-radius:6px !important}
-.msg.ta .av{margin-top:2px !important}
-.who{font-size:11px !important;color:#9a9a9a !important;margin:0 0 3px 2px !important;font-weight:400 !important}
+.msg .av{width:40px !important;height:40px !important;margin-top:0 !important}
+/* 微信单聊：气泡上方不显示名字（想要名字就删掉这一行） */
+.who{display:none !important}
 /* 顶栏 */
 #chatHeader{background:#ededed !important;border-bottom:1px solid #d6d6d6 !important}
 #headerName{color:#111 !important}
 #headerSub{color:#8a8a8a !important}
-.timeDiv,.who{color:#a0a0a0 !important}
+.timeDiv{color:#a0a0a0 !important}
 /* 输入栏 */
 #inputBar{background:#f7f7f7 !important;border-top:1px solid #d6d6d6 !important}
 #input{background:#ffffff !important;border:none !important;border-radius:6px !important;color:#111 !important}
