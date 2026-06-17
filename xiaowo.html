@@ -559,6 +559,14 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   display:flex;align-items:center;justify-content:center;
 }
 .stickerImg{max-width:110px;max-height:110px;display:block}
+/* 批量管理 */
+#stickerGrid.bulk .stkItem img{cursor:pointer}
+#stickerGrid.bulk .stkItem .nm,#stickerGrid.bulk .stkItem .rm{pointer-events:none;opacity:.5}
+.stkItem .sel{position:absolute;top:-5px;left:-5px;width:18px;height:18px;border-radius:50%;border:2px solid var(--bg);background:var(--bg-soft);display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent}
+.stkItem.on .sel{background:var(--accent);color:#fff}
+.stkItem.on img{outline:3px solid var(--accent);outline-offset:1px}
+#stkBulkBar{display:flex;gap:8px;margin-bottom:8px}
+#stkBulkBar .danger{background:#E26D6D;color:#fff;border-color:#E26D6D}
 
 /* 转账卡片 */
 .transferCard{
@@ -1641,12 +1649,20 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 <div class="sheetScrim" id="stickerSheet">
   <div class="sheet">
     <div class="sheetTitle">表情包<button class="close" data-close="stickerSheet">✕</button></div>
+    <div id="stkToolbar" style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:6px">
+      <button class="ghostBtn" id="stkCheckBtn" style="flex:none;padding:4px 14px;font-size:12px">🔍 检测裂图</button>
+      <button class="ghostBtn" id="stkBulkToggle" style="flex:none;padding:4px 14px;font-size:12px">批量删除</button>
+    </div>
     <div id="stickerGrid"></div>
-    <div style="display:flex;gap:8px">
+    <div id="stkBulkBar" style="display:none">
+      <button class="ghostBtn" id="stkSelAll" style="flex:1">全选</button>
+      <button class="ghostBtn danger" id="stkDelSel" style="flex:1">删除选中 (0)</button>
+    </div>
+    <div style="display:flex;gap:8px" id="stkAddRow">
       <button class="ghostBtn" id="addSticker" style="flex:1">＋ 上传图片</button>
       <button class="ghostBtn" id="impSticker" style="flex:1">📋 批量导入网址</button>
     </div>
-    <div class="hintText">点一个直接发出去。文件名就是表情包的名字，TA 靠名字挑表情，所以起名直白点（比如"开心抱抱.jpg"）。TA 聊嗨了也会发给你。</div>
+    <div class="hintText" id="stkHint">点一个直接发出去。文件名就是表情包的名字，TA 靠名字挑表情，所以起名直白点（比如"开心抱抱.jpg"）。TA 聊嗨了也会发给你。想清理时点右上角「批量删除」。</div>
     <input type="file" id="stickerFile" accept="image/*" multiple style="display:none">
   </div>
 </div>
@@ -2631,7 +2647,7 @@ $('ppImg').onclick=()=>{ togglePlus(false); $('imgFile').click(); };
 $('ppFile').onclick=()=>{ togglePlus(false); $('docFile').click(); };
 $('ppSticker').onclick=()=>{
   if(!curOnline()){ toast('表情包是线上专属哦，先把TA切到线上'); return; }
-  togglePlus(false); renderStickers(); openSheet('stickerSheet');
+  togglePlus(false); stkBulk=false; stkSel.clear(); renderStickers(); openSheet('stickerSheet');
 };
 $('ppTransfer').onclick=()=>{
   if(!curOnline()){ toast('转账是线上专属哦，先把TA切到线上'); return; }
@@ -4720,35 +4736,107 @@ async function sendRaw(content,title){
   if(chatOnline(c)) return;
   await generateReply(c);
 }
+let stkBulk=false;            // 批量管理模式
+const stkSel=new Set();        // 选中的表情包 id
+function stkUpdateBulkUI(){
+  $('stkBulkBar').style.display=stkBulk?'flex':'none';
+  $('stkAddRow').style.display=stkBulk?'none':'flex';
+  $('stkHint').style.display=stkBulk?'none':'';
+  $('stkBulkToggle').textContent=stkBulk?'完成':'批量删除';
+  $('stkDelSel').textContent=`删除选中 (${stkSel.size})`;
+  const all=stickers.length&&stkSel.size===stickers.length;
+  $('stkSelAll').textContent=all?'取消全选':'全选';
+}
 function renderStickers(){
   const grid=$('stickerGrid'); grid.innerHTML='';
+  grid.classList.toggle('bulk',stkBulk);
   if(!stickers.length){
     grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--ink-soft);font-size:13px;padding:20px 0">还没有表情包，点下面添加几个叭</div>';
+    stkUpdateBulkUI();
     return;
   }
   stickers.forEach(st=>{
     const d=document.createElement('div');
-    d.className='stkItem';
-    d.innerHTML=`<img src="${safeUrl(st.data)}"${imgFallback(st.data)}><div class="nm">✎ ${esc(st.name)}</div><button class="rm">✕</button>`;
+    d.className='stkItem'+(stkBulk&&stkSel.has(st.id)?' on':'');
+    d.innerHTML=`<img src="${safeUrl(st.data)}"${imgFallback(st.data)}><div class="nm">✎ ${esc(st.name)}</div>`+
+      (stkBulk?`<div class="sel">✓</div>`:`<button class="rm">✕</button>`);
     d.querySelector('img').onclick=()=>{
+      if(stkBulk){
+        if(stkSel.has(st.id)){ stkSel.delete(st.id); d.classList.remove('on'); }
+        else{ stkSel.add(st.id); d.classList.add('on'); }
+        stkUpdateBulkUI();
+        return;
+      }
       closeSheet('stickerSheet');
       sendRaw(`<表情包:${st.name}>`,'[表情包]');
     };
-    d.querySelector('.nm').onclick=()=>{
-      const t=prompt('给这个表情包改个名（TA靠名字选表情，起直白点）：',st.name);
-      if(t==null) return;
-      const v=t.trim().slice(0,12);
-      if(!v){ toast('名字不能空着'); return; }
-      st.name=v; persistStickers(); renderStickers(); toast('改好啦');
-    };
-    d.querySelector('.rm').onclick=()=>{
-      if(!confirm(`删掉「${st.name}」？`)) return;
-      stickers=stickers.filter(x=>x.id!==st.id);
-      persistStickers(); renderStickers();
-    };
+    if(!stkBulk){
+      d.querySelector('.nm').onclick=()=>{
+        const t=prompt('给这个表情包改个名（TA靠名字选表情，起直白点）：',st.name);
+        if(t==null) return;
+        const v=t.trim().slice(0,12);
+        if(!v){ toast('名字不能空着'); return; }
+        st.name=v; persistStickers(); renderStickers(); toast('改好啦');
+      };
+      d.querySelector('.rm').onclick=()=>{
+        if(!confirm(`删掉「${st.name}」？`)) return;
+        stickers=stickers.filter(x=>x.id!==st.id);
+        persistStickers(); renderStickers();
+      };
+    }
     grid.appendChild(d);
   });
+  stkUpdateBulkUI();
 }
+$('stkBulkToggle').onclick=()=>{ stkBulk=!stkBulk; stkSel.clear(); renderStickers(); };
+$('stkSelAll').onclick=()=>{
+  if(stkSel.size===stickers.length) stkSel.clear();
+  else stickers.forEach(s=>stkSel.add(s.id));
+  renderStickers();
+};
+$('stkDelSel').onclick=()=>{
+  if(!stkSel.size){ toast('先选几个要删的叭'); return; }
+  if(!confirm(`确定删掉选中的 ${stkSel.size} 个表情包？`)) return;
+  stickers=stickers.filter(x=>!stkSel.has(x.id));
+  stkSel.clear(); stkBulk=false;
+  persistStickers(); renderStickers();
+  toast('删好啦');
+};
+/* 测一张图能不能加载：本地图必有效；外链先直连，失败再走代理，都不行才算裂 */
+function stkTestImg(u){
+  return new Promise(res=>{
+    if(typeof u!=='string' || !u){ res(false); return; }
+    if(/^data:/i.test(u)){ res(true); return; }
+    let triedProxy=false, to;
+    const img=new Image();
+    const arm=()=>{ clearTimeout(to); to=setTimeout(fail,12000); };
+    const finish=v=>{ clearTimeout(to); img.onload=img.onerror=null; res(v); };
+    function fail(){
+      if(!triedProxy && /^https?:\/\//i.test(u)){ triedProxy=true; arm(); img.src=imgProxy(u); }
+      else finish(false);
+    }
+    img.onload=()=>finish(img.naturalWidth>0);
+    img.onerror=fail;
+    arm(); img.src=u;
+  });
+}
+let stkChecking=false;
+$('stkCheckBtn').onclick=async()=>{
+  if(stkChecking) return;
+  if(!stickers.length){ toast('还没有表情包呢'); return; }
+  const btn=$('stkCheckBtn'); const orig=btn.textContent;
+  stkChecking=true; btn.disabled=true;
+  const broken=[]; let done=0;
+  for(const st of stickers){
+    btn.textContent=`检测中 ${++done}/${stickers.length}`;
+    if(!await stkTestImg(st.data)) broken.push(st.id);
+  }
+  btn.disabled=false; btn.textContent=orig; stkChecking=false;
+  if(!broken.length){ toast('都能正常显示，没有裂图~'); return; }
+  stkBulk=true; stkSel.clear(); broken.forEach(id=>stkSel.add(id));
+  renderStickers();
+  toast(`检测到 ${broken.length} 个裂图，已帮你勾上，点「删除选中」清掉就好`);
+};
 $('addSticker').onclick=()=>$('stickerFile').click();
 $('stickerFile').onchange=async e=>{
   for(const f of e.target.files){
