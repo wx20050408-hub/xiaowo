@@ -647,6 +647,10 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 #quoteBar .qbName{font-size:11px;color:var(--accent);font-weight:600}
 #quoteBar .qbText{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #quoteBar .qbX{flex-shrink:0;width:24px;height:24px;border:none;background:transparent;color:var(--ink-soft);font-size:14px;cursor:pointer}
+/* 撤回：灰色提示条 + 偷看气泡 */
+.recallWrap{text-align:center}
+.recallLine .peekBtn{color:var(--accent);font-weight:600;margin-left:6px;cursor:pointer}
+.recallPeek{display:inline-block;max-width:80%;margin:3px auto 8px;padding:8px 12px;border-radius:14px;background:var(--bg-soft);color:var(--ink-soft);font-size:13px;line-height:1.55;font-style:italic;border:1px dashed var(--line);text-align:left;white-space:pre-wrap;word-break:break-word}
 /* 引用回复：气泡里那一小块被引用的内容（颜色跟随气泡文字，适配各种气泡皮肤） */
 .quoteRef{display:block;margin:0 0 5px;padding:4px 8px;border-left:2px solid currentColor;border-radius:6px;background:rgba(128,128,128,.16);font-size:12px;color:inherit;opacity:.82;line-height:1.4;white-space:pre-wrap;word-break:break-word}
 .quoteRef .qrName{font-weight:600;margin-right:5px}
@@ -1555,6 +1559,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <button class="boxRow" id="speakMsg" style="width:100%"><span class="ic">🔊</span><span class="grow" style="text-align:left">朗读这条</span></button>
     <button class="boxRow" id="memMsg" style="width:100%"><span class="ic">🧠</span><span class="grow" style="text-align:left">记进记忆</span></button>
     <button class="boxRow" id="shotMsg" style="width:100%"><span class="ic">📷</span><span class="grow" style="text-align:left">截图分享（到这条为止）</span></button>
+    <button class="boxRow" id="recallMsg" style="width:100%"><span class="ic">↩️</span><span class="grow" style="text-align:left">撤回</span></button>
     <button class="boxRow" id="delMsg" style="width:100%;color:var(--danger)"><span class="ic">🗑</span><span class="grow" style="text-align:left">删除这条</span></button>
   </div>
 </div>
@@ -2509,6 +2514,23 @@ function renderChat(){
       sl.className='timeDiv';
       sl.textContent=typeof m.content==='string'?m.content:textOf(m.content);
       area.appendChild(sl);
+      return;
+    }
+    /* 撤回的消息：显示一行灰字；TA 撤回的可以「偷看」原话 */
+    if(m.recalled){
+      const mine=m.role==='user';
+      const who=mine?'你':(((m.charId&&characters.find(x=>x.id===m.charId))||curChar(c)||{}).name||'对方');
+      const wrap=document.createElement('div'); wrap.className='recallWrap';
+      const rl=document.createElement('div'); rl.className='timeDiv recallLine';
+      rl.innerHTML='↩️ '+esc(who)+'撤回了一条消息'+(mine?'':' <span class="peekBtn">👀偷看</span>');
+      wrap.appendChild(rl);
+      if(!mine){
+        const peek=document.createElement('div'); peek.className='recallPeek'; peek.style.display='none';
+        peek.innerHTML=fmt(textOf(m.content));
+        rl.querySelector('.peekBtn').onclick=()=>{ peek.style.display=peek.style.display==='none'?'inline-block':'none'; };
+        wrap.appendChild(peek);
+      }
+      area.appendChild(wrap);
       return;
     }
     let ch=null;
@@ -3490,6 +3512,13 @@ function injectIntoLastUser(apiMsgs,text){
 /* 历史里 3 条以前的图片降级成文字描述（描述后台预生成） */
 function degradeContent(m,isOld){
   let ct=m.content;
+  /* 撤回的消息：照样发给模型但说清是「撤回了」，让 TA 心里有数、能坏坏地戳穿 */
+  if(m.recalled){
+    const orig=(typeof ct==='string'?ct:textOf(ct)).trim();
+    return m.role==='user'
+      ? `（${userName()}把这条消息撤回了，但你已经瞄到原话是：「${orig}」。你心里清楚TA说过啥，可以装作没看见，也可以坏坏地戳穿、逗逗TA。）`
+      : `（你把「${orig}」发出去后又撤回了，没让${userName()}看清。）`;
+  }
   /* 引用回复：把被引用的内容当前缀发给模型，让它知道这条在回哪句（不动存储/渲染） */
   if(m.quote&&m.quote.text){
     const q=`（回复 ${m.quote.name}：「${m.quote.text}」）\n`;
@@ -3766,6 +3795,18 @@ async function runReply(c,api,body,ch){
       bub.innerHTML=out.acc?fmtAssistant(out.acc):'<i>（TA 默默记了笔记）</i>';
       if(!out.acc){ persistAll(); return; }
     }
+    /* TA 欲言又止：<撤回>…</撤回> 抽成一条「对方撤回了一条消息」（可偷看），剩下的才是真说出口的话 */
+    let hadRecall=false;
+    if(out.acc.includes('<撤回>')){
+      hadRecall=true;
+      out.acc=out.acc.replace(/<撤回>([\s\S]*?)<\/撤回>/g,(_,t)=>{
+        t=t.trim();
+        if(t) c.messages.push({role:'assistant',charId:ch?.id,content:t,ts:Date.now(),online:isOnline,recalled:true});
+        return '';
+      }).replace(/\n{3,}/g,'\n\n').trim();
+      if(!out.acc){ c.ts=Date.now(); persistAll(); if(c.id===currentId) renderChat(); return; }
+      bub.innerHTML=fmtAssistant(out.acc);
+    }
     /* TA随手拍的照片 → 存进相册 */
     for(const pm of out.acc.matchAll(/<拍照[:：]\s*([\s\S]+?)\s*>/g))
       photos.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,text:pm[1].slice(0,100),ts:Date.now()});
@@ -3781,7 +3822,7 @@ async function runReply(c,api,body,ch){
     wireThink(bub); wireCode(bub);
     /* 线上模式：回复完按行拆成小气泡；含特殊卡片（语音/拍照等）也重渲染成卡片 */
     const onlineNow=chatOnline(c);
-    if(c.id===currentId && ((onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|搜索)[:：]/.test(out.acc)))
+    if(c.id===currentId && (hadRecall || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|搜索)[:：]/.test(out.acc)))
       renderChat();
     else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
   };
@@ -4731,6 +4772,7 @@ function onlineExtraNote(){
   parts.push(`【转账】合适的情境下你可以给${userName()}转账：单独占一行写 <转账:金额:备注>，金额是数字。别频繁用，重要时刻才有意义。`);
   parts.push(`【语音条】偶尔可以发语音：单独占一行写 <语音:想说的话>，对方要点开才能听。适合撒娇、哄人、或者有点害羞打字说不出口的话。别频繁用。`);
   parts.push(`【随手拍】你可以"拍张照片"分享你的此刻：单独占一行写 <拍照:照片画面的描述>，描述照片里拍到了什么（你在哪、看到什么），像随手拍的配文，40字以内。偶尔分享一张就好，照片会存进你们共同的相册。`);
+  parts.push(`【撤回】偶尔可以"发了又撤回"，演出欲言又止、害羞说漏嘴、或脱口而出又后悔：把想收回的那句话用 <撤回>想说又咽回去的话</撤回> 单独占一行包起来，${userName()}只会看到「对方撤回了一条消息」（TA点一下能偷看到原话）。撤回那行之后还可以再写你真正说出口的话。很偶尔才用一次，用多了就不灵了。`);
   return parts.join('\n\n');
 }
 /* 线下/沉浸模式的风格提示：抵消"被线上短句腌入味"——明确要求写成连贯段落 */
@@ -5245,6 +5287,11 @@ $('memMsg').onclick=()=>{
   memories.push({id:'m'+Date.now(),charId:ch.id,text:t});
   persistAll(); closeSheet('msgActionSheet');
   toast(`「${ch.name}」记住了`);
+};
+$('recallMsg').onclick=()=>{
+  const c=curChat(); const m=c&&c.messages[actMsgIdx]; if(!m||m.role==='sys') return;
+  m.recalled=true;
+  persistAll(); closeSheet('msgActionSheet'); renderChat();
 };
 $('delMsg').onclick=()=>{
   const c=curChat();
