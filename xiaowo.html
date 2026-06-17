@@ -283,6 +283,8 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 #privHostRow select{flex:1;padding:9px 10px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:13px;box-shadow:var(--shadow)}
 .privPane{flex:1;min-height:0;overflow:hidden;display:none;flex-direction:column}
 .privPane.on{display:flex}
+/* 订阅页改成「整块块级滚动」——绕开嵌套flex滚动容器(老webview不认min-height:0那套)，最稳 */
+#privSubPane.on{display:block;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
 /* 直播模式切换：独播 / 一起拍 */
 #privModeRow{display:flex;align-items:center;gap:8px;padding:0 14px 6px}
 #privModeSeg{flex:1;display:flex;gap:3px;padding:3px;background:var(--bg-soft);border-radius:13px}
@@ -339,9 +341,9 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .privDirBtn{flex-shrink:0;padding:7px 12px;border-radius:20px;background:var(--bg-soft);color:var(--accent-deep);font-size:13px;font-weight:600;white-space:nowrap;transition:transform .1s}
 .privDirBtn:active{transform:scale(.93)}
 /* 订阅 OF */
-#privFeedTop{display:flex;gap:8px;padding:6px 14px 4px}
+#privFeedTop{display:flex;gap:8px;padding:6px 14px 4px;position:sticky;top:0;z-index:2;background:var(--bg)}
 #privGenPost{flex:1;padding:12px;border-radius:14px;background:linear-gradient(135deg,var(--accent),#d06aa8);color:#fff;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.12)}
-#privFeed{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 14px 28px;display:flex;flex-direction:column;gap:18px}
+#privFeed{overflow:visible;padding:10px 14px 28px;display:flex;flex-direction:column;gap:18px}
 .ofEmpty{text-align:center;color:var(--ink-soft);font-size:13px;padding:36px 10px;line-height:1.8}
 .ofCard{background:var(--card);border-radius:20px;box-shadow:0 6px 18px rgba(0,0,0,.08);overflow:hidden;border:1px solid var(--line)}
 .ofHead{display:flex;align-items:center;gap:10px;padding:11px 13px}
