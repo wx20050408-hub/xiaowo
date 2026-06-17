@@ -273,12 +273,12 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 /* ============ 私密小屋（成人向，密码进入） ============ */
 #privPage{position:fixed;inset:0;z-index:55;background:var(--bg);display:none;flex-direction:column;overflow:hidden}
 #privPage.show{display:flex}
-#privHeader{display:flex;align-items:center;gap:6px;padding:14px 12px;border-bottom:1px solid var(--line);background:var(--card)}
-#privHeader .ttl{flex:1;font-weight:700;font-size:16px;letter-spacing:1px;background:linear-gradient(90deg,var(--accent-deep),#d06aa8);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-#privTabs{display:flex;gap:4px;margin:10px 14px 6px;padding:4px;background:var(--bg-soft);border-radius:16px}
+#privHeader{display:flex;align-items:center;gap:6px;padding:7px 12px;border-bottom:1px solid var(--line);background:var(--card)}
+#privHeader .ttl{flex:1;font-weight:700;font-size:15px;letter-spacing:1px;background:linear-gradient(90deg,var(--accent-deep),#d06aa8);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+#privTabs{display:flex;gap:4px;margin:7px 14px 5px;padding:4px;background:var(--bg-soft);border-radius:16px}
 .privTab{flex:1;padding:9px;border-radius:12px;background:transparent;color:var(--ink-soft);font-size:14px;font-weight:600;transition:background .2s,color .2s}
 .privTab.on{background:var(--card);color:var(--accent-deep);box-shadow:0 2px 8px rgba(0,0,0,.08)}
-#privHostRow{display:flex;align-items:center;gap:8px;padding:4px 14px 10px}
+#privHostRow{display:flex;align-items:center;gap:8px;padding:2px 14px 8px}
 #privHostRow span{flex-shrink:0;font-size:13px;color:var(--ink-soft)}
 #privHostRow select{flex:1;padding:9px 10px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:13px;box-shadow:var(--shadow)}
 .privPane{flex:1;min-height:0;overflow:hidden;display:none;flex-direction:column}
@@ -314,7 +314,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .vcCircle.hang{background:#e0245e}
 .vcCircle.muted{background:rgba(255,255,255,.55);color:#333}
 /* 直播 */
-#privStage{position:relative;margin:2px 14px 8px;border-radius:20px;min-height:160px;display:flex;align-items:flex-end;padding:16px;color:#fff;font-size:14px;line-height:1.55;overflow:hidden;background:linear-gradient(135deg,#7F7FD5,#86A8E7,#91EAE4);box-shadow:0 6px 20px rgba(0,0,0,.18)}
+#privStage{position:relative;margin:2px 14px 7px;border-radius:20px;min-height:128px;display:flex;align-items:flex-end;padding:16px;color:#fff;font-size:14px;line-height:1.55;overflow:hidden;background:linear-gradient(135deg,#7F7FD5,#86A8E7,#91EAE4);box-shadow:0 6px 20px rgba(0,0,0,.18)}
 #privStage::before{content:'';position:absolute;left:0;right:0;bottom:0;height:62%;background:linear-gradient(to top,rgba(0,0,0,.55),transparent);z-index:0}
 #privLiveTag{position:absolute;top:12px;left:12px;background:#e0245e;color:#fff;font-size:11px;padding:4px 10px;border-radius:10px;font-weight:700;letter-spacing:.5px;z-index:3;display:flex;align-items:center;gap:5px}
 #privLiveTag::before{content:'';width:6px;height:6px;border-radius:50%;background:#fff;animation:livePulse 1.2s infinite}
@@ -335,7 +335,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 #privLiveBar input{flex:1;padding:11px;border-radius:14px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:14px;min-width:0}
 #privLiveBar button{padding:10px 13px;border-radius:14px;background:var(--accent);color:#fff;font-size:14px;flex-shrink:0}
 .pvIconBtn{background:var(--bg-soft)!important;color:var(--accent-deep)!important;font-size:18px!important;padding:9px 10px!important}
-#privCoinDisp{font-size:13px;font-weight:700;color:#E8A33D;background:rgba(232,163,61,.14);padding:4px 10px;border-radius:20px;white-space:nowrap;cursor:pointer}
+#privCoinDisp{font-size:13px;font-weight:700;color:#E8A33D;background:rgba(232,163,61,.14);padding:4px 10px;border-radius:20px;white-space:nowrap;cursor:pointer;flex-shrink:0}
 #privDirector{display:flex;gap:7px;padding:6px 14px 0;overflow-x:auto;-webkit-overflow-scrolling:touch}
 #privDirector::-webkit-scrollbar{display:none}
 .privDirBtn{flex-shrink:0;padding:7px 12px;border-radius:20px;background:var(--bg-soft);color:var(--accent-deep);font-size:13px;font-weight:600;white-space:nowrap;transition:transform .1s}
@@ -998,7 +998,6 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div id="privHeader">
     <button class="iconBtn" id="privBack" aria-label="返回">‹</button>
     <div class="ttl">私密小屋</div>
-    <span id="privCoinDisp" title="点我领今日金币">🪙 0</span>
     <button class="iconBtn" id="privGear" title="设置">⚙</button>
   </div>
   <div id="privTabs">
@@ -1008,6 +1007,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div id="privHostRow">
     <span style="font-size:13px;color:var(--ink-soft);flex-shrink:0">出演</span>
     <select id="privHostSel"></select>
+    <span id="privCoinDisp" title="点我领今日金币">🪙 0</span>
   </div>
   <div class="privPane on" id="privLivePane">
     <div id="privModeRow">
