@@ -240,6 +240,20 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 #newGroup{margin-top:2px}
 #newChat:active,#newGroup:active{transform:scale(.98)}
 
+/* 按角色筛选窗口 */
+#histFilter{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:4px 14px 2px;scrollbar-width:none}
+#histFilter::-webkit-scrollbar{display:none}
+#histFilter .hf{
+  flex:0 0 auto;display:flex;align-items:center;gap:5px;
+  padding:5px 11px 5px 6px;border-radius:14px;cursor:pointer;
+  background:var(--card);box-shadow:var(--shadow);
+  font-size:12.5px;font-weight:600;color:var(--ink-soft);white-space:nowrap;
+  border:1.5px solid transparent;transition:.15s;
+}
+#histFilter .hf.on{color:var(--accent-deep);border-color:var(--accent-deep)}
+#histFilter .hf .av{width:22px;height:22px;border-radius:50%;object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:13px;background:var(--bubble-me)}
+#histFilter .hf.allChip{padding:5px 12px}
+
 /* 历史列表 */
 #historyList{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 10px}
 .dateLabel{font-size:12px;color:var(--accent-deep);font-weight:600;padding:12px 10px 6px;letter-spacing:1px}
@@ -997,6 +1011,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div id="searchWrap"><input id="search" placeholder="搜索聊天"></div>
   <button id="newChat">✦ 开个新对话</button>
   <button id="newGroup">👥 开个群聊</button>
+  <div id="histFilter"></div>
   <div id="historyList"></div>
   <div id="drawerFoot">
     <button class="footBtn" id="charBtn"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.4-5.6 7-5.6s7 2 7 5.6"/></svg></span>角色</button>
@@ -1368,7 +1383,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     </div>
     <div class="field">
       <div class="boxRow"><span class="ic">📝</span><span class="grow">TA会自己记笔记</span><button class="wbToggle" id="ceAutoMem"></button></div>
-      <div class="hintText">聊天中TA了解到你的重要信息（喜好、约定、近况）会自己写进记忆，跨对话不忘。记了什么可以去 百宝箱→记忆 里看和删。</div>
+      <div class="hintText">聊天中TA了解到你的重要信息（喜好、约定、近况）会自己写进记忆，过时或记错了也会自己改或删，跨对话不忘。每条记忆都有 #编号，去 百宝箱→记忆 里能看、改、删。</div>
     </div>
     <button class="primaryBtn" id="saveChar">保存</button>
     <button class="ghostBtn" id="delChar" style="color:var(--danger);display:none">删除这个角色</button>
@@ -2146,6 +2161,7 @@ const persistAll = ()=>{
   save('xw_period_meta',periodMeta); save('xw_sleep',sleepLogs);
   save('xw_photos',photos); save('xw_games',gamesLog);
   save('xw_priv_posts',privPosts); save('xw_priv_lives',privLives); save('xw_priv_scenes',privScenes);
+  save('xw_histfilter',histFilterChar);
   idbSet('chats',chats).catch(()=>save('xw_chats',chats));
   idbSet('characters',characters).catch(()=>save('xw_characters',characters));
 };
@@ -2353,11 +2369,43 @@ function fmtMsgTime(ts){
   return (lb==='今天'?'':lb+' ')+hm;
 }
 let searchJump=null;  // 从搜索结果点进来时，要跳转高亮的关键词
+let histFilterChar=load('xw_histfilter','all');  // 窗口列表按角色筛选：'all' 或某个角色 id（记住上次的选择）
+/* 某个窗口归不归当前筛选的角色：单聊看 charId，群聊只要这角色是成员就算 */
+function chatMatchesFilter(c){
+  if(histFilterChar==='all') return true;
+  if(c.members&&c.members.length) return c.members.includes(histFilterChar);
+  return c.charId===histFilterChar;
+}
+function renderHistFilter(){
+  const wrap=$('histFilter'); if(!wrap) return;
+  if(characters.length<2){ wrap.style.display='none'; wrap.innerHTML=''; return; }   // 只有一个角色就没必要筛
+  if(histFilterChar!=='all' && !characters.some(ch=>ch.id===histFilterChar)) histFilterChar='all';  // 选中的角色被删了→回退全部
+  wrap.style.display='flex'; wrap.innerHTML='';
+  const mk=(id,labelHtml,avHtml,isAll)=>{
+    const b=document.createElement('button');
+    b.className='hf'+(histFilterChar===id?' on':'')+(isAll?' allChip':'');
+    b.innerHTML=(avHtml||'')+`<span>${labelHtml}</span>`;
+    b.onclick=()=>{ histFilterChar=id; save('xw_histfilter',histFilterChar); renderHistFilter(); renderHistory(); };
+    wrap.appendChild(b);
+  };
+  mk('all','全部','',true);
+  characters.forEach(ch=>{
+    const av=ch.avatar
+      ?`<img class="av" src="${safeUrl(ch.avatar)}">`
+      :`<div class="av">${esc(ch.emoji||'☺')}</div>`;
+    mk(ch.id,esc(ch.name),av,false);
+  });
+}
 function renderHistory(){
+  renderHistFilter();
   const list=$('historyList'); list.innerHTML='';
   const q=$('search').value.trim();
-  const items=chats.filter(c=>!q||c.title.includes(q)||c.messages.some(m=>textOf(m.content).includes(q))).sort((a,b)=>b.ts-a.ts);
-  if(!items.length){ list.innerHTML='<div id="histEmpty">还没有聊天记录</div>'; return; }
+  const items=chats.filter(c=>chatMatchesFilter(c)&&(!q||c.title.includes(q)||c.messages.some(m=>textOf(m.content).includes(q)))).sort((a,b)=>b.ts-a.ts);
+  if(!items.length){
+    const who=histFilterChar!=='all'?characters.find(ch=>ch.id===histFilterChar):null;
+    list.innerHTML=`<div id="histEmpty">${who?`「${esc(who.name)}」还没有聊天窗口`:'还没有聊天记录'}</div>`;
+    return;
+  }
   let lastLabel='';
   items.forEach(c=>{
     const lb=dateLabel(c.ts);
@@ -2386,7 +2434,14 @@ function renderHistory(){
     list.appendChild(it);
   });
 }
-$('newChat').onclick=()=>{ currentId=null; renderChat(); openDrawer(false); persistAll(); };
+$('newChat').onclick=()=>{
+  /* 正筛着某个角色时，新对话就直接用 TA（顺带把默认角色设成 TA，符合直觉） */
+  if(histFilterChar!=='all' && characters.some(ch=>ch.id===histFilterChar)){
+    selCharId=histFilterChar;
+    const ch=characters.find(c=>c.id===histFilterChar); if(ch) toast(`新对话用「${ch.name}」`);
+  }
+  currentId=null; renderChat(); renderHeader(); openDrawer(false); persistAll();
+};
 
 /* ================= 聊天 ================= */
 function curChat(){ return chats.find(c=>c.id===currentId); }
@@ -3357,8 +3412,12 @@ function applyVars(s,ch){
 /* 导演模式说明书：()包住的消息是旁白指令 */
 const directorNote=()=>`【旁白指令】如果${userName()}的某条消息整条被()或（）包住，那是写给剧本的舞台指示，不是TA本人说的话：按指示调整剧情、状态或你接下来的行为，但角色本人意识不到指令的存在，绝对不要直接回应或提及指令内容。`;
 
-/* TA 自己记笔记的说明书 */
-const memNote=()=>`【记笔记】当你从对话里得知关于${userName()}的重要新信息（喜好、习惯、约定、TA的近况），在回复的最末尾另起一行用 <记住>一句话概括</记住> 记下来，可以写多条；没有新信息就别写。这个标记会被系统悄悄收走，${userName()}看不到。`;
+/* TA 自己记笔记的说明书：新增 / 修改 / 删除，按编号操作 */
+const memNote=()=>`【记忆本】你有一本只关于${userName()}的记忆本，上面【记忆】里每条前面都有编号(#1、#2…)。你可以在回复的最末尾另起一行管理它，下面这些标记会被系统悄悄收走，${userName()}看不到：
+· 记新的：<记住>一句话概括</记住>——得知重要新信息（喜好、习惯、约定、近况）时写，可写多条。
+· 改旧的：<改记忆 N>新的一句话</改记忆>——某条记忆过时或当初记错了，用它的编号 N 覆盖成新内容。
+· 删掉的：<忘记 N>——某条记忆不再成立或本就不该记，用编号 N 把它删掉。
+没有要记/改/删的就什么都别写。编号一律以本次【记忆】里显示的为准。`;
 
 /* 角色的补充设定：按开关和线上/线下状态决定要不要拼进人设 */
 function extraPromptOf(ch,isOnline){
@@ -3388,7 +3447,7 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   if(preset && preset.prompt.trim()) slow.push(preset.prompt);
   if(groupNote) fast.push(groupNote);
   const mems=memories.filter(m=>m.charId===ch?.id);
-  if(mems.length) fast.push('【记忆】关于用户，你记得这些事：\n'+mems.map(m=>'- '+m.text).join('\n'));
+  if(mems.length) fast.push('【记忆】关于用户，你记得这些事（每条前面的 #编号 用来修改或删除它）：\n'+mems.map((m,i)=>`#${i+1} ${m.text}`).join('\n'));
   const ans=annivs.filter(a=>a.charId===ch?.id);
   if(ans.length) fast.push('【纪念日】对你们很重要的日子，你一直记得：\n'+ans.map(a=>`- ${a.name}：${a.date}`).join('\n'));
   const wl=wishes.filter(w=>w.charId===ch?.id);
@@ -3822,16 +3881,27 @@ async function runReply(c,api,body,ch){
     };
   }
   const saveMsg=()=>{
-    /* TA 自己记的笔记：收走 <记住> 标记，存进记忆 */
-    if(out.acc.includes('<记住>')){
-      let n=0;
-      out.acc=out.acc.replace(/<记住>([\s\S]*?)<\/记住>/g,(_,t)=>{
-        t=t.trim();
-        if(t) memories.push({id:'m'+Date.now()+'_'+(n++),charId:ch?.id,text:t.slice(0,200)});
-        return '';
-      }).replace(/\n{3,}/g,'\n\n').trim();
-      if(n) toast(`${ch?.name||'TA'} 记住了 ${n} 件事`);
-      bub.innerHTML=out.acc?fmtAssistant(out.acc):'<i>（TA 默默记了笔记）</i>';
+    /* TA 自己管理记忆本：<记住>新增 / <改记忆 N>覆盖第N条 / <忘记 N>删第N条
+       N 以本轮注入【记忆】里显示的编号为准。先按快照把编号解析成具体记忆，再统一改，
+       这样同一条回复里又删又改也不会因为编号错位而误伤 */
+    if(/<(?:记住|改记忆|忘记)/.test(out.acc)){
+      const myMems=memories.filter(m=>m.charId===ch?.id);   // 快照：#N → myMems[N-1]
+      let added=0,edited=0,forgot=0; const delIds=new Set();
+      out.acc=out.acc
+        .replace(/<忘记\s*[:：]?\s*(\d+)\s*>(?:\s*<\/忘记>)?/g,(_,k)=>{      // 删
+          const m=myMems[(+k)-1]; if(m&&!delIds.has(m.id)){ delIds.add(m.id); forgot++; } return '';
+        })
+        .replace(/<改记忆\s*[:：]?\s*(\d+)\s*>([\s\S]*?)<\/改记忆>/g,(_,k,t)=>{ // 改
+          t=t.trim(); const m=myMems[(+k)-1]; if(m&&t){ m.text=t.slice(0,200); edited++; } return '';
+        })
+        .replace(/<记住>([\s\S]*?)<\/记住>/g,(_,t)=>{                        // 增
+          t=t.trim(); if(t) memories.push({id:'m'+Date.now()+'_'+(added++),charId:ch?.id,text:t.slice(0,200)}); return '';
+        })
+        .replace(/\n{3,}/g,'\n\n').trim();
+      if(delIds.size) memories=memories.filter(m=>!delIds.has(m.id));
+      const acts=[]; if(added)acts.push(`记住${added}件`); if(edited)acts.push(`改了${edited}件`); if(forgot)acts.push(`忘了${forgot}件`);
+      if(acts.length) toast(`${ch?.name||'TA'} ${acts.join('·')}`);
+      bub.innerHTML=out.acc?fmtAssistant(out.acc):'<i>（TA 默默动了动记忆本）</i>';
       if(!out.acc){ persistAll(); return; }
     }
     /* TA 欲言又止：<撤回>…</撤回> 抽成一条「对方撤回了一条消息」（可偷看），剩下的才是真说出口的话 */
@@ -5567,10 +5637,10 @@ function renderMems(){
     list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:14px 0">还没有记忆</div>';
     return;
   }
-  items.forEach(m=>{
+  items.forEach((m,i)=>{
     const it=document.createElement('div');
     it.className='keyItem'+(m.id===editingMemId?' sel':'');
-    it.innerHTML=`<div class="keyInfo"><div class="keyPreview" style="white-space:normal">${esc(m.text)}</div></div><button class="delKey">✕</button>`;
+    it.innerHTML=`<div class="keyInfo"><div class="keyPreview" style="white-space:normal"><b style="color:var(--accent-deep);margin-right:6px">#${i+1}</b>${esc(m.text)}</div></div><button class="delKey">✕</button>`;
     it.onclick=ev=>{
       if(ev.target.classList.contains('delKey')) return;
       editingMemId=m.id; $('memText').value=m.text; $('saveMem').textContent='保存修改';
