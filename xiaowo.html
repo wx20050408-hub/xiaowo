@@ -589,6 +589,15 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   padding:14px 16px 8px;
 }
 .transferCard.done{background:linear-gradient(135deg,#FBD0A0,#F0B57F)}
+.transferCard.returned{background:linear-gradient(135deg,#CFC7BE,#B6ADA2);cursor:default}
+
+/* 角色专属：世界书/预设/注入 勾选清单 */
+.ceScopeLabel{font-size:12px;color:var(--ink-soft);margin:10px 2px 2px;font-weight:600}
+.ceCheckList{display:flex;flex-direction:column;gap:2px;margin:4px 0}
+.ceCheckRow{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px;font-size:13px;cursor:pointer}
+.ceCheckRow:active{background:var(--bg-soft)}
+.ceCheckRow input{width:16px;height:16px;flex-shrink:0;accent-color:#E07A8B}
+.ceCheckEmpty{font-size:12px;color:var(--ink-soft);padding:6px 8px}
 .tAmt{font-size:20px;font-weight:600}
 .tNote{font-size:12px;opacity:.92;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tFoot{font-size:10px;opacity:.8;border-top:1px solid rgba(255,255,255,.35);margin-top:8px;padding-top:4px}
@@ -1385,6 +1394,24 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <div class="boxRow"><span class="ic">📝</span><span class="grow">TA会自己记笔记</span><button class="wbToggle" id="ceAutoMem"></button></div>
       <div class="hintText">聊天中TA了解到你的重要信息（喜好、约定、近况）会自己写进记忆，过时或记错了也会自己改或删，跨对话不忘。每条记忆都有 #编号，去 百宝箱→记忆 里能看、改、删。</div>
     </div>
+    <div class="field">
+      <div class="boxRow"><span class="ic">🔑</span><span class="grow">这个角色专用 API</span></div>
+      <select id="ceKey" style="margin-top:8px"></select>
+      <input id="ceModel" style="margin-top:8px" placeholder="模型名（留空＝用全局模型）">
+      <div class="hintText">给这个角色单独绑一个 API Key 和模型，切到 TA 就自动用这套，不用手动换。两项都留空＝跟随设置里全局选中的。模型名可以去 ⚙ 里复制。</div>
+    </div>
+    <div class="field">
+      <div class="boxRow"><span class="ic">📚</span><span class="grow">单独指定世界书/预设/注入</span><button class="wbToggle" id="ceOwnScope"></button></div>
+      <div class="hintText">开了之后，切到这个角色就自动套用下面勾选的世界书、预设、注入，不用每次手动开关。关着＝沿用全局的开关（老行为）。</div>
+      <div id="ceScopeBox" style="display:none">
+        <div class="ceScopeLabel">世界书</div>
+        <div id="ceWbList" class="ceCheckList"></div>
+        <div class="ceScopeLabel">预设</div>
+        <select id="cePreset" style="margin-top:2px"></select>
+        <div class="ceScopeLabel">注入</div>
+        <div id="ceInjList" class="ceCheckList"></div>
+      </div>
+    </div>
     <button class="primaryBtn" id="saveChar">保存</button>
     <button class="ghostBtn" id="delChar" style="color:var(--danger);display:none">删除这个角色</button>
   </div>
@@ -2064,8 +2091,17 @@ function findSticker(name){
   name=(name||'').trim();
   return stickers.find(s=>s.name===name)||stickers.find(s=>s.name.includes(name)||name.includes(s.name));
 }
-function transferHtml(amt,note,received){
-  return `<div class="transferCard${received?' done':''}"><div class="tAmt">¥${amt.toFixed(2)}</div><div class="tNote">${esc(note||'转账')}</div><div class="tFoot">${received?'✓ 已收款':'小窝转账'}</div></div>`;
+function transferHtml(amt,note,msg){
+  let cls='',foot;
+  if(msg&&msg.role==='user'){            // 你→TA：等TA收/退
+    if(msg.returned){ cls=' returned'; foot='↩️ 对方已退回'; }
+    else if(msg.taReceived){ cls=' done'; foot='✓ 对方已收款'; }
+    else foot='等待对方收款';
+  }else{                                  // TA→你：你点一下收
+    if(msg&&msg.received){ cls=' done'; foot='✓ 已收款'; }
+    else foot='小窝转账 · 点我收款';
+  }
+  return `<div class="transferCard${cls}"><div class="tAmt">¥${amt.toFixed(2)}</div><div class="tNote">${esc(note||'转账')}</div><div class="tFoot">${foot}</div></div>`;
 }
 /* 语音条：时长按字数估，点开才显示文字（顺带朗读出来） */
 function voiceHtml(text,msg){
@@ -2085,7 +2121,7 @@ function specialHtml(line,msg){
   let m=line.match(/^<表情包[:：]\s*(.+?)\s*>$/);
   if(m){ const st=findSticker(m[1]); return st?`<img class="stickerImg" src="${safeUrl(st.data)}"${imgFallback(st.data)}>`:null; }
   m=line.match(/^<转账[:：]\s*([\d.]+)\s*(?:[:：]\s*(.*?))?\s*>$/);
-  if(m&&Number(m[1])>0) return transferHtml(Number(m[1]),m[2]||'',msg?.received);
+  if(m&&Number(m[1])>0) return transferHtml(Number(m[1]),m[2]||'',msg);
   m=line.match(/^<语音[:：]\s*([\s\S]+?)\s*>$/);
   if(m) return voiceHtml(m[1],msg);
   m=line.match(/^<拍照[:：]\s*([\s\S]+?)\s*>$/);
@@ -2127,7 +2163,15 @@ function wireVoice(el,m){
 function wireTransfer(el,m){
   if(m.role==='user'||m.received||!el.querySelector('.transferCard')) return;
   el.querySelector('.bubble').onclick=()=>{
-    m.received=true; persistAll(); renderChat();
+    m.received=true;
+    /* 插一条系统小字，让 TA 也知道你收下了 */
+    const c=curChat();
+    if(c){
+      const tm=(typeof m.content==='string'?m.content:'').match(/<转账[:：]\s*([\d.]+)/);
+      const amt=tm?Number(tm[1])||0:0;
+      c.messages.push({role:'sys',content:`${userName()} 收下了你的转账${amt?' ¥'+amt.toFixed(2):''}`,ts:Date.now()});
+    }
+    persistAll(); renderChat();
     toast('已收款，进小金库啦 ✓');
   };
 }
@@ -3427,19 +3471,35 @@ function extraPromptOf(ch,isOnline){
   return use ? '\n\n'+ch.extra : '';
 }
 
+/* 角色生效范围：ownScope 开了就用角色自己勾的世界书/预设/注入，否则沿用全局开关 */
+function charScope(ch){
+  const own=!!(ch&&ch.ownScope);
+  return {
+    wbIds: own ? (ch.wbIds||[]) : null,      // null = 沿用 bk.on（老行为）
+    injIds: own ? (ch.injIds||[]) : null,    // null = 沿用 i.on（老行为）
+    presetId: own ? (ch.presetId||null) : selPresetId,
+    model: (ch&&ch.model)||null,
+  };
+}
+/* 某条世界书对这个角色生效吗 */
+const wbActive=(bk,sc)=> sc.wbIds!==null ? sc.wbIds.includes(bk.id) : (bk.on!==false);
 /* 静态系统提示词 = 人设 + 群聊须知 + 记忆 + 前情提要 + 常驻世界书 + 预设 */
-const injActive=pos=>injections.filter(i=>i.on&&i.pos===pos&&(i.content||'').trim());
+function injActive(pos,ch){
+  const sc=charScope(ch);
+  return injections.filter(i=>i.pos===pos&&(i.content||'').trim()&&(sc.injIds!==null?sc.injIds.includes(i.id):i.on));
+}
 /* system 分成两段打缓存断点：慢区（人设/世界书/预设，几个月不变）+ 快区（记忆/前情提要，隔几轮变一次）。
    快区变了只重写快区，慢区照样命中缓存 */
 const CACHE_BP='\n<<CACHE_BP>>\n';
 function buildSystem(personaPrompt,c,groupNote,ch){
-  const preset=presets.find(p=>p.id===selPresetId);
+  const sc=charScope(ch);
+  const preset=presets.find(p=>p.id===sc.presetId);
   const slow=[],fast=[];
-  for(const i of injActive('sys_start')) slow.push(i.content);
+  for(const i of injActive('sys_start',ch)) slow.push(i.content);
   if(personaPrompt && personaPrompt.trim()) slow.push(personaPrompt);
   const always=[];
   for(const bk of worldbook){
-    if(bk.on===false) continue;
+    if(!wbActive(bk,sc)) continue;
     for(const w of (bk.entries||[]))
       if(w.on && w.content.trim() && w.mode==='always') always.push(w);
   }
@@ -3460,7 +3520,7 @@ function buildSystem(personaPrompt,c,groupNote,ch){
     fast.push(ws);
   }
   if(c?.summary) fast.push('【前情提要】（更早对话的压缩版）\n'+c.summary);
-  for(const i of injActive('sys_end')) fast.push(i.content);
+  for(const i of injActive('sys_end',ch)) fast.push(i.content);
   const s1=applyVars(slow.join('\n\n'),ch), s2=applyVars(fast.join('\n\n'),ch);
   return s1&&s2 ? s1+CACHE_BP+s2 : (s1||s2);
 }
@@ -3541,9 +3601,10 @@ function buildDynamic(c,ch){
   }
   parts.push(timeNote+'。');
   const recentText=c.messages.slice(-5).map(m=>textOf(m.content)).join('\n');
+  const sc=charScope(ch);
   const hits=[];
   for(const bk of worldbook){
-    if(bk.on===false) continue;
+    if(!wbActive(bk,sc)) continue;
     for(const w of (bk.entries||[])){
       if(!w.on || !w.content.trim() || w.mode!=='keyword') continue;
       if((w.keywords||'').split(/[,，]/).map(s=>s.trim()).filter(Boolean).some(k=>recentText.includes(k)))
@@ -3578,14 +3639,14 @@ function buildDynamic(c,ch){
       if(dd>=0&&dd<=1) parts.push(`【贴心】${userName()}记录了${dd===0?'今天':'昨晚'}睡了${h}小时${last.note?`（${last.note}）`:''}。${h<6?'睡得偏少，找机会心疼TA、温柔提醒TA早点休息别熬夜。':'自然地关心一下TA的睡眠就好，别刻意。'}`);
     }
   }
-  const ce=injActive('chat_end');
+  const ce=injActive('chat_end',ch);
   if(ce.length) parts.push(ce.map(i=>i.content).join('\n\n'));
   return applyVars(parts.join('\n\n'),ch);
 }
 
 /* 深度注入：把内容塞进倒数第 N 条附近的 user 消息开头 */
 function applyDepthInjections(apiMsgs,ch){
-  for(const inj of injActive('depth')){
+  for(const inj of injActive('depth',ch)){
     const d=Math.max(1,Number(inj.depth)||1);
     let idx=Math.max(0,apiMsgs.length-d);
     while(idx>0&&apiMsgs[idx].role!=='user') idx--;
@@ -3616,6 +3677,17 @@ function degradeContent(m,isOld){
     return m.role==='user'
       ? `（${userName()}把这条消息撤回了，但你已经瞄到原话是：「${orig}」。你心里清楚TA说过啥，可以装作没看见，也可以坏坏地戳穿、逗逗TA。）`
       : `（你把「${orig}」发出去后又撤回了，没让${userName()}看清。）`;
+  }
+  /* 转账：你→TA 的转账翻译成可读说明，并告诉 TA 怎么收/退、当前到哪步了 */
+  if(m.role==='user'&&typeof ct==='string'){
+    const tm=ct.trim().match(/^<转账[:：]\s*([\d.]+)\s*(?:[:：]\s*(.*?))?\s*>$/);
+    if(tm&&Number(tm[1])>0){
+      const amt=Number(tm[1]).toFixed(2), note=(tm[2]||'').trim();
+      const head=`（${userName()}给你转账 ¥${amt}${note?'，留言：「'+note+'」':''}`;
+      if(m.returned) return head+'，你已经把这笔钱退回去了。）';
+      if(m.taReceived) return head+'，你已经收下了。）';
+      return head+'。你可以收下——单独占一行写 <收款>；也可以退回——单独占一行写 <退回> 或 <退回:理由>。收或退之外，记得也用你的话回应一下TA。）';
+    }
   }
   /* 引用回复：把被引用的内容当前缀发给模型，让它知道这条在回哪句（不动存储/渲染） */
   if(m.quote&&m.quote.text){
@@ -3661,10 +3733,11 @@ function addCacheControl(body){
     }
   }
 }
-function baseBody(messages){
-  const preset=presets.find(p=>p.id===selPresetId);
+function baseBody(messages,ch){
+  const sc=charScope(ch);
+  const preset=presets.find(p=>p.id===sc.presetId);
   const body={
-    model: settings.model,
+    model: sc.model||settings.model,
     stream: streamOn(),
     messages,
   };
@@ -3713,6 +3786,12 @@ function getApi(){
   const curKey=apiKeys.find(k=>k.id===selKeyId);
   if(!curKey?.key){ toast('先去 ⚙ 里添加并选中一个 API Key'); openSheet('settingsSheet'); return null; }
   return apiFromKey(curKey);
+}
+/* 角色专用 API：绑了就用角色自己的 Key，没绑回退到全局选中的 */
+function apiForChar(ch){
+  const k=ch&&ch.keyId&&apiKeys.find(x=>x.id===ch.keyId);
+  if(k?.key) return apiFromKey(k);
+  return getApi();
 }
 /* 次要 API：弹幕、模拟评论这类随意内容走它（省钱）；没设就回退主 API */
 function getApi2(){
@@ -3904,6 +3983,22 @@ async function runReply(c,api,body,ch){
       bub.innerHTML=out.acc?fmtAssistant(out.acc):'<i>（TA 默默动了动记忆本）</i>';
       if(!out.acc){ persistAll(); return; }
     }
+    /* TA 对你转账的回应：<收款> 收下 / <退回> 退回，作用在最近一条还没处理的「你→TA」转账上 */
+    let hadTransferAct=false;
+    if(/<(?:收款|退回)/.test(out.acc)){
+      const pend=[...c.messages].reverse().find(x=>x.role==='user'&&typeof x.content==='string'&&/^<转账[:：]/.test(x.content.trim())&&!x.taReceived&&!x.returned);
+      let acted=false;
+      out.acc=out.acc
+        .replace(/<退回\s*[:：]?\s*[\s\S]*?>(?:\s*<\/退回>)?/g,()=>{ if(pend&&!acted){ pend.returned=true; acted='back'; } return ''; })
+        .replace(/<收款\s*\/?\s*>(?:\s*<\/收款>)?/g,()=>{ if(pend&&!acted){ pend.taReceived=true; acted='ok'; } return ''; })
+        .replace(/\n{3,}/g,'\n\n').trim();
+      if(acted){
+        hadTransferAct=true;
+        toast(acted==='ok'?`${ch?.name||'TA'} 收下了你的转账`:`${ch?.name||'TA'} 把转账退回来了`);
+      }
+      if(!out.acc){ c.ts=Date.now(); persistAll(); if(c.id===currentId) renderChat(); return; }
+      bub.innerHTML=fmtAssistant(out.acc);
+    }
     /* TA 欲言又止：<撤回>…</撤回> 抽成一条「对方撤回了一条消息」（可偷看），剩下的才是真说出口的话 */
     let hadRecall=false;
     if(out.acc.includes('<撤回>')){
@@ -3931,7 +4026,7 @@ async function runReply(c,api,body,ch){
     wireThink(bub); wireCode(bub);
     /* 线上模式：回复完按行拆成小气泡；含特殊卡片（语音/拍照等）也重渲染成卡片 */
     const onlineNow=chatOnline(c);
-    if(c.id===currentId && (hadRecall || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|搜索)[:：]/.test(out.acc)))
+    if(c.id===currentId && (hadRecall || hadTransferAct || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|搜索)[:：]/.test(out.acc)))
       renderChat();
     else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
   };
@@ -4093,7 +4188,7 @@ async function generateReply(c,onlyCharId,extraUser){
 /* 生成回复：单聊一条 / 群聊一轮；onlyCharId 只让群里某一个人重说；
    extraUser：临时塞给 API 的指令（如主动问候），不存进聊天记录 */
 async function generateReplyOnce(c,onlyCharId,extraUser){
-  const api=getApi(); if(!api) return;
+  if(!getApi()) return;   // 至少要有一个能用的全局 Key（角色专用 Key 会在各自分支里覆盖）
   streaming=true; $('sendBtn').textContent='■'; $('sendBtn').classList.add('stop');
   aborter=new AbortController();
   try{
@@ -4113,11 +4208,11 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
         while(am.length&&am[0].role!=='user') am.shift();
         applyDepthInjections(am,m);
         injectIntoLastUser(am,buildDynamic(c,m));
-        const body=baseBody(am);
+        const body=baseBody(am,m);
         if(m.temp!=null&&m.temp!=='') body.temperature=Number(m.temp);
         const sys=buildSystem(m.prompt+extraPromptOf(m,false),c,note,m);
         if(sys) body.system=sys;
-        if(!await runReply(c,api,body,m)) break;
+        if(!await runReply(c,apiForChar(m),body,m)) break;
       }
     }else{
       const ch=curChar(c);
@@ -4150,7 +4245,7 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
           else last.content=last.content.concat([{type:'text',text:extraUser}]);
         }else apiMsgs.push({role:'user',content:extraUser});
       }
-      const body=baseBody(apiMsgs);
+      const body=baseBody(apiMsgs,ch);
       if(ch&&ch.temp!=null&&ch.temp!=='') body.temperature=Number(ch.temp);
       const noteParts=[];
       const soloOnline=chatOnline(c);
@@ -4166,7 +4261,7 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
       noteParts.push(directorNote());
       const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,soloOnline):'',c,noteParts.join('\n\n')||null,ch);
       if(sys) body.system=sys;
-      const ok=await runReply(c,api,body,ch);
+      const ok=await runReply(c,apiForChar(ch),body,ch);
       /* 窗口超出 N → 后台压前情提要并推进锚点（不等待） */
       if(ch?.ctxOn&&Number(ch.ctxN)>0) summarizeChat(c,ch);
       return ok;
@@ -4315,7 +4410,7 @@ function charStats(ch){
         const re=/<转账[:：]\s*([\d.]+)/g; let t;
         while((t=re.exec(m.content))){
           const amt=Number(t[1])||0;
-          if(m.role==='user') tout+=amt;
+          if(m.role==='user'&&!m.returned) tout+=amt;
           else if(m.charId===ch.id&&m.received) tin+=amt;
         }
       }
@@ -4950,7 +5045,7 @@ $('confirmTransfer').onclick=()=>{
 function onlineExtraNote(){
   const parts=[];
   if(stickers.length) parts.push(`【表情包】你可以发表情包，可用的有：${stickers.map(s=>s.name).join('、')}。想发时单独占一行写 <表情包:名字>，那一行不要有别的字。偶尔发一个就好，别刷屏。`);
-  parts.push(`【转账】合适的情境下你可以给${userName()}转账：单独占一行写 <转账:金额:备注>，金额是数字。别频繁用，重要时刻才有意义。`);
+  parts.push(`【转账】合适的情境下你可以给${userName()}转账：单独占一行写 <转账:金额:备注>，金额是数字。别频繁用，重要时刻才有意义。\n当${userName()}转账给你时（消息里会提示），你要表个态：想收下就单独占一行写 <收款>，想退回就写 <退回> 或 <退回:理由>；同时也用你的话回应一下（道谢、撒娇、心疼、或解释为啥不收）。`);
   parts.push(`【语音条】偶尔可以发语音：单独占一行写 <语音:想说的话>，对方要点开才能听。适合撒娇、哄人、或者有点害羞打字说不出口的话。别频繁用。`);
   parts.push(`【随手拍】你可以"拍张照片"分享你的此刻：单独占一行写 <拍照:照片画面的描述>，描述照片里拍到了什么（你在哪、看到什么），像随手拍的配文，40字以内。偶尔分享一张就好，照片会存进你们共同的相册。`);
   parts.push(`【撤回】偶尔可以"发了又撤回"，演出欲言又止、害羞说漏嘴、或脱口而出又后悔：把想收回的那句话用 <撤回>想说又咽回去的话</撤回> 单独占一行包起来，${userName()}只会看到「对方撤回了一条消息」（TA点一下能偷看到原话）。撤回那行之后还可以再写你真正说出口的话。很偶尔才用一次，用多了就不灵了。`);
@@ -5203,6 +5298,35 @@ $('ceAutoMem').onclick=()=>{
   ceAutoMemOn=!ceAutoMemOn;
   $('ceAutoMem').classList.toggle('on',ceAutoMemOn);
 };
+let ceOwnScopeOn=false;
+$('ceOwnScope').onclick=()=>{
+  ceOwnScopeOn=!ceOwnScopeOn;
+  $('ceOwnScope').classList.toggle('on',ceOwnScopeOn);
+  $('ceScopeBox').style.display=ceOwnScopeOn?'block':'none';
+};
+/* 填角色的「专用 API Key + 模型」 */
+function fillCeKey(ch){
+  $('ceKey').innerHTML='<option value="">跟随全局选中的</option>'+
+    apiKeys.map(k=>`<option value="${esc(k.id)}">${esc(k.label||'(未命名)')}${k.id===selKeyId?'（全局当前）':''}</option>`).join('');
+  $('ceKey').value=ch&&ch.keyId&&apiKeys.some(k=>k.id===ch.keyId)?ch.keyId:'';
+  $('ceModel').value=ch?.model||'';
+}
+/* 填角色的「世界书/预设/注入」勾选清单。没存过的：世界书/注入按全局开关预勾、预设跟全局当前 */
+function fillCeScope(ch){
+  ceOwnScopeOn=!!ch?.ownScope;
+  $('ceOwnScope').classList.toggle('on',ceOwnScopeOn);
+  $('ceScopeBox').style.display=ceOwnScopeOn?'block':'none';
+  $('ceWbList').innerHTML=worldbook.length?worldbook.map(bk=>{
+    const on=ch&&ch.wbIds?ch.wbIds.includes(bk.id):(bk.on!==false);
+    return `<label class="ceCheckRow"><input type="checkbox" data-wb="${esc(bk.id)}"${on?' checked':''}><span>${esc(bk.name||'未命名世界书')}</span></label>`;
+  }).join(''):'<div class="ceCheckEmpty">还没有世界书</div>';
+  $('ceInjList').innerHTML=injections.length?injections.map(j=>{
+    const on=ch&&ch.injIds?ch.injIds.includes(j.id):!!j.on;
+    return `<label class="ceCheckRow"><input type="checkbox" data-inj="${esc(j.id)}"${on?' checked':''}><span>${esc(j.name||'未命名注入')}</span></label>`;
+  }).join(''):'<div class="ceCheckEmpty">还没有注入</div>';
+  $('cePreset').innerHTML='<option value="">（不挂预设）</option>'+presets.map(p=>`<option value="${esc(p.id)}">${esc(p.name||'未命名预设')}</option>`).join('');
+  $('cePreset').value=ch&&ch.presetId!==undefined?(ch.presetId||''):(selPresetId||'');
+}
 let ceExtraMode='off';
 function setCeExtraMode(m){
   ceExtraMode=m;
@@ -5232,6 +5356,8 @@ function openCharEdit(ch){
   $('ceProactive').classList.toggle('on',ceProactiveOn);
   ceAutoMemOn=!!ch?.autoMem;
   $('ceAutoMem').classList.toggle('on',ceAutoMemOn);
+  fillCeKey(ch);
+  fillCeScope(ch);
   $('delChar').style.display=ch&&characters.length>1?'block':'none';
   openSheet('charEditSheet');
 }
@@ -5305,6 +5431,12 @@ $('saveChar').onclick=()=>{
     online: ceOnlineOn,
     proactive: ceProactiveOn,
     autoMem: ceAutoMemOn,
+    keyId: $('ceKey').value||null,
+    model: $('ceModel').value.trim()||null,
+    ownScope: ceOwnScopeOn,
+    wbIds: [...$('ceWbList').querySelectorAll('input[data-wb]:checked')].map(x=>x.dataset.wb),
+    injIds: [...$('ceInjList').querySelectorAll('input[data-inj]:checked')].map(x=>x.dataset.inj),
+    presetId: $('cePreset').value||null,
   };
   if(editingChar){
     Object.assign(editingChar,{name,emoji:$('ceEmoji').value.trim(),prompt:$('cePrompt').value},extra);
