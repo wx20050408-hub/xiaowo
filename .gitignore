@@ -1,0 +1,21 @@
+# ⚠️ 本仓库是公开的（GitHub Pages 部署）。
+# 下面这些绝对不要提交，尤其是密钥和大二进制文件。
+
+# 本地小桥：含 token.txt（密钥）、cloudflared.exe（54MB 二进制）等，整个文件夹都不提交
+cc-bridge/
+
+# 任何可执行 / 大二进制
+*.exe
+
+# 日志
+*.log
+
+# 备份存档（自己电脑留着就好，不进仓库）
+xiaowo-备份-*.html
+
+# 设计稿 / 草稿 / 笔记
+聊天网页界面设计.html
+聊天网页界面设计_files/
+cache-article.md.md
+css
+*.txt
