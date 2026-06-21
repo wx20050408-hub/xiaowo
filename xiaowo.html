@@ -3817,6 +3817,11 @@ function toOpenAI(body){
   if(body.max_tokens) o.max_tokens=body.max_tokens;   // 留空就不传＝不限制
   if(o.stream) o.stream_options={include_usage:true};   // 让流式响应带 token 用量
   if(body.temperature!=null) o.temperature=body.temperature;
+  /* OpenAI 格式没有 cache_control（缓存是服务器自动的），但能给个稳定路由键，
+     让多节点服务每次把你转到同一台、自动缓存更容易命中。等同 Anthropic 的 metadata.user_id。
+     user 是通用老字段、prompt_cache_key 是专管缓存路由的新字段，不支持的服务会直接忽略 */
+  const uid=cacheUserId();
+  o.user=uid; o.prompt_cache_key=uid;
   return o;
 }
 
