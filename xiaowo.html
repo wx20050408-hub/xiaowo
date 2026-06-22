@@ -3899,7 +3899,12 @@ const fmtTok=n=>n==null?'?':n>=10000?Math.round(n/1000)+'k':n>=1000?(n/1000).toF
 function statsEl(s){
   const d=document.createElement('div');
   d.className='msgStats';
-  d.textContent=`↑${fmtTok(s.in)}${s.cached?`(缓存${fmtTok(s.cached)})`:''} ↓${fmtTok(s.out)} · ${s.secs}s`;
+  /* 缓存命中一眼可见：绿点＝这站在好好缓存、省着钱；灰杠＝这条没吃到缓存
+     （新对话头一两条没命中是正常的；要是同一个角色连聊好多条都一直灰杠，多半是这个中转站不认缓存） */
+  const cache=s.cached>0
+    ? `<b style="color:#3aa76d">🟢缓存省${fmtTok(s.cached)}</b>`
+    : `<span style="color:var(--ink-soft);opacity:.65">⚪缓存—</span>`;
+  d.innerHTML=`↑${fmtTok(s.in)} ↓${fmtTok(s.out)} · ${cache} · ${s.secs}s`;
   return d;
 }
 
