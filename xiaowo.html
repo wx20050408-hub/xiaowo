@@ -144,6 +144,13 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .msg .who{font-size:11px;color:var(--ink-soft);margin:0 6px 4px}
 .typingDot{display:inline-block;animation:blink 1s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
+/* TA「正在输入」的三个跳动小点 */
+.typing{display:inline-flex;gap:4px;align-items:center;padding:3px 1px}
+.typing .tdot{width:7px;height:7px;border-radius:50%;background:var(--ink-soft);opacity:.5;animation:tbounce 1.25s ease-in-out infinite}
+.typing .tdot:nth-child(2){animation-delay:.16s}
+.typing .tdot:nth-child(3){animation-delay:.32s}
+@keyframes tbounce{0%,65%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:.95}}
+@media (prefers-reduced-motion:reduce){.typing .tdot{animation:none;opacity:.6}}
 
 /* 思考链折叠块 */
 .thinkBlock{
@@ -4007,10 +4014,12 @@ async function callStream(api,body,bub,area,out){
   }finally{ clearTimeout(stall); }
 }
 
+/* TA「正在输入」的三个跳动小点（线上线下、等第一个字时都用它） */
+const TYPING='<span class="typing"><i class="tdot"></i><i class="tdot"></i><i class="tdot"></i></span>';
 /* 跑一条回复（单聊一条 / 群聊每个成员一条），返回 false 表示中断或出错 */
 async function runReply(c,api,body,ch){
   const area=$('msgArea');
-  const holder=bubbleEl('assistant','<span class="typingDot">…</span>','',ch);
+  const holder=bubbleEl('assistant',TYPING,'',ch);
   area.appendChild(holder); area.scrollTop=area.scrollHeight;
   const bub=holder.querySelector('.bubble');
   const out={acc:''};
@@ -4033,7 +4042,7 @@ async function runReply(c,api,body,ch){
         popped.push(el);
       }
       const tk=thinks.length?thinks.map(t=>thinkHtml(t.text,t.closed)).join(''):'';
-      bub.innerHTML=(tk+(liveLine?fmt(liveLine):''))||'<span class="typingDot">…</span>';
+      bub.innerHTML=(tk+(liveLine?fmt(liveLine):''))||TYPING;
       wireThink(holder);
     };
   }
@@ -4111,7 +4120,7 @@ async function runReply(c,api,body,ch){
   try{
     /* 线上模式：先「正在输入…」一会儿，更像真人 */
     if(isOnline){
-      bub.innerHTML='<span class="typingDot">正在输入…</span>';
+      bub.innerHTML=TYPING;
       $('headerSub').textContent=(ch?.name||'')+' · 正在输入…';
       await new Promise(r=>setTimeout(r,600+Math.random()*1400));
     }
