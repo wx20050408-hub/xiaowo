@@ -1338,8 +1338,12 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div class="sheet">
     <div class="sheetTitle">角色<button class="close" data-close="charSheet">✕</button></div>
     <div id="charList"></div>
-    <button class="ghostBtn" id="addChar">＋ 新角色</button>
-    <div class="hintText">点选一个角色后，新开的对话会用他的设定当系统提示词。</div>
+    <div style="display:flex;gap:8px">
+      <button class="ghostBtn" id="addChar" style="flex:1">＋ 新角色</button>
+      <button class="ghostBtn" id="importChar" style="flex:1">📥 导入角色卡</button>
+    </div>
+    <input type="file" id="cardFile" accept=".json,.png,image/png,application/json" style="display:none">
+    <div class="hintText">点选一个角色后，新开的对话会用他的设定当系统提示词。导入支持酒馆角色卡（.json 或带数据的 .png），导入后会打开编辑页给你过目。</div>
   </div>
 </div>
 
@@ -1366,6 +1370,10 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <input type="file" id="bgFile" accept="image/*" style="display:none">
     </div>
     <div class="field"><label>人设 / 系统提示词</label><textarea id="cePrompt" placeholder="把他的设定贴在这里…"></textarea></div>
+    <div class="field"><label>「我」的人设（你在TA面前扮演谁）</label>
+      <textarea id="ceMyPersona" style="min-height:70px" placeholder="留空＝就是你自己。想换个身份玩就写在这里，比如：我叫沈洲，26岁，TA的私人医生，话少但护短…"></textarea>
+      <div class="hintText">只在跟这个角色聊天时生效，会作为「{{user}}是谁」拼进人设一起发给 API。这样玩不同角色就能扮不同的「我」，互不串戏。留空就用全局名字（设置里的「我的名字」）。</div>
+    </div>
     <div class="field"><label>补充设定（可单独开关，思考链格式这类要求放这里）</label>
       <textarea id="ceExtra" style="min-height:70px" placeholder="比如：回复前先输出思考过程…"></textarea>
       <div class="modeTabs" style="margin-top:8px">
@@ -1413,6 +1421,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       </div>
     </div>
     <button class="primaryBtn" id="saveChar">保存</button>
+    <button class="ghostBtn" id="exportChar" style="display:none">📤 导出这个角色（json，可分享/备份）</button>
     <button class="ghostBtn" id="delChar" style="color:var(--danger);display:none">删除这个角色</button>
   </div>
 </div>
@@ -1515,6 +1524,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <button id="expTxt" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">txt</button>
       <button id="expHtml" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">网页</button>
     </div>
+    <button class="boxRow" id="readBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">一起读 · 共读批注</span></button>
     <button class="boxRow" id="memBtn" style="width:100%"><span class="ic">🧠</span><span class="grow" style="text-align:left">记忆</span></button>
     <button class="boxRow" id="wbBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">世界书</span></button>
     <button class="boxRow" id="presetBtn" style="width:100%"><span class="ic">🎛️</span><span class="grow" style="text-align:left">预设</span></button>
@@ -1671,7 +1681,50 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div id="memList"></div>
     <div class="field"><label>添加 / 点上面某条来编辑</label><textarea id="memText" style="min-height:70px" placeholder="比如：用户养了一只叫汤圆的猫"></textarea></div>
     <button class="primaryBtn" id="saveMem">添加</button>
-    <div class="hintText">记忆会拼进这个角色的系统提示词，跨对话生效。聊天里点任意一条消息也可以「记进记忆」。</div>
+    <button class="ghostBtn" id="tidyMem">🧹 整理记忆（合并重复 · 精简啰嗦）</button>
+    <div class="hintText">记忆会拼进这个角色的系统提示词，跨对话生效。聊天里点任意一条消息也可以「记进记忆」。点 ⭐ 把重要的设成「核心」：永远排最前、一直带着，TA 也删不掉，只有你能取消。<br>记忆攒多了点「🧹整理」：让 TA 把重复/过时/啰嗦的合并精简，⭐核心不动，整理完先给你过目、确认了才替换（会用一次额度）。</div>
+  </div>
+</div>
+
+<!-- 一起读：共读列表 -->
+<div class="sheetScrim" id="readSheet">
+  <div class="sheet">
+    <div class="sheetTitle">一起读<button class="close" data-close="readSheet">✕</button></div>
+    <div id="readList"></div>
+    <button class="primaryBtn" id="readNewBtn">＋ 开始新共读</button>
+    <div class="hintText">挑一段文字（诗、书摘、文章都行）和 TA 一起读。TA 会在打动它的句子旁写下旁批，你点任意一句也能写下自己的想法、或问问 TA。一行一句最好看。</div>
+  </div>
+</div>
+
+<!-- 一起读：开始新共读 -->
+<div class="sheetScrim" id="readNewSheet">
+  <div class="sheet">
+    <div class="sheetTitle">开始新共读<button class="close" data-close="readNewSheet">✕</button></div>
+    <div class="field"><label>和谁一起读</label><select id="readChar"></select></div>
+    <div class="field"><label>标题（可留空，默认取第一句）</label><input id="readTitle" placeholder="比如：海子的诗"></div>
+    <div class="field"><label>要一起读的文字</label><textarea id="readText" style="min-height:160px" placeholder="把诗 / 书摘 / 文章段落贴进来…一行一句最好看"></textarea></div>
+    <button class="primaryBtn" id="readStart">开始共读（TA 先读一遍、写旁批）</button>
+  </div>
+</div>
+
+<!-- 一起读：共读批注页 -->
+<div class="sheetScrim" id="readViewSheet">
+  <div class="sheet" style="max-height:92vh;display:flex;flex-direction:column">
+    <div class="sheetTitle" id="readViewTitle">一起读<button class="close" data-close="readViewSheet">✕</button></div>
+    <div id="readViewSub" class="hintText" style="margin-top:-2px"></div>
+    <div id="readBody" style="flex:1;overflow:auto;padding:4px 2px;font-size:15px"></div>
+    <div id="readComposer" style="display:none;border-top:1px solid var(--line);padding-top:8px;margin-top:6px">
+      <div id="readTarget" class="hintText" style="margin-bottom:6px"></div>
+      <textarea id="readMyText" style="min-height:50px" placeholder="写下你对这句的想法，或问问 TA…"></textarea>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="ghostBtn" id="readSaveThought" style="flex:1;margin:0">✍️ 记我的想法</button>
+        <button class="primaryBtn" id="readAskTa" style="flex:1;margin:0">💬 问问 TA</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="ghostBtn" id="readMoreNotes" style="flex:1;margin:0">🖋 让 TA 再多批几句</button>
+      <button class="ghostBtn" id="readDel" style="color:var(--danger);flex:0 0 auto;margin:0">删掉</button>
+    </div>
   </div>
 </div>
 
@@ -1976,7 +2029,8 @@ worldbook=migrateWb(worldbook);
 let presets = load('xw_presets', []);       // {id,name,prompt,temperature,maxTokens}
 let selPresetId = load('xw_selpreset', null);
 if(selPresetId && !presets.some(p=>p.id===selPresetId)) selPresetId=null;
-let memories = load('xw_memories', []);     // {id,charId,text}
+let memories = load('xw_memories', []);     // {id,charId,text,core?}
+let reads = load('xw_reads', []);           // 一起读：{id,charId,title,paras:[str],notes:[{para,by:'ta'|'me',text,ts}],ts,updated}
 let moments = load('xw_moments', []);       // {id,charId|null,text,ts,likes:[by],comments:[{by,text,ts}]}  by='me' 或角色id
 let annivs = load('xw_annivs', []);         // {id,charId,name,date:'YYYY-MM-DD',last:'已庆祝的日期'}
 let wishes = load('xw_wishes', []);         // {id,charId,text,done,ts} 一起想做的事/心愿单
@@ -2199,6 +2253,7 @@ const persistAll = ()=>{
   save('xw_current',currentId); save('xw_selchar',selCharId); save('xw_settings',settings);
   save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook);
   save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories);
+  save('xw_reads',reads);
   save('xw_moments',moments); save('xw_annivs',annivs); save('xw_injections',injections);
   save('xw_wishes',wishes);
   save('xw_diaries',diaries); save('xw_cal_notes',calNotes); save('xw_periods',periods);
@@ -2888,10 +2943,14 @@ function charSoloChats(charId){ return chats.filter(c=>!(c.members&&c.members.le
 function allMsgsOf(charId){ const out=[]; for(const c of charSoloChats(charId)) for(const m of (c.messages||[])) out.push(m); return out; }
 function charStats(charId){
   const dset=new Set(); let last=0,total=0,me=0,ta=0;
-  for(const m of allMsgsOf(charId)){
-    if(m.ts){ dset.add(new Date(m.ts).toDateString()); if(m.ts>last) last=m.ts; }
-    if(m.role==='user') { total++; me++; }
-    else if(m.role==='assistant') { total++; ta++; }
+  const seed=t=>{ if(t){ dset.add(new Date(t).toDateString()); if(t>last) last=t; } };
+  for(const c of charSoloChats(charId)){
+    seed(c.ts);                       // 对话创建那天也算「聊过的一天」，老消息没 ts 也兜得住
+    for(const m of (c.messages||[])){
+      seed(m.ts);
+      if(m.role==='user') { total++; me++; }
+      else if(m.role==='assistant') { total++; ta++; }
+    }
   }
   return {days:dset.size,away:last?Math.floor((Date.now()-last)/86400000):0,total,me,ta,last};
 }
@@ -3461,6 +3520,7 @@ const memNote=()=>`【记忆本】你有一本只关于${userName()}的记忆本
 · 记新的：<记住>一句话概括</记住>——得知重要新信息（喜好、习惯、约定、近况）时写，可写多条。
 · 改旧的：<改记忆 N>新的一句话</改记忆>——某条记忆过时或当初记错了，用它的编号 N 覆盖成新内容。
 · 删掉的：<忘记 N>——某条记忆不再成立或本就不该记，用编号 N 把它删掉。
+标⭐的是核心记忆（${userName()}亲手钉住的），无论如何都不要用<忘记>删它；内容若过时可以用<改记忆>更新，但绝不能删。
 没有要记/改/删的就什么都别写。编号一律以本次【记忆】里显示的为准。`;
 
 /* 角色的补充设定：按开关和线上/线下状态决定要不要拼进人设 */
@@ -3483,6 +3543,12 @@ function charScope(ch){
 }
 /* 某条世界书对这个角色生效吗 */
 const wbActive=(bk,sc)=> sc.wbIds!==null ? sc.wbIds.includes(bk.id) : (bk.on!==false);
+/* 一个角色的记忆：核心(⭐)排最前、其余保持原顺序（稳定排序）。
+   注入提示词、TA 用编号改记忆、记忆管理界面都走这一套，#N 才对得齐 */
+function charMems(charId){
+  return memories.filter(m=>m.charId===charId)
+                 .sort((a,b)=>(b.core?1:0)-(a.core?1:0));
+}
 /* 静态系统提示词 = 人设 + 群聊须知 + 记忆 + 前情提要 + 常驻世界书 + 预设 */
 function injActive(pos,ch){
   const sc=charScope(ch);
@@ -3497,6 +3563,8 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   const slow=[],fast=[];
   for(const i of injActive('sys_start',ch)) slow.push(i.content);
   if(personaPrompt && personaPrompt.trim()) slow.push(personaPrompt);
+  if(ch?.myPersona && ch.myPersona.trim())
+    slow.push('【{{user}}是谁】你对话的对象（也就是{{user}}）扮演的是这个人，请始终把{{user}}当作TA来对待：\n'+ch.myPersona.trim());
   const always=[];
   for(const bk of worldbook){
     if(!wbActive(bk,sc)) continue;
@@ -3506,8 +3574,8 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   if(always.length) slow.push('【世界设定】\n'+always.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
   if(preset && preset.prompt.trim()) slow.push(preset.prompt);
   if(groupNote) fast.push(groupNote);
-  const mems=memories.filter(m=>m.charId===ch?.id);
-  if(mems.length) fast.push('【记忆】关于用户，你记得这些事（每条前面的 #编号 用来修改或删除它）：\n'+mems.map((m,i)=>`#${i+1} ${m.text}`).join('\n'));
+  const mems=charMems(ch?.id);
+  if(mems.length) fast.push('【记忆】关于用户，你记得这些事（每条前面的 #编号 用来修改或删除它；标⭐的是核心记忆，格外重要、要一直记牢，绝不能删）：\n'+mems.map((m,i)=>`#${i+1} ${m.core?'⭐ ':''}${m.text}`).join('\n'));
   const ans=annivs.filter(a=>a.charId===ch?.id);
   if(ans.length) fast.push('【纪念日】对你们很重要的日子，你一直记得：\n'+ans.map(a=>`- ${a.name}：${a.date}`).join('\n'));
   const wl=wishes.filter(w=>w.charId===ch?.id);
@@ -3969,11 +4037,11 @@ async function runReply(c,api,body,ch){
        N 以本轮注入【记忆】里显示的编号为准。先按快照把编号解析成具体记忆，再统一改，
        这样同一条回复里又删又改也不会因为编号错位而误伤 */
     if(/<(?:记住|改记忆|忘记)/.test(out.acc)){
-      const myMems=memories.filter(m=>m.charId===ch?.id);   // 快照：#N → myMems[N-1]
+      const myMems=charMems(ch?.id);   // 快照：#N → myMems[N-1]（和注入同一套排序，核心在前）
       let added=0,edited=0,forgot=0; const delIds=new Set();
       out.acc=out.acc
-        .replace(/<忘记\s*[:：]?\s*(\d+)\s*>(?:\s*<\/忘记>)?/g,(_,k)=>{      // 删
-          const m=myMems[(+k)-1]; if(m&&!delIds.has(m.id)){ delIds.add(m.id); forgot++; } return '';
+        .replace(/<忘记\s*[:：]?\s*(\d+)\s*>(?:\s*<\/忘记>)?/g,(_,k)=>{      // 删（核心记忆⭐不让删）
+          const m=myMems[(+k)-1]; if(m&&!m.core&&!delIds.has(m.id)){ delIds.add(m.id); forgot++; } return '';
         })
         .replace(/<改记忆\s*[:：]?\s*(\d+)\s*>([\s\S]*?)<\/改记忆>/g,(_,k,t)=>{ // 改
           t=t.trim(); const m=myMems[(+k)-1]; if(m&&t){ m.text=t.slice(0,200); edited++; } return '';
@@ -5283,6 +5351,273 @@ function renderChars(){
   });
 }
 $('addChar').onclick=()=>openCharEdit(null);
+
+/* ===== 导入角色卡（酒馆 .json / .png，V1/V2/V3）===== */
+function b64ToUtf8(b64){
+  const bin=atob(b64.trim());
+  const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
+}
+/* 从 PNG 的 tEXt/iTXt 块里掏出角色数据（chara / ccv3，base64 后是 JSON） */
+function pngCharaJson(buf){
+  const dv=new DataView(buf), bytes=new Uint8Array(buf);
+  // 校验 PNG 头
+  const sig=[137,80,78,71,13,10,26,10];
+  for(let i=0;i<8;i++) if(bytes[i]!==sig[i]) throw new Error('不是有效的 PNG');
+  const ascii=(a,s,e)=>{ let r=''; for(let i=s;i<e;i++) r+=String.fromCharCode(a[i]); return r; };
+  const found={};
+  let off=8;
+  while(off+8<=buf.byteLength){
+    const len=dv.getUint32(off); off+=4;
+    const type=ascii(bytes,off,off+4); off+=4;
+    const dStart=off, dEnd=off+len;
+    if(type==='tEXt'){
+      let z=dStart; while(z<dEnd&&bytes[z]!==0) z++;
+      const kw=ascii(bytes,dStart,z);
+      const text=ascii(bytes,z+1,dEnd);              // base64 是纯 ASCII，直接拼
+      if(!found[kw]) found[kw]=text;
+    }else if(type==='iTXt'){
+      let p=dStart, z=p; while(z<dEnd&&bytes[z]!==0) z++;
+      const kw=ascii(bytes,p,z);
+      const compFlag=bytes[z+1];
+      p=z+2;                                          // 跳过 compFlag + compMethod
+      let q=p; while(q<dEnd&&bytes[q]!==0) q++;       // languageTag
+      q++; let w=q; while(w<dEnd&&bytes[w]!==0) w++;  // translatedKeyword
+      const textStart=w+1;
+      if(compFlag===0 && !found[kw]) found[kw]=ascii(bytes,textStart,dEnd);
+    }
+    off=dEnd+4;                                       // 跳过 CRC
+    if(type==='IEND') break;
+  }
+  const raw=found['ccv3']||found['chara'];
+  if(!raw) throw new Error('这张 PNG 里没有角色卡数据');
+  return JSON.parse(b64ToUtf8(raw));
+}
+/* 角色卡 → 小窝角色草稿（兼容 V1 平铺 / V2、V3 的 data 嵌套） */
+function cardToChar(j){
+  const d=(j&&j.data&&typeof j.data==='object')?j.data:j;
+  const name=String(d.name||d.char_name||'').trim()||'导入的角色';
+  const parts=[];
+  if((d.system_prompt||'').trim()) parts.push(d.system_prompt.trim());
+  if((d.description||'').trim()) parts.push(d.description.trim());
+  if((d.personality||'').trim()) parts.push('【性格】\n'+d.personality.trim());
+  if((d.scenario||'').trim()) parts.push('【场景设定】\n'+d.scenario.trim());
+  if((d.mes_example||'').trim()) parts.push('【对话示例】\n'+d.mes_example.trim());
+  if((d.first_mes||'').trim()) parts.push('【开场白】（TA 第一句话的风格参考）\n'+d.first_mes.trim());
+  return { name, prompt:parts.join('\n\n') };
+}
+$('importChar').onclick=()=>$('cardFile').click();
+$('cardFile').onchange=async e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  try{
+    const isPng=/\.png$/i.test(f.name)||f.type==='image/png';
+    let card, avatar=null;
+    if(isPng){
+      card=pngCharaJson(await f.arrayBuffer());
+      try{ avatar=await compressAvatar(f); }catch(_){}   // 把卡面当头像，失败就算了
+    }else{
+      card=JSON.parse(await f.text());
+    }
+    const draft=cardToChar(card);
+    const nc={ id:'c'+Date.now(), name:draft.name, emoji:'☺', prompt:draft.prompt, avatar };
+    // 小窝自己导出的卡：把扩展字段（头像/「我」的人设/各种开关）原样还原回来
+    const ext=(card&&card.data&&card.data.extensions&&card.data.extensions.xiaowo)||card.xiaowo||null;
+    if(ext&&typeof ext==='object'){
+      ['emoji','bg','myPersona','extra','extraMode','temp','ctxOn','ctxN','online','proactive','autoMem','model','treeStyle','treeColor'].forEach(k=>{ if(ext[k]!==undefined) nc[k]=ext[k]; });
+      if(!avatar && ext.avatar) nc.avatar=ext.avatar;
+    }
+    characters.push(nc); selCharId=nc.id;
+    persistAll(); renderChars();
+    openCharEdit(nc);                                   // 打开编辑页让她过目/微调
+    toast('导入好啦，确认一下就保存');
+  }catch(err){
+    toast('读不了这张卡：'+(err.message||'格式不对'));
+  }
+};
+/* 导出角色卡：V2 通用格式（别的酒馆 app 也能读），小窝专属字段塞进 extensions.xiaowo */
+function charToCardJson(ch){
+  const x={};
+  ['emoji','avatar','bg','myPersona','extra','extraMode','temp','ctxOn','ctxN','online','proactive','autoMem','model','treeStyle','treeColor']
+    .forEach(k=>{ if(ch[k]!==undefined && ch[k]!==null && ch[k]!=='') x[k]=ch[k]; });
+  return {
+    spec:'chara_card_v2', spec_version:'2.0',
+    data:{
+      name:ch.name||'', description:ch.prompt||'',
+      personality:'', scenario:'', first_mes:'', mes_example:'',
+      creator_notes:'由小窝导出', tags:['小窝'],
+      extensions:{ xiaowo:x }
+    }
+  };
+}
+$('exportChar').onclick=()=>{
+  if(!editingChar){ toast('先存一下这个角色再导出'); return; }
+  const blob=new Blob([JSON.stringify(charToCardJson(editingChar),null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`角色-${(editingChar.name||'未命名').replace(/[\\/:*?"<>|]/g,'_')}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('角色导出好啦，可以发朋友或自己留底～');
+};
+
+/* ================= 一起读 · 共读批注 ================= */
+let curReadId=null, readSelPara=null;
+function splitParas(text){
+  return text.replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(s=>s.length>0).slice(0,200);
+}
+/* 把模型回的旁批解析成 [{para,by:'ta',text,ts}]，优先 JSON，兜底解析「3: xxx」 */
+function parseReadNotes(out,max){
+  if(!out) return [];
+  const notes=[];
+  let arr=null; const m=out.match(/\[[\s\S]*\]/);
+  if(m){ try{ arr=JSON.parse(m[0]); }catch(_){} }
+  if(Array.isArray(arr)){
+    for(const o of arr){
+      const n=parseInt(o.n??o.idx??o.line??o.no,10);
+      const t=String(o.note??o.text??'').trim();
+      if(n>=1&&n<=max&&t) notes.push({para:n-1,by:'ta',text:t.slice(0,160),ts:Date.now()});
+    }
+  }
+  if(!notes.length){
+    out.split('\n').forEach(line=>{
+      const mm=line.match(/^\s*\[?(\d+)\]?\s*[:：.、)）]\s*(.+)$/);
+      if(mm){ const n=+mm[1], t=mm[2].trim(); if(n>=1&&n<=max&&t) notes.push({para:n-1,by:'ta',text:t.slice(0,160),ts:Date.now()}); }
+    });
+  }
+  // 同一句去重
+  const seen=new Set();
+  return notes.filter(n=>{ const k=n.para+'|'+n.text; if(seen.has(k))return false; seen.add(k); return true; });
+}
+async function genReadNotes(r,ch){
+  const api=apiForChar(ch); if(!api) return [];
+  const numbered=r.paras.map((p,i)=>`[${i+1}] ${p}`).join('\n');
+  const sys=`你和「${userName()}」正窝在一起读同一段文字，你是${ch.name}。`
+    +(ch.prompt&&ch.prompt.trim()?`\n你的设定：\n${ch.prompt.trim()}\n`:'')
+    +`\n请像在书页空白处写旁批一样，挑出最打动你、或让你想起${userName()}的 3~6 句，各写一句简短旁批：口语、亲昵、有温度，像情话或心里话，别复述原文、别长篇大论。`;
+  const user=`下面每段前面有编号。只输出 JSON 数组，形如 [{"n":3,"note":"这句像你"},{"n":7,"note":"想和你一起看"}]，不要任何额外文字：\n\n${numbered}`;
+  const out=await quickGen(api,applyVars(sys,ch),user,800,(ch.model||'').trim()||undefined);
+  return parseReadNotes(out,r.paras.length);
+}
+async function askTaAboutPara(r,ch,idx,myText){
+  const api=apiForChar(ch); if(!api) return null;
+  const sys=`你和「${userName()}」正一起读一段文字，你是${ch.name}。`
+    +(ch.prompt&&ch.prompt.trim()?`\n你的设定：\n${ch.prompt.trim()}\n`:'')
+    +`\n${userName()}指着其中一句和你说话。就这一句、用你的口吻温柔回应，一两句话，别复述原文。`;
+  const user=`这句是：「${r.paras[idx]}」\n\n${userName()}说：${myText}`;
+  return await quickGen(api,applyVars(sys,ch),user,300,(ch.model||'').trim()||undefined);
+}
+$('readBtn').onclick=()=>{
+  if(!characters.length){ toast('先去「角色」里建个角色吧'); return; }
+  renderReadList(); openSheet('readSheet');
+};
+function renderReadList(){
+  const list=$('readList'); list.innerHTML='';
+  if(!reads.length){ list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:14px 0">还没有共读，点下面开始第一段吧 📖</div>'; return; }
+  reads.forEach(r=>{
+    const ch=characters.find(c=>c.id===r.charId);
+    const taN=r.notes.filter(n=>n.by==='ta').length, meN=r.notes.filter(n=>n.by==='me').length;
+    const it=document.createElement('div'); it.className='keyItem';
+    it.innerHTML=`<div class="keyInfo"><div class="keyPreview" style="white-space:normal"><b>${esc(r.title)}</b><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">和 ${esc(ch?.name||'TA')} · ${r.paras.length}句 · TA批${taN}·我${meN}</div></div></div><button class="delKey">✕</button>`;
+    it.onclick=ev=>{ if(ev.target.classList.contains('delKey')) return; openRead(r.id); };
+    it.querySelector('.delKey').onclick=()=>{ reads=reads.filter(x=>x.id!==r.id); persistAll(); renderReadList(); };
+    list.appendChild(it);
+  });
+}
+$('readNewBtn').onclick=()=>{
+  $('readChar').innerHTML=characters.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  const cur=curChar(curChat()); if(cur) $('readChar').value=cur.id;
+  $('readTitle').value=''; $('readText').value='';
+  openSheet('readNewSheet');
+};
+$('readStart').onclick=async()=>{
+  const cid=$('readChar').value, ch=characters.find(c=>c.id===cid);
+  if(!ch){ toast('先选个角色'); return; }
+  const paras=splitParas($('readText').value);
+  if(!paras.length){ toast('先贴段文字呀'); return; }
+  const api=apiForChar(ch); if(!api) return;
+  const r={id:'rd'+Date.now(),charId:cid,title:$('readTitle').value.trim()||paras[0].slice(0,16),paras,notes:[],ts:Date.now(),updated:Date.now()};
+  const btn=$('readStart'), old=btn.textContent; btn.disabled=true; btn.textContent='TA 在读…🖋';
+  try{ r.notes=await genReadNotes(r,ch); }catch(e){}
+  finally{ btn.disabled=false; btn.textContent=old; }
+  reads.unshift(r); persistAll();
+  closeSheet('readNewSheet'); renderReadList(); openRead(r.id);
+  if(!r.notes.length) toast('开始共读～点任意一句也能写想法 / 问 TA');
+};
+function openRead(id){
+  const r=reads.find(x=>x.id===id); if(!r) return;
+  curReadId=id; readSelPara=null;
+  const ch=characters.find(c=>c.id===r.charId);
+  $('readViewTitle').childNodes[0].textContent=r.title||'一起读';
+  $('readViewSub').textContent='和 '+(ch?.name||'TA')+' 一起读 · 点任意一句写想法/问TA';
+  $('readComposer').style.display='none';
+  renderReadView(); openSheet('readViewSheet');
+  $('readBody').scrollTop=0;
+}
+function renderReadView(){
+  const r=reads.find(x=>x.id===curReadId); if(!r) return;
+  const ch=characters.find(c=>c.id===r.charId), cn=ch?.name||'TA';
+  const box=$('readBody'); box.innerHTML='';
+  r.paras.forEach((p,i)=>{
+    const notes=r.notes.filter(n=>n.para===i), sel=i===readSelPara;
+    const wrap=document.createElement('div');
+    wrap.style.cssText=`padding:9px 11px;border-radius:10px;margin-bottom:5px;cursor:pointer;line-height:1.85;border:1px solid ${sel?'var(--accent)':(notes.length?'var(--line)':'transparent')};background:${(notes.length||sel)?'var(--bg-soft)':'transparent'}`;
+    let html=`<div>${esc(p)}</div>`;
+    notes.forEach(n=>{
+      const isTa=n.by==='ta';
+      html+=`<div style="margin-top:6px;font-size:13px;line-height:1.5;padding:5px 9px;border-radius:0 8px 8px 0;border-left:3px solid ${isTa?'var(--accent)':'var(--ink-soft)'};color:${isTa?'var(--accent-deep)':'var(--ink)'};background:var(--card)"><b>${isTa?esc(cn):'我'}</b>　${esc(n.text)}</div>`;
+    });
+    wrap.innerHTML=html;
+    wrap.onclick=()=>selectPara(i);
+    box.appendChild(wrap);
+  });
+}
+function selectPara(i){
+  const r=reads.find(x=>x.id===curReadId); if(!r) return;
+  readSelPara=i;
+  $('readTarget').textContent='这句：'+r.paras[i].slice(0,40)+(r.paras[i].length>40?'…':'');
+  $('readMyText').value='';
+  $('readComposer').style.display='block';
+  renderReadView();
+  $('readMyText').focus();
+}
+$('readSaveThought').onclick=()=>{
+  const r=reads.find(x=>x.id===curReadId); if(!r||readSelPara==null) return;
+  const t=$('readMyText').value.trim(); if(!t){ toast('写点什么呀'); return; }
+  r.notes.push({para:readSelPara,by:'me',text:t.slice(0,300),ts:Date.now()}); r.updated=Date.now();
+  $('readMyText').value=''; persistAll(); renderReadView(); toast('记下啦 ✍️');
+};
+$('readAskTa').onclick=async()=>{
+  const r=reads.find(x=>x.id===curReadId); if(!r||readSelPara==null){ toast('先点一句'); return; }
+  const ch=characters.find(c=>c.id===r.charId); if(!ch){ toast('角色不见了'); return; }
+  const t=$('readMyText').value.trim();
+  const btn=$('readAskTa'), old=btn.textContent; btn.disabled=true; btn.textContent='TA 在想…';
+  if(t){ r.notes.push({para:readSelPara,by:'me',text:t.slice(0,300),ts:Date.now()}); renderReadView(); }
+  try{
+    const reply=await askTaAboutPara(r,ch,readSelPara,t||'（指了指这句，没说话）');
+    if(reply){ r.notes.push({para:readSelPara,by:'ta',text:reply.slice(0,300),ts:Date.now()}); r.updated=Date.now(); }
+    else toast('TA 没接上话，待会再问问');
+    $('readMyText').value=''; persistAll(); renderReadView();
+  }catch(e){ toast('出错了：'+(e.message||'')); }
+  finally{ btn.disabled=false; btn.textContent=old; }
+};
+$('readMoreNotes').onclick=async()=>{
+  const r=reads.find(x=>x.id===curReadId); if(!r) return;
+  const ch=characters.find(c=>c.id===r.charId); if(!ch){ toast('角色不见了'); return; }
+  const btn=$('readMoreNotes'), old=btn.textContent; btn.disabled=true; btn.textContent='TA 在读…🖋';
+  try{
+    const notes=await genReadNotes(r,ch); let add=0;
+    notes.forEach(n=>{ if(!r.notes.some(x=>x.by==='ta'&&x.para===n.para&&x.text===n.text)){ r.notes.push(n); add++; } });
+    r.updated=Date.now(); persistAll(); renderReadView();
+    toast(add?`TA 又批了 ${add} 句`:'TA 觉得该说的都说啦');
+  }catch(e){ toast('出错了'); }
+  finally{ btn.disabled=false; btn.textContent=old; }
+};
+$('readDel').onclick=()=>{
+  const r=reads.find(x=>x.id===curReadId); if(!r) return;
+  if(!confirm(`删掉共读「${r.title}」？`)) return;
+  reads=reads.filter(x=>x.id!==curReadId); persistAll();
+  closeSheet('readViewSheet'); renderReadList();
+};
 let ceCtxOn=false, ceOnlineOn=false;
 $('ceCtxToggle').onclick=()=>{
   ceCtxOn=!ceCtxOn;
@@ -5348,6 +5683,7 @@ function openCharEdit(ch){
   $('ceName').value=ch?ch.name:'';
   $('ceEmoji').value=ch?ch.emoji:'';
   $('cePrompt').value=ch?ch.prompt:'';
+  $('ceMyPersona').value=ch?.myPersona||'';
   $('ceExtra').value=ch?.extra||'';
   setCeExtraMode(ch?.extraMode||'off');
   $('ceTemp').value=ch&&ch.temp!=null?ch.temp:'';
@@ -5364,6 +5700,7 @@ function openCharEdit(ch){
   fillCeKey(ch);
   fillCeScope(ch);
   $('delChar').style.display=ch&&characters.length>1?'block':'none';
+  $('exportChar').style.display=ch?'block':'none';
   openSheet('charEditSheet');
 }
 /* 图片头像：方形居中裁切，压到 128px */
@@ -5428,6 +5765,7 @@ $('saveChar').onclick=()=>{
   const extra={
     avatar:editingAvatar,
     bg:editingBg,
+    myPersona:$('ceMyPersona').value,
     extra:$('ceExtra').value,
     extraMode:ceExtraMode,
     temp: t===''?null:Math.min(2,Math.max(0,Number(t))),
@@ -5769,7 +6107,7 @@ $('memChar').onchange=()=>{ resetMemForm(); renderMems(); };
 function renderMems(){
   const list=$('memList'); list.innerHTML='';
   const cid=$('memChar').value;
-  const items=memories.filter(m=>m.charId===cid);
+  const items=charMems(cid);
   if(!items.length){
     list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:14px 0">还没有记忆</div>';
     return;
@@ -5777,12 +6115,13 @@ function renderMems(){
   items.forEach((m,i)=>{
     const it=document.createElement('div');
     it.className='keyItem'+(m.id===editingMemId?' sel':'');
-    it.innerHTML=`<div class="keyInfo"><div class="keyPreview" style="white-space:normal"><b style="color:var(--accent-deep);margin-right:6px">#${i+1}</b>${esc(m.text)}</div></div><button class="delKey">✕</button>`;
+    it.innerHTML=`<div class="keyInfo"><div class="keyPreview" style="white-space:normal"><b style="color:var(--accent-deep);margin-right:6px">#${i+1}</b>${m.core?'⭐ ':''}${esc(m.text)}</div></div><button class="starMem" title="${m.core?'取消核心':'设为核心（置顶·永不删）'}" style="background:none;border:none;font-size:15px;cursor:pointer;padding:0 6px;opacity:${m.core?1:.28}">⭐</button><button class="delKey">✕</button>`;
     it.onclick=ev=>{
-      if(ev.target.classList.contains('delKey')) return;
+      if(ev.target.classList.contains('delKey')||ev.target.classList.contains('starMem')) return;
       editingMemId=m.id; $('memText').value=m.text; $('saveMem').textContent='保存修改';
       renderMems();
     };
+    it.querySelector('.starMem').onclick=()=>{ m.core=!m.core; persistAll(); renderMems(); toast(m.core?'设为核心⭐':'取消核心'); };
     it.querySelector('.delKey').onclick=()=>{
       memories=memories.filter(x=>x.id!==m.id);
       if(editingMemId===m.id) resetMemForm();
@@ -5797,6 +6136,33 @@ $('saveMem').onclick=()=>{
   if(editingMemId){ const m=memories.find(x=>x.id===editingMemId); if(m) m.text=t; }
   else memories.push({id:'m'+Date.now(),charId:$('memChar').value,text:t});
   resetMemForm(); persistAll(); renderMems(); toast('记住啦');
+};
+/* 🧹 整理记忆：让模型把普通记忆合并精简，核心⭐不动，预览确认后才替换 */
+$('tidyMem').onclick=async()=>{
+  const cid=$('memChar').value;
+  const ch=characters.find(c=>c.id===cid); if(!ch){ toast('先选个角色'); return; }
+  const core=charMems(cid).filter(m=>m.core);
+  const normal=charMems(cid).filter(m=>!m.core);
+  if(normal.length<6){ toast('普通记忆还不多，先不用整理～'); return; }
+  const api=apiForChar(ch); if(!api) return;   // 没 Key 时 getApi 已经提示并打开设置
+  const btn=$('tidyMem'), old=btn.textContent;
+  btn.disabled=true; btn.textContent='整理中…🧹';
+  try{
+    const listStr=normal.map((m,i)=>`${i+1}. ${m.text}`).join('\n');
+    const sys=`你在帮忙整理一份关于「${userName()}」的记忆清单。要求：把语义重复的合并成一条；把啰嗦的精简成一句；把明显过时或自相矛盾的更新或删去。务必忠实——绝不能编造原文里没有的信息，宁可保守也别丢掉任何真实事实。每条一句话、简洁清楚。`;
+    const user=`下面是 ${normal.length} 条记忆，请整理后只输出最终清单：每行一条，行首不要编号、不要符号、不要任何解释或客套话。\n\n${listStr}`;
+    const out=await quickGen(api,sys,user,1500,(ch.model||'').trim()||undefined);
+    if(!out){ toast('整理没成功，待会儿再试试'); return; }
+    const lines=out.split('\n').map(s=>s.replace(/^\s*[-*#0-9.、)）]+\s*/,'').trim()).filter(s=>s.length>1).map(s=>s.slice(0,200));
+    if(!lines.length){ toast('整理结果是空的，没动你的记忆'); return; }
+    const preview=lines.slice(0,12).map(s=>'· '+s).join('\n')+(lines.length>12?'\n…还有'+(lines.length-12)+'条':'');
+    if(!confirm(`整理：普通记忆 ${normal.length} → ${lines.length} 条（⭐核心 ${core.length} 条原样保留）。\n\n用整理后的替换掉原来的普通记忆？\n\n${preview}`)) return;
+    memories=memories.filter(m=>!(m.charId===cid && !m.core));   // 删掉这个角色的普通记忆，核心留着
+    const now=Date.now();
+    lines.forEach((tx,i)=>memories.push({id:'m'+now+'_t'+i,charId:cid,text:tx}));
+    resetMemForm(); persistAll(); renderMems(); toast(`整理好啦：${normal.length} → ${lines.length} 条`);
+  }catch(e){ toast('整理出错了：'+(e.message||'')); }
+  finally{ btn.disabled=false; btn.textContent=old; }
 };
 
 /* ================= 群聊 ================= */
@@ -7078,12 +7444,13 @@ $('splashToggle').onclick=()=>{
 };
 document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined},characters,chats,worldbook,presets,selPresetId,memories,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
   a.download=`小窝备份-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
   a.click(); URL.revokeObjectURL(a.href);
+  settings.lastBackup=Date.now(); persistAll();   // 记下备份时间，用来提醒
   toast('备份不含 API Key，放心传');
 };
 $('importBtn').onclick=()=>$('importFile').click();
@@ -7095,6 +7462,7 @@ $('importFile').onchange=async e=>{
     if(data.chats) chats=data.chats;
     if(data.worldbook) worldbook=migrateWb(data.worldbook);
     if(data.memories) memories=data.memories;
+    if(data.reads) reads=data.reads;
     if(data.moments) moments=data.moments;
     if(data.annivs) annivs=data.annivs;
     if(data.wishes) wishes=data.wishes;
@@ -7178,6 +7546,12 @@ setInterval(()=>{ if(!streaming) renderHeader(); },60e3);
 {
   const tn=calNotes.filter(n=>n.date===todayStr());
   if(tn.length) setTimeout(()=>toast(`📅 今天有 ${tn.length} 条备忘：${tn[0].text.slice(0,12)}${tn.length>1||tn[0].text.length>12?'…':''}`),800);
+}
+/* 好久没备份 → 开屏温柔提醒一次（默认超 7 天；备过就从上次算） */
+{
+  const lb=settings.lastBackup||0;
+  const days=lb?Math.floor((Date.now()-lb)/86400000):9999;
+  if(days>=7) setTimeout(()=>toast(lb?`🗂️ 已经 ${days} 天没备份啦，百宝箱里导一份吧～`:'🗂️ 还没备份过哦，去百宝箱导一份，别让回忆只存一处 💛'),1800);
 }
 
 /* 从 IndexedDB 加载大数据；首次运行把 localStorage 旧数据迁移过去并腾出空间 */
