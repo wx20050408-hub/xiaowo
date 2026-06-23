@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>RikkaHub → 小窝 搬家</title>
+<title>聊天记录导入 → 小窝</title>
 <style>
   :root{
     --bg:#F7EFE6; --card:#FFFBF6; --ink:#4A3F35; --ink-soft:#9C8C7A;
@@ -50,18 +50,18 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🧳 RikkaHub → 小窝 搬家</h1>
-  <p class="sub">把 RikkaHub 导出的备份，转换成小窝能「从备份恢复」的文件。全程在你自己的浏览器里跑，不上传任何数据。</p>
+  <h1>📥 聊天记录导入 → 小窝</h1>
+  <p class="sub">把别的 AI 聊天软件导出的备份，转换成小窝能「从备份恢复」的文件。全程在你自己的浏览器里跑，不上传任何数据。</p>
 
   <div class="card">
     <div class="step">第 1 步 · 必填</div>
     <div class="drop" id="dropRikka">
       <div class="big">📦</div>
-      <div class="t">拖入 / 点击选择 RikkaHub 备份 zip</div>
-      <div class="h">就是 <code>rikkahub_backup_....zip</code>（在 RikkaHub 设置里导出）</div>
+      <div class="t">拖入 / 点击选择 聊天软件的备份文件</div>
+      <div class="h">拖进来会<b>自动识别来源</b>。目前支持 <b>RikkaHub</b>（<code>rikkahub_backup_....zip</code>）；Kelivo 等更多陆续加。</div>
       <div class="pill" id="rikkaName" style="display:none"></div>
     </div>
-    <input type="file" id="fileRikka" accept=".zip" hidden>
+    <input type="file" id="fileRikka" accept=".zip,.json,.db" hidden>
   </div>
 
   <div class="card">
@@ -133,8 +133,13 @@ $('run').onclick=async()=>{
   $('run').disabled=true; $('log').innerHTML=''; $('sum').style.display='none'; $('dl').style.display='none';
   try{
     const wantThink=$('optThink').checked, wantImg=$('optImg').checked;
-    log('读取 zip…');
+    log('读取备份…');
     const zip=await JSZip.loadAsync(rikkaFile);
+    /* 自动识别来源（以后加 Kelivo/酒馆等就在这里多判断几种） */
+    let source=null;
+    if(zip.file('rikka_hub.db')&&zip.file('settings.json')) source='rikkahub';
+    if(!source) throw new Error('没认出这是哪个软件的备份。目前支持 RikkaHub 的 zip；如果是 Kelivo 或别的，把文件发给作者就能加上支持～');
+    log('识别为：RikkaHub');
     const settingsTxt=await zip.file('settings.json').async('string');
     const settings=JSON.parse(settingsTxt);
     const assistants=settings.assistants||[];
@@ -264,7 +269,7 @@ $('run').onclick=async()=>{
     const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const d=new Date();
-    const fname=`小窝备份-从RikkaHub导入-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+    const fname=`小窝备份-聊天记录导入-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
     const a=$('dl'); a.href=url; a.download=fname; a.style.display='block';
 
     const sizeMB=(blob.size/1048576).toFixed(1);
