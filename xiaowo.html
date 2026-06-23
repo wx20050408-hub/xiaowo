@@ -7786,37 +7786,74 @@ $('importFile').onchange=async e=>{
   const f=e.target.files[0]; if(!f) return;
   try{
     const data=JSON.parse(await f.text());
-    if(data.characters) characters=data.characters;
-    if(data.chats) chats=data.chats;
-    if(data.worldbook) worldbook=migrateWb(data.worldbook);
-    if(data.memories) memories=data.memories;
-    if(data.reads) reads=data.reads;
-    if(data.moments) moments=data.moments;
-    if(data.annivs) annivs=data.annivs;
-    if(data.wishes) wishes=data.wishes;
-    if(data.injections) injections=data.injections;
-    if(data.stickers){ stickers=data.stickers; persistStickers(); }
-    if(data.diaries) diaries=data.diaries;
-    if(data.studyLog) studyLog=data.studyLog;
-    if(data.calNotes) calNotes=data.calNotes;
-    if(data.periods) periods=data.periods;
-    if(data.periodMeta) periodMeta=data.periodMeta;
-    if(data.sleepLogs) sleepLogs=data.sleepLogs;
-    if(data.photos) photos=data.photos;
-    if(data.gamesLog) gamesLog=data.gamesLog;
-    if(data.privPosts) privPosts=data.privPosts;
-    if(data.privLives) privLives=data.privLives;
-    if(data.privScenes) privScenes=data.privScenes;
-    if(data.presets){
-      presets=data.presets;
-      selPresetId=presets.some(p=>p.id===data.selPresetId)?data.selPresetId:null;
-    }
-    if(data.settings){ settings={...settings,...data.settings,apiKey:'',tavilyKey:settings.tavilyKey||''}; }
+    /* 已经有内容时，让用户选：追加合并（不丢现有）还是覆盖恢复 */
+    const hasExisting=chats.length>0||memories.length>0||characters.length>1;
+    const merge=hasExisting && confirm('要怎么导入这个备份？\n\n【确定】＝追加合并：保留你现在的角色和对话，把备份里的加进来。同名角色也各自保留，绝不覆盖（适合从别的软件搬数据、合并多个备份）。\n\n【取消】＝覆盖恢复：清空当前，整盘换成这个备份（适合换设备还原）。');
+    if(merge) mergeImport(data); else replaceImport(data);
     persistAll(); applyTheme(); applyCustomCss(); renderChat(); renderHistory(); renderChars();
-    toast('恢复好啦');
+    toast(merge?'合并好啦，原来的都还在 ✓':'恢复好啦');
   }catch(err){ toast('这个文件读不了'); }
   e.target.value='';
 };
+/* 覆盖恢复：整盘替换（换设备还原用） */
+function replaceImport(data){
+  if(data.characters) characters=data.characters;
+  if(data.chats) chats=data.chats;
+  if(data.worldbook) worldbook=migrateWb(data.worldbook);
+  if(data.memories) memories=data.memories;
+  if(data.reads) reads=data.reads;
+  if(data.moments) moments=data.moments;
+  if(data.annivs) annivs=data.annivs;
+  if(data.wishes) wishes=data.wishes;
+  if(data.injections) injections=data.injections;
+  if(data.stickers){ stickers=data.stickers; persistStickers(); }
+  if(data.diaries) diaries=data.diaries;
+  if(data.studyLog) studyLog=data.studyLog;
+  if(data.calNotes) calNotes=data.calNotes;
+  if(data.periods) periods=data.periods;
+  if(data.periodMeta) periodMeta=data.periodMeta;
+  if(data.sleepLogs) sleepLogs=data.sleepLogs;
+  if(data.photos) photos=data.photos;
+  if(data.gamesLog) gamesLog=data.gamesLog;
+  if(data.privPosts) privPosts=data.privPosts;
+  if(data.privLives) privLives=data.privLives;
+  if(data.privScenes) privScenes=data.privScenes;
+  if(data.presets){
+    presets=data.presets;
+    selPresetId=presets.some(p=>p.id===data.selPresetId)?data.selPresetId:null;
+  }
+  if(data.settings){ settings={...settings,...data.settings,apiKey:'',tavilyKey:settings.tavilyKey||''}; }
+}
+/* 追加合并：把备份里的角色/对话/记忆加进来，id 撞了就重新发一个并改好所有引用，绝不覆盖现有 */
+function mergeImport(data){
+  const newId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  const idRemap={};   // 旧 charId -> 新 charId（仅当撞车时）
+  const existChar=new Set(characters.map(c=>c.id));
+  for(const ch of (data.characters||[])){
+    let id=ch.id;
+    if(existChar.has(id)){ id=newId('impc_'); idRemap[ch.id]=id; }
+    existChar.add(id); characters.push({...ch,id});
+  }
+  const existChat=new Set(chats.map(c=>c.id));
+  for(const c of (data.chats||[])){
+    let id=c.id; if(existChat.has(id)) id=newId('impt_'); existChat.add(id);
+    const charId=idRemap[c.charId]||c.charId;
+    const members=Array.isArray(c.members)?c.members.map(m=>idRemap[m]||m):c.members;
+    const messages=(c.messages||[]).map(m=>(m.charId&&idRemap[m.charId])?{...m,charId:idRemap[m.charId]}:m);
+    chats.push({...c,id,charId,members,messages});
+  }
+  const existMem=new Set(memories.map(m=>m.id));
+  for(const m of (data.memories||[])){
+    let id=m.id; if(existMem.has(id)) id=newId('impm_'); existMem.add(id);
+    memories.push({...m,id,charId:idRemap[m.charId]||m.charId});
+  }
+  /* 世界书/预设/注入/贴纸：按 id 去重后追加（已存在的跳过，不动） */
+  const concatById=(cur,inc)=>{ const have=new Set(cur.map(x=>x.id)); for(const x of (inc||[])) if(!have.has(x.id)){ have.add(x.id); cur.push(x); } };
+  if(data.worldbook) concatById(worldbook,migrateWb(data.worldbook));
+  if(data.presets) concatById(presets,data.presets);
+  if(data.injections) concatById(injections,data.injections);
+  if(data.stickers){ concatById(stickers,data.stickers); persistStickers(); }
+}
 
 /* ================= 应用图标（可切换：默认 + 三款设计稿）================= */
 const APP_ICON_SVGS={
