@@ -447,6 +447,11 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   animation:up .25s ease both;
 }
 @keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+/* 百宝箱：全屏 + 分组（其它弹层不受影响） */
+#boxSheet .sheet{max-width:760px;height:100vh;height:100dvh;max-height:100dvh;border-radius:0;padding:0 16px calc(env(safe-area-inset-bottom) + 22px)}
+#boxSheet .sheetTitle{position:sticky;top:0;z-index:3;background:var(--bg);margin:0 -16px 6px;padding:16px 16px 12px;border-bottom:1px solid var(--line)}
+.boxSec{font-size:13px;font-weight:700;color:var(--accent-deep);margin:18px 2px 8px;padding-bottom:5px;border-bottom:1px dashed var(--line);display:flex;align-items:center;gap:6px}
+.boxSec:first-of-type{margin-top:6px}
 .sheetTitle{font-size:17px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
 .sheetTitle .close{font-size:20px;color:var(--ink-soft);padding:4px 8px}
 .field{margin-bottom:14px}
@@ -1571,6 +1576,8 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 <div class="sheetScrim" id="boxSheet">
   <div class="sheet">
     <div class="sheetTitle">百宝箱<button class="close" data-close="boxSheet">✕</button></div>
+
+    <div class="boxSec">🎨 外观</div>
     <div class="boxRow">
       <span class="ic">🎨</span><span class="grow">主题</span>
       <button class="themeDot" data-theme="cream" style="background:#F6DCC4"></button>
@@ -1603,9 +1610,15 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div class="hintText" style="margin:0 2px 6px">挑一个皮肤一键换上；也能自己调颜色和圆角。喜欢的皮肤可以「导出」成文件发给朋友，别人发你的也能「导入」。</div>
     <button class="boxRow" id="iconColorBtn" style="width:100%"><span class="ic">🖌</span><span class="grow" style="text-align:left">功能图标配色（➕ 那排）</span><span style="color:var(--ink-soft);font-size:12px">›</span></button>
     <button class="boxRow" id="cssBtn" style="width:100%"><span class="ic">🎨</span><span class="grow" style="text-align:left">高级美化（自定义 CSS）</span><span style="color:var(--ink-soft);font-size:12px">›</span></button>
+    <div class="boxRow">
+      <span class="ic">🔤</span><span class="grow" id="fontLabel">字体：默认</span>
+      <button id="fontBtn" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">导入</button>
+      <button id="fontReset" style="color:var(--ink-soft);padding:4px 8px">还原</button>
+    </div>
+    <input type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2" style="display:none">
+
+    <div class="boxSec">💬 聊天体验</div>
     <button class="boxRow" id="renderSetBtn" style="width:100%"><span class="ic">🖋</span><span class="grow" style="text-align:left">渲染设置（Markdown / 公式 / 代码块）</span><span style="color:var(--ink-soft);font-size:12px">›</span></button>
-    <button class="boxRow" id="timeBtn" style="width:100%"><span class="ic">⏳</span><span class="grow" style="text-align:left">时光机</span></button>
-    <button class="boxRow" id="sleepBtn" style="width:100%"><span class="ic">😴</span><span class="grow" style="text-align:left">睡眠记录</span></button>
     <div class="boxRow">
       <span class="ic">📊</span><span class="grow">显示 token 统计</span>
       <button class="wbToggle" id="statsToggle"></button>
@@ -1619,18 +1632,36 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <button class="wbToggle" id="streamToggle"></button>
     </div>
     <div class="boxRow">
+      <span class="ic">🌳</span><span class="grow">开屏关系树（每次打开先看你们的树，点一下进入）</span>
+      <button class="wbToggle" id="splashToggle"></button>
+    </div>
+    <button class="boxRow" id="timeBtn" style="width:100%"><span class="ic">⏳</span><span class="grow" style="text-align:left">时光机</span></button>
+
+    <div class="boxSec">📚 内容与记忆</div>
+    <button class="boxRow" id="memBtn" style="width:100%"><span class="ic">🧠</span><span class="grow" style="text-align:left">记忆</span></button>
+    <button class="boxRow" id="wbBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">世界书</span></button>
+    <button class="boxRow" id="presetBtn" style="width:100%"><span class="ic">🎛️</span><span class="grow" style="text-align:left">预设</span></button>
+    <button class="boxRow" id="injBtn" style="width:100%"><span class="ic">💉</span><span class="grow" style="text-align:left">注入</span></button>
+    <button class="boxRow" id="diaryBtn" style="width:100%"><span class="ic">📔</span><span class="grow" style="text-align:left">TA的日记 · 小窝档案</span></button>
+    <button class="boxRow" id="annBtn" style="width:100%"><span class="ic">🗓</span><span class="grow" style="text-align:left">纪念日</span></button>
+    <button class="boxRow" id="readBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">一起读 · 共读批注</span></button>
+    <button class="boxRow" id="sleepBtn" style="width:100%"><span class="ic">😴</span><span class="grow" style="text-align:left">睡眠记录</span></button>
+    <div class="boxRow"><span class="ic">📄</span><span class="grow">导出当前对话</span>
+      <button id="expTxt" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">txt</button>
+      <button id="expHtml" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">网页</button>
+    </div>
+
+    <div class="boxSec">🌐 能力</div>
+    <div class="boxRow">
       <span class="ic">🌐</span><span class="grow">读网页（你发链接时TA能看，经免费阅读器，公开网页用）</span>
       <button class="wbToggle" id="webfetchToggle"></button>
     </div>
     <div class="boxRow">
-      <span class="ic">🌳</span><span class="grow">开屏关系树（每次打开先看你们的树，点一下进入）</span>
-      <button class="wbToggle" id="splashToggle"></button>
+      <span class="ic">🌤</span><input id="cityInput" placeholder="你的城市（填了TA就能感知天气）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
     </div>
     <div class="boxRow">
-      <span class="ic">🧪</span><span class="grow">自定义 Header / Body（进阶，给每个角色单独填）</span>
-      <button class="wbToggle" id="customReqToggle"></button>
+      <span class="ic">🔍</span><input id="tavilyInput" type="password" placeholder="Tavily Key（填了TA就能联网搜索）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
     </div>
-    <div class="hintText" style="margin:0 2px 10px">给中转站/反代用的。开了之后，每个角色卡最下面会多出「自定义 Header / Body」两栏，单独填、互不影响；关掉就完全隐藏，不影响正常使用。</div>
     <div class="boxRow">
       <span class="ic">🔔</span><span class="grow">系统推送 · TA 后台也能找你（进阶）</span>
       <button class="wbToggle" id="sysPushToggle"></button>
@@ -1642,29 +1673,13 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <div class="boxRow"><span class="ic" style="opacity:0">🔔</span><span class="grow" style="font-size:13px">后台保活 <span id="kaStatus" style="font-size:12px"></span></span><button class="ghostBtn" id="kaBtn" style="flex:0 0 auto;margin:0;font-size:13px;padding:6px 14px">⚡ 激活</button></div>
       <div class="hintText" style="margin:0 2px 10px">开了之后，去「角色卡」里给想收到推送的 TA 单独打开「系统推送」。手机要把小窝<b>添加到主屏幕</b>（iOS 必须），再点上面「激活后台保活」（会播一小段静音让它后台不被冻结）。<b>把小窝从后台划掉、或系统内存回收了，推送就会停</b>——这是网页应用的限制，不是服务器推送。</div>
     </div>
+
+    <div class="boxSec">🧰 进阶 / 数据</div>
     <div class="boxRow">
-      <span class="ic">🌤</span><input id="cityInput" placeholder="你的城市（填了TA就能感知天气）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
+      <span class="ic">🧪</span><span class="grow">自定义 Header / Body（进阶，给每个角色单独填）</span>
+      <button class="wbToggle" id="customReqToggle"></button>
     </div>
-    <div class="boxRow">
-      <span class="ic">🔍</span><input id="tavilyInput" type="password" placeholder="Tavily Key（填了TA就能联网搜索）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
-    </div>
-    <div class="boxRow">
-      <span class="ic">🔤</span><span class="grow" id="fontLabel">字体：默认</span>
-      <button id="fontBtn" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">导入</button>
-      <button id="fontReset" style="color:var(--ink-soft);padding:4px 8px">还原</button>
-    </div>
-    <input type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2" style="display:none">
-    <button class="boxRow" id="diaryBtn" style="width:100%"><span class="ic">📔</span><span class="grow" style="text-align:left">TA的日记 · 小窝档案</span></button>
-    <button class="boxRow" id="annBtn" style="width:100%"><span class="ic">🗓</span><span class="grow" style="text-align:left">纪念日</span></button>
-    <div class="boxRow"><span class="ic">📄</span><span class="grow">导出当前对话</span>
-      <button id="expTxt" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">txt</button>
-      <button id="expHtml" style="color:var(--accent-deep);font-weight:600;padding:4px 8px">网页</button>
-    </div>
-    <button class="boxRow" id="readBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">一起读 · 共读批注</span></button>
-    <button class="boxRow" id="memBtn" style="width:100%"><span class="ic">🧠</span><span class="grow" style="text-align:left">记忆</span></button>
-    <button class="boxRow" id="wbBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">世界书</span></button>
-    <button class="boxRow" id="presetBtn" style="width:100%"><span class="ic">🎛️</span><span class="grow" style="text-align:left">预设</span></button>
-    <button class="boxRow" id="injBtn" style="width:100%"><span class="ic">💉</span><span class="grow" style="text-align:left">注入</span></button>
+    <div class="hintText" style="margin:0 2px 10px">给中转站/反代用的。开了之后，每个角色卡最下面会多出「自定义 Header / Body」两栏，单独填、互不影响；关掉就完全隐藏，不影响正常使用。</div>
     <button class="boxRow" id="exportBtn" style="width:100%"><span class="ic">📦</span><span class="grow" style="text-align:left">备份所有数据（导出 JSON）</span></button>
     <button class="boxRow" id="importBtn" style="width:100%"><span class="ic">📥</span><span class="grow" style="text-align:left">从备份恢复</span></button>
     <input type="file" id="importFile" accept=".json" style="display:none">
@@ -1672,7 +1687,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <span class="ic">🗂️</span><span class="grow">好久没备份时温柔提醒</span>
       <button class="wbToggle" id="backupRemindToggle"></button>
     </div>
-    <div class="hintText">以后想到什么小玩意儿，都往这里塞。</div>
+    <div class="hintText">以后想到什么小玩意儿，都往对应分组里塞。</div>
   </div>
 </div>
 
