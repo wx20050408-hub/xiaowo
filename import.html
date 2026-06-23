@@ -58,7 +58,7 @@
     <div class="drop" id="dropRikka">
       <div class="big">📦</div>
       <div class="t">拖入 / 点击选择 聊天软件的备份文件</div>
-      <div class="h">拖进来会<b>自动识别来源</b>。目前支持 <b>RikkaHub</b>（<code>rikkahub_backup_....zip</code>）；Kelivo 等更多陆续加。</div>
+      <div class="h">拖进来会<b>自动识别来源</b>。目前支持 <b>RikkaHub</b> 和 <b>Kelivo</b> 的备份 zip；更多陆续加。</div>
       <div class="pill" id="rikkaName" style="display:none"></div>
     </div>
     <input type="file" id="fileRikka" accept=".zip,.json,.db" hidden>
@@ -128,130 +128,20 @@ async function compress(blob,maxDim,quality,square){
   return cv.toDataURL('image/jpeg',quality);
 }
 
-/* ---------- 主流程 ---------- */
+/* ---------- 主流程：识别来源 → 分发 → 合并 → 下载 ---------- */
 $('run').onclick=async()=>{
   $('run').disabled=true; $('log').innerHTML=''; $('sum').style.display='none'; $('dl').style.display='none';
   try{
     const wantThink=$('optThink').checked, wantImg=$('optImg').checked;
     log('读取备份…');
     const zip=await JSZip.loadAsync(rikkaFile);
-    /* 自动识别来源（以后加 Kelivo/酒馆等就在这里多判断几种） */
-    let source=null;
-    if(zip.file('rikka_hub.db')&&zip.file('settings.json')) source='rikkahub';
-    if(!source) throw new Error('没认出这是哪个软件的备份。目前支持 RikkaHub 的 zip；如果是 Kelivo 或别的，把文件发给作者就能加上支持～');
-    log('识别为：RikkaHub');
-    const settingsTxt=await zip.file('settings.json').async('string');
-    const settings=JSON.parse(settingsTxt);
-    const assistants=settings.assistants||[];
-    log(`找到 ${assistants.length} 个角色`);
+    let r=null;
+    if(zip.file('rikka_hub.db')&&zip.file('settings.json')){ log('识别为：RikkaHub'); r=await buildFromRikka(zip,wantImg,wantThink); }
+    else if(zip.file('chats.json')&&zip.file('settings.json')){ log('识别为：Kelivo'); r=await buildFromKelivo(zip,wantImg,wantThink); }
+    else throw new Error('没认出这是哪个软件的备份。目前支持 RikkaHub、Kelivo 的 zip；别的把文件发给作者就能加上支持～');
+    const {characters,chats,memories,imgCount,msgCount}=r;
 
-    log('加载 SQLite 引擎…');
-    const SQL=await initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`});
-    const dbBytes=new Uint8Array(await zip.file('rikka_hub.db').async('arraybuffer'));
-    const db=new SQL.Database(dbBytes);
-
-    const convs=rows(db,'SELECT id,assistant_id,title,update_at FROM ConversationEntity');
-    const mems=rows(db,'SELECT assistant_id,content FROM MemoryEntity');
-    log(`对话 ${convs.length} 个 · 记忆 ${mems.length} 条`);
-
-    /* 收集所有要用到的图片 UUID，稍后只解这些 */
-    const imgRefs=new Set();
-    if(wantImg){
-      for(const a of assistants){
-        if(a.avatar&&/Avatar\.Image/.test(a.avatar.type)&&a.avatar.url) imgRefs.add(uuidOf(a.avatar.url));
-        if(a.background) imgRefs.add(uuidOf(a.background));
-      }
-    }
-    /* 预读消息节点（按对话+顺序） */
-    const nodeRows=rows(db,'SELECT conversation_id,node_index,select_index,messages FROM message_node ORDER BY conversation_id,node_index');
-    const parsedNodes=nodeRows.map(r=>{
-      let variants=[]; try{variants=JSON.parse(r.messages);}catch(e){}
-      const v=variants[Math.min(r.select_index||0,Math.max(0,variants.length-1))]||null;
-      if(wantImg&&v) for(const p of (v.parts||[])) if(/UIMessagePart\.Image/.test(p.type)&&p.url) imgRefs.add(uuidOf(p.url));
-      return {cid:r.conversation_id,vi:v};
-    });
-
-    /* 解图 + 压缩，建 UUID->dataURL 映射 */
-    const imgMap={};   // uuid -> {url(dataURL), base64, media}
-    if(wantImg && imgRefs.size){
-      log(`处理 ${imgRefs.size} 张图片（压缩中，稍候）…`);
-      let done=0;
-      for(const id of imgRefs){
-        const f=zip.file('upload/'+id);
-        if(!f){ continue; }
-        try{
-          const blob=await f.async('blob');
-          const url=await compress(blob,1280,.72,false);
-          imgMap[id]={url,base64:url.split(',')[1],media:'image/jpeg'};
-        }catch(e){ log('  图片跳过 '+id.slice(0,8)+'：'+e.message,'err'); }
-        if(++done%10===0) log(`  …${done}/${imgRefs.size}`);
-      }
-    }
-
-    /* ---- 角色 ---- */
-    const idMap={};   // assistant_id -> 小窝 charId
-    const characters=[];
-    for(const a of assistants){
-      const cid='rkc_'+String(a.id).slice(0,8);
-      idMap[a.id]=cid;
-      let avatar=null;
-      if(wantImg&&a.avatar&&/Avatar\.Image/.test(a.avatar.type)){
-        const m=imgMap[uuidOf(a.avatar.url)]; if(m){ try{ avatar=await squareAvatar(zip,uuidOf(a.avatar.url)); }catch(e){ avatar=m.url; } }
-      }
-      let bg=null; if(wantImg&&a.background){ const m=imgMap[uuidOf(a.background)]; if(m) bg=m.url; }
-      const ctxN=Number(a.contextMessageSize)||0;
-      characters.push({
-        id:cid, name:a.name||'未命名', emoji:'☺', prompt:a.systemPrompt||'',
-        avatar, bg,
-        temp:(a.temperature==null?null:Number(a.temperature)),
-        ctxOn: ctxN>0 && ctxN<=516, ctxN: Math.min(516,Math.max(1,ctxN||50)),
-        autoMem: !!a.enableMemory,
-        customHeaders: hdrToStr(a.customHeaders), customBody: bodyToStr(a.customBodies),
-        model:null, keyId:null,
-      });
-    }
-
-    /* ---- 对话 + 消息 ---- */
-    const convMeta={}; convs.forEach(c=>convMeta[c.id]=c);
-    const byConv={}; parsedNodes.forEach(n=>{ (byConv[n.cid]=byConv[n.cid]||[]).push(n.vi); });
-    const chats=[]; let msgCount=0;
-    for(const c of convs){
-      const charId=idMap[c.assistant_id]; if(!charId) continue;
-      const msgs=[]; let firstUserText='';
-      for(const v of (byConv[c.id]||[])){
-        if(!v||v.role==='tool') continue;
-        const role=v.role==='assistant'?'assistant':'user';
-        const texts=[], images=[]; let reasoning='';
-        for(const p of (v.parts||[])){
-          if(/UIMessagePart\.Text/.test(p.type) && p.text) texts.push(p.text);
-          else if(/UIMessagePart\.Reasoning/.test(p.type) && p.reasoning) reasoning+=p.reasoning;
-          else if(/UIMessagePart\.Image/.test(p.type) && wantImg){ const m=imgMap[uuidOf(p.url)]; if(m) images.push(m); }
-          /* ToolCall / ToolResult 跳过 */
-        }
-        let text=texts.join('\n');
-        if(role==='assistant' && wantThink && reasoning.trim()) text='<think>'+reasoning.trim()+'</think>\n\n'+text;
-        if(!text && !images.length) continue;
-        if(role==='user' && !firstUserText && texts.length) firstUserText=texts[0];
-        let content;
-        if(images.length){ content=images.map(m=>({type:'image',source:{type:'base64',media_type:m.media,data:m.base64}})); if(text) content.push({type:'text',text}); }
-        else content=text;
-        const msg={role,content,ts:epoch(v.createdAt)||c.update_at};
-        if(role==='assistant') msg.charId=charId;
-        msgs.push(msg); msgCount++;
-      }
-      if(!msgs.length) continue;
-      chats.push({ id:'rkt_'+String(c.id).slice(0,8), charId,
-        title:(c.title&&c.title.trim())||firstUserText.slice(0,16)||'（无标题）',
-        ts:Number(c.update_at)||Date.now(), messages:msgs });
-    }
-
-    /* ---- 记忆 ---- */
-    const memories=[];
-    mems.forEach((m,i)=>{ const charId=idMap[m.assistant_id]; if(charId) memories.push({id:'rkm_'+i+'_'+Date.now(),charId,text:m.content||''}); });
-
-    db.close();
-
-    /* ---- 合并或新建备份 ---- */
+    /* 合并或新建备份 */
     let backup;
     if(mineFile){
       log('合并你当前的小窝备份…');
@@ -261,33 +151,186 @@ $('run').onclick=async()=>{
         chats:[...(mine.chats||[]),...chats],
         memories:[...(mine.memories||[]),...memories],
       };
-    }else{
-      backup={characters,chats,memories};
-    }
+    }else backup={characters,chats,memories};
 
-    /* ---- 输出 ---- */
+    /* 输出 */
     const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
-    const url=URL.createObjectURL(blob);
     const d=new Date();
     const fname=`小窝备份-聊天记录导入-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
-    const a=$('dl'); a.href=url; a.download=fname; a.style.display='block';
+    const a=$('dl'); a.href=URL.createObjectURL(blob); a.download=fname; a.style.display='block';
 
     const sizeMB=(blob.size/1048576).toFixed(1);
     $('sum').style.display='grid';
     $('sum').innerHTML=[
       ['角色',characters.length],['对话',chats.length],['消息',msgCount],
-      ['图片',Object.keys(imgMap).length],['记忆',memories.length],['大小',sizeMB+'M'],
+      ['图片',imgCount],['记忆',memories.length],['大小',sizeMB+'M'],
     ].map(([k,n])=>`<div class="b"><div class="n">${n}</div><div class="k">${k}</div></div>`).join('');
-    log('✓ 全部完成！点下面下载。',  'ok');
+    log('✓ 全部完成！点下面下载。','ok');
   }catch(e){
     log('出错了：'+(e&&e.message||e),'err');
     console.error(e);
   }finally{ $('run').disabled=false; }
 };
 
+/* ========== RikkaHub：settings.json(角色) + rikka_hub.db(对话/消息/记忆) ========== */
+async function buildFromRikka(zip,wantImg,wantThink){
+  const settings=JSON.parse(await zip.file('settings.json').async('string'));
+  const assistants=settings.assistants||[];
+  log('加载 SQLite 引擎…');
+  const SQL=await initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`});
+  const db=new SQL.Database(new Uint8Array(await zip.file('rikka_hub.db').async('arraybuffer')));
+  const convs=rows(db,'SELECT id,assistant_id,title,update_at FROM ConversationEntity');
+  const mems=rows(db,'SELECT assistant_id,content FROM MemoryEntity');
+  log(`找到 ${assistants.length} 个角色 · 对话 ${convs.length} 个 · 记忆 ${mems.length} 条`);
+
+  /* 收集要用的图片 UUID */
+  const imgRefs=new Set();
+  if(wantImg) for(const a of assistants){
+    if(a.avatar&&/Avatar\.Image/.test(a.avatar.type)&&a.avatar.url) imgRefs.add(uuidOf(a.avatar.url));
+    if(a.background) imgRefs.add(uuidOf(a.background));
+  }
+  const nodeRows=rows(db,'SELECT conversation_id,node_index,select_index,messages FROM message_node ORDER BY conversation_id,node_index');
+  const parsedNodes=nodeRows.map(r=>{
+    let variants=[]; try{variants=JSON.parse(r.messages);}catch(e){}
+    const v=variants[Math.min(r.select_index||0,Math.max(0,variants.length-1))]||null;
+    if(wantImg&&v) for(const p of (v.parts||[])) if(/UIMessagePart\.Image/.test(p.type)&&p.url) imgRefs.add(uuidOf(p.url));
+    return {cid:r.conversation_id,vi:v};
+  });
+  /* 解图压缩 */
+  const imgMap={};
+  if(wantImg&&imgRefs.size){
+    log(`处理 ${imgRefs.size} 张图片（压缩中，稍候）…`); let done=0;
+    for(const id of imgRefs){
+      const f=zip.file('upload/'+id); if(!f) continue;
+      try{ const url=await compress(await f.async('blob'),1280,.72,false); imgMap[id]={url,base64:url.split(',')[1],media:'image/jpeg'}; }
+      catch(e){ log('  图片跳过 '+id.slice(0,8)+'：'+e.message,'err'); }
+      if(++done%10===0) log(`  …${done}/${imgRefs.size}`);
+    }
+  }
+  /* 角色 */
+  const idMap={}, characters=[];
+  for(const a of assistants){
+    const cid='rkc_'+String(a.id).slice(0,8); idMap[a.id]=cid;
+    let avatar=null;
+    if(wantImg&&a.avatar&&/Avatar\.Image/.test(a.avatar.type)){ const m=imgMap[uuidOf(a.avatar.url)]; if(m){ try{ avatar=await squareAvatar(zip,'upload/'+uuidOf(a.avatar.url)); }catch(e){ avatar=m.url; } } }
+    let bg=null; if(wantImg&&a.background){ const m=imgMap[uuidOf(a.background)]; if(m) bg=m.url; }
+    const ctxN=Number(a.contextMessageSize)||0;
+    characters.push({ id:cid, name:a.name||'未命名', emoji:'☺', prompt:a.systemPrompt||'', avatar, bg,
+      temp:(a.temperature==null?null:Number(a.temperature)),
+      ctxOn: ctxN>0&&ctxN<=516, ctxN: Math.min(516,Math.max(1,ctxN||50)),
+      autoMem: !!a.enableMemory, customHeaders:hdrToStr(a.customHeaders), customBody:bodyToStr(a.customBodies), model:null, keyId:null });
+  }
+  /* 对话 + 消息 */
+  const byConv={}; parsedNodes.forEach(n=>{ (byConv[n.cid]=byConv[n.cid]||[]).push(n.vi); });
+  const chats=[]; let msgCount=0;
+  for(const c of convs){
+    const charId=idMap[c.assistant_id]; if(!charId) continue;
+    const msgs=[]; let firstUserText='';
+    for(const v of (byConv[c.id]||[])){
+      if(!v||v.role==='tool') continue;
+      const role=v.role==='assistant'?'assistant':'user';
+      const texts=[], images=[]; let reasoning='';
+      for(const p of (v.parts||[])){
+        if(/UIMessagePart\.Text/.test(p.type)&&p.text) texts.push(p.text);
+        else if(/UIMessagePart\.Reasoning/.test(p.type)&&p.reasoning) reasoning+=p.reasoning;
+        else if(/UIMessagePart\.Image/.test(p.type)&&wantImg){ const m=imgMap[uuidOf(p.url)]; if(m) images.push(m); }
+      }
+      let text=texts.join('\n');
+      if(role==='assistant'&&wantThink&&reasoning.trim()) text='<think>'+reasoning.trim()+'</think>\n\n'+text;
+      if(!text&&!images.length) continue;
+      if(role==='user'&&!firstUserText&&texts.length) firstUserText=texts[0];
+      let content;
+      if(images.length){ content=images.map(m=>({type:'image',source:{type:'base64',media_type:m.media,data:m.base64}})); if(text) content.push({type:'text',text}); }
+      else content=text;
+      const msg={role,content,ts:epoch(v.createdAt)||c.update_at};
+      if(role==='assistant') msg.charId=charId;
+      msgs.push(msg); msgCount++;
+    }
+    if(!msgs.length) continue;
+    chats.push({ id:'rkt_'+String(c.id).slice(0,8), charId, title:(c.title&&c.title.trim())||firstUserText.slice(0,16)||'（无标题）', ts:Number(c.update_at)||Date.now(), messages:msgs });
+  }
+  /* 记忆 */
+  const memories=[];
+  mems.forEach((m,i)=>{ const charId=idMap[m.assistant_id]; if(charId) memories.push({id:'rkm_'+i+'_'+Date.now(),charId,text:m.content||''}); });
+  db.close();
+  return {characters,chats,memories,imgCount:Object.keys(imgMap).length,msgCount};
+}
+
+/* ========== Kelivo：settings.json(角色/记忆，二次JSON) + chats.json(对话/消息) ========== */
+async function buildFromKelivo(zip,wantImg,wantThink){
+  const settings=JSON.parse(await zip.file('settings.json').async('string'));
+  const pj=v=>{ try{ return typeof v==='string'?JSON.parse(v):v; }catch(e){ return null; } };
+  const assistants=pj(settings.assistants_v1)||[];
+  const mems=pj(settings.assistant_memories_v1)||[];
+  const chatData=JSON.parse(await zip.file('chats.json').async('string'));
+  const conversations=chatData.conversations||[];
+  const byId={}; (chatData.messages||[]).forEach(m=>byId[m.id]=m);
+  log(`找到 ${assistants.length} 个角色 · 对话 ${conversations.length} 个 · 记忆 ${mems.length} 条`);
+
+  /* 文件按 basename 索引（路径形如 /data/.../upload|avatars|images/文件名） */
+  const basemap={}; zip.forEach((p,f)=>{ if(!f.dir) basemap[p.split('/').pop()]=f; });
+  const imgCache={}; let imgCount=0;
+  async function img(path,maxDim,q,square){
+    if(!wantImg||!path) return null;
+    const base=String(path).split('/').pop();
+    if(base in imgCache) return imgCache[base];
+    const f=basemap[base]; let url=null;
+    if(f){ try{ url=await compress(await f.async('blob'),maxDim,q,square); imgCount++; }catch(e){ log('  图片跳过 '+base+'：'+e.message,'err'); } }
+    imgCache[base]=url; return url;
+  }
+  /* 角色 */
+  const idMap={}, characters=[];
+  for(const a of assistants){
+    const cid='klc_'+String(a.id).slice(0,8); idMap[a.id]=cid;
+    const avatar=(a.useAssistantAvatar!==false)?await img(a.avatar,256,.85,true):null;
+    const bg=await img(a.background,1280,.72,false);
+    const ctxN=Number(a.contextMessageSize)||0;
+    characters.push({ id:cid, name:a.name||'未命名', emoji:'☺', prompt:a.systemPrompt||'', avatar, bg,
+      temp:(a.temperature==null?null:Number(a.temperature)),
+      ctxOn: !!a.limitContextMessages&&ctxN>0&&ctxN<=516, ctxN: Math.min(516,Math.max(1,ctxN||50)),
+      autoMem: !!a.enableMemory, customHeaders:hdrToStr(a.customHeaders), customBody:bodyToStr(a.customBody), model:null, keyId:null });
+  }
+  /* 对话 + 消息：按 messageIds 顺序，分支用 versionSelections 选当前版本 */
+  const chats=[]; let msgCount=0;
+  for(const cv of conversations){
+    const charId=idMap[cv.assistantId]; if(!charId) continue;
+    const vsel=cv.versionSelections||{};
+    const cand={};   // groupId -> [各版本消息]
+    for(const mid of (cv.messageIds||[])){ const m=byId[mid]; if(!m) continue; const g=m.groupId||m.id; (cand[g]=cand[g]||[]).push(m); }
+    const seen=new Set(), picked=[];
+    for(const mid of (cv.messageIds||[])){ const m=byId[mid]; if(!m) continue; const g=m.groupId||m.id; if(seen.has(g)) continue; seen.add(g);
+      const list=cand[g]; const want=(g in vsel)?vsel[g]:0;
+      picked.push(list.find(x=>x.version===want)||list[list.length-1]||list[0]);
+    }
+    const msgs=[]; let firstUserText='';
+    for(const m of picked){
+      const role=m.role==='assistant'?'assistant':'user';
+      /* content 里以 [image:路径] 内嵌图片，拆出来 */
+      const raw=String(m.content||''); const images=[]; const segs=[]; const re=/\[image:([^\]]+)\]/g; let last=0, mm;
+      while((mm=re.exec(raw))){ segs.push(raw.slice(last,mm.index)); last=re.lastIndex; const u=await img(mm[1],1280,.72,false); if(u) images.push(u); }
+      segs.push(raw.slice(last));
+      let text=segs.join('').trim();
+      if(!text&&!images.length) continue;
+      if(role==='user'&&!firstUserText&&text) firstUserText=text;
+      let content;
+      if(images.length){ content=images.map(u=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:u.split(',')[1]}})); if(text) content.push({type:'text',text}); }
+      else content=text;
+      const msg={role,content,ts:epoch(m.timestamp)||epoch(cv.updatedAt)};
+      if(role==='assistant') msg.charId=charId;
+      msgs.push(msg); msgCount++;
+    }
+    if(!msgs.length) continue;
+    chats.push({ id:'klt_'+String(cv.id).slice(0,8), charId, title:(cv.title&&cv.title.trim())||firstUserText.slice(0,16)||'（无标题）', ts:epoch(cv.updatedAt)||Date.now(), messages:msgs });
+  }
+  /* 记忆 */
+  const memories=[];
+  mems.forEach((m,i)=>{ const charId=idMap[m.assistantId]; if(charId) memories.push({id:'klm_'+i+'_'+Date.now(),charId,text:m.content||''}); });
+  return {characters,chats,memories,imgCount,msgCount};
+}
+
 /* 头像专门方形裁切到 256 */
-async function squareAvatar(zip,uuid){
-  const f=zip.file('upload/'+uuid); if(!f) return null;
+async function squareAvatar(zip,path){
+  const f=zip.file(path); if(!f) return null;
   return await compress(await f.async('blob'),256,.85,true);
 }
 /* RikkaHub customHeaders[] -> 小窝多行字符串 */
