@@ -1460,6 +1460,10 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <input type="number" id="winGap" min="0.5" max="72" step="0.5" placeholder="2">
       <div class="hintText">重新打开这个窗口、且距离上次说话超过这个时长，TA 会先发一条消息。默认 2 小时；填小一点就更黏人。（早晚安问候不受这里影响。）</div>
     </div>
+    <div class="field">
+      <div class="boxRow"><span class="ic">🔔</span><span class="grow">这个窗口发系统推送</span><button class="wbToggle" id="winPush"></button></div>
+      <div class="hintText">隔了上面「主动开口」那么久没聊，就算你没打开小窝，TA 也会在后台生成一条消息、用手机系统通知推给你（消息也存进这个窗口）。<b>只对当前这个窗口生效</b>，开了十个窗口也只有打开开关的那个会推，不会一起轰炸。需先在 百宝箱→系统推送 里开总开关并授权。</div>
+    </div>
     <button class="primaryBtn" id="saveWin">保存</button>
   </div>
 </div>
@@ -1527,6 +1531,17 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <button class="wbToggle" id="customReqToggle"></button>
     </div>
     <div class="hintText" style="margin:0 2px 10px">给中转站/反代用的。开了之后，每个角色卡最下面会多出「自定义 Header / Body」两栏，单独填、互不影响；关掉就完全隐藏，不影响正常使用。</div>
+    <div class="boxRow">
+      <span class="ic">🔔</span><span class="grow">系统推送 · TA 后台也能找你（进阶）</span>
+      <button class="wbToggle" id="sysPushToggle"></button>
+    </div>
+    <div id="sysPushBox" style="display:none">
+      <div class="boxRow"><span class="ic" style="opacity:0">🔔</span><span class="grow" style="font-size:13px">通知授权 <span id="pushPermLabel" style="color:var(--ink-soft);font-size:12px"></span></span><button class="ghostBtn" id="pushPermBtn" style="flex:0 0 auto;margin:0;font-size:13px;padding:6px 14px">点击授权</button></div>
+      <div class="boxRow"><span class="ic" style="opacity:0">🔔</span><span class="grow" style="font-size:13px">发一条测试通知</span><button class="ghostBtn" id="pushTestBtn" style="flex:0 0 auto;margin:0;font-size:13px;padding:6px 14px">发送测试</button></div>
+      <div class="boxRow"><span class="ic" style="opacity:0">🔔</span><span class="grow" style="font-size:13px">检测间隔（秒，越小越灵但越耗电）</span><input type="number" id="pushInterval" min="30" max="3600" step="10" style="flex:0 0 84px;text-align:center"></div>
+      <div class="boxRow"><span class="ic" style="opacity:0">🔔</span><span class="grow" style="font-size:13px">后台保活 <span id="kaStatus" style="font-size:12px"></span></span><button class="ghostBtn" id="kaBtn" style="flex:0 0 auto;margin:0;font-size:13px;padding:6px 14px">⚡ 激活</button></div>
+      <div class="hintText" style="margin:0 2px 10px">开了之后，去「角色卡」里给想收到推送的 TA 单独打开「系统推送」。手机要把小窝<b>添加到主屏幕</b>（iOS 必须），再点上面「激活后台保活」（会播一小段静音让它后台不被冻结）。<b>把小窝从后台划掉、或系统内存回收了，推送就会停</b>——这是网页应用的限制，不是服务器推送。</div>
+    </div>
     <div class="boxRow">
       <span class="ic">🌤</span><input id="cityInput" placeholder="你的城市（填了TA就能感知天气）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
     </div>
@@ -2647,7 +2662,7 @@ function renameChat(c){
 $('headerName').onclick=()=>{ const c=curChat(); if(c) openWinSettings(c); };
 
 /* ===== 窗口设置：每个对话窗独立的 线上/线下 + 主动开关 + 频率 ===== */
-let editingWinId=null, winProEnabled=false, winOnlineEnabled=false;
+let editingWinId=null, winProEnabled=false, winOnlineEnabled=false, winPushEnabled=false;
 $('winOnline').onclick=()=>{
   winOnlineEnabled=!winOnlineEnabled;
   $('winOnline').classList.toggle('on',winOnlineEnabled);
@@ -2656,6 +2671,11 @@ $('winProactive').onclick=()=>{
   winProEnabled=!winProEnabled;
   $('winProactive').classList.toggle('on',winProEnabled);
   $('winGapField').style.display=winProEnabled?'block':'none';
+};
+$('winPush').onclick=()=>{
+  winPushEnabled=!winPushEnabled;
+  $('winPush').classList.toggle('on',winPushEnabled);
+  if(winPushEnabled && !settings.sysPush) toast('记得去 百宝箱→系统推送 开总开关并授权，这个才会生效哦');
 };
 function openWinSettings(c){
   editingWinId=c.id;
@@ -2666,6 +2686,8 @@ function openWinSettings(c){
   $('winProactive').classList.toggle('on',winProEnabled);
   $('winGapField').style.display=winProEnabled?'block':'none';
   $('winGap').value=(c.proactiveGap>0?c.proactiveGap:2);
+  winPushEnabled=!!c.push;
+  $('winPush').classList.toggle('on',winPushEnabled);
   openSheet('winSheet');
 }
 $('saveWin').onclick=()=>{
@@ -2676,6 +2698,7 @@ $('saveWin').onclick=()=>{
   c.title=v.slice(0,24);
   c.online=winOnlineEnabled;
   c.proactive=winProEnabled;
+  c.push=winPushEnabled;
   const g=Number($('winGap').value);
   c.proactiveGap=(g>0)?Math.min(72,Math.max(0.5,g)):2;
   persistAll(); renderHistory();
@@ -7486,6 +7509,9 @@ $('boxBtn').onclick=()=>{
   $('splashToggle').classList.toggle('on',splashOn());
   $('customReqToggle').classList.toggle('on',customReqOn());
   $('backupRemindToggle').classList.toggle('on',backupRemindOn());
+  $('sysPushToggle').classList.toggle('on',!!settings.sysPush);
+  $('sysPushBox').style.display=settings.sysPush?'block':'none';
+  syncPushUI();
   $('cityInput').value=settings.city?.name||'';
   $('tavilyInput').value=settings.tavilyKey||'';
   syncBubUI();
@@ -7556,6 +7582,194 @@ $('backupRemindToggle').onclick=()=>{
   $('backupRemindToggle').classList.toggle('on',backupRemindOn());
   toast(backupRemindOn()?'好啦，好久没备份时会温柔提醒你一下 🗂️':'已关，不再提醒备份啦（记得偶尔自己导一份哦）');
 };
+
+/* ================= 系统推送 · 后台找你 ================= */
+const hasNotif=()=> 'Notification' in window;
+const pushPerm=()=> hasNotif()?Notification.permission:'unsupported';
+const pushIntervalSec=()=> Math.min(3600,Math.max(30,Number(settings.pushInterval)||60));
+let kaActive=false;   // 后台保活是否已激活（播静音）
+/* 刷新百宝箱里推送区的小字/状态 */
+function syncPushUI(){
+  const pl=$('pushPermLabel');
+  if(pl){ const p=pushPerm(); pl.textContent=p==='granted'?'（已授权 ✓）':p==='denied'?'（被拒绝，去系统设置里开）':p==='unsupported'?'（此浏览器不支持）':'（未授权）'; }
+  const iv=$('pushInterval'); if(iv) iv.value=pushIntervalSec();
+  const ks=$('kaStatus'); if(ks) ks.innerHTML=kaActive?'<b style="color:#3aa76d">🟢 运行中</b>':'<span style="color:var(--ink-soft)">⚪ 未激活</span>';
+}
+$('sysPushToggle').onclick=()=>{
+  settings.sysPush=!settings.sysPush; persistAll();
+  $('sysPushToggle').classList.toggle('on',!!settings.sysPush);
+  $('sysPushBox').style.display=settings.sysPush?'block':'none';
+  syncPushUI();
+  if(settings.sysPush){ startPushLoop(); toast('开啦，去角色卡里给想推送的 TA 单独打开「系统推送」🔔'); }
+  else{ stopPushLoop(); toast('系统推送关掉了'); }
+};
+$('pushPermBtn').onclick=async()=>{
+  if(!hasNotif()){ toast('这个浏览器不支持通知'); return; }
+  try{
+    const p=await Notification.requestPermission();
+    syncPushUI();
+    toast(p==='granted'?'授权成功！🔔':p==='denied'?'被拒了，要去手机系统设置里手动允许小窝通知':'还没授权');
+  }catch(e){ toast('授权失败：'+(e.message||'').slice(0,40)); }
+};
+$('pushTestBtn').onclick=async()=>{
+  if(pushPerm()!=='granted'){ toast('先点上面「点击授权」'); return; }
+  const ch=curChar(curChat())||characters[0];
+  await showCharNotification(ch||{name:'小窝'}, '这是一条测试通知，能看到就说明推送通了～', curChat());
+  toast('已发送，去通知栏看看 👀');
+};
+$('pushInterval').onchange=e=>{
+  settings.pushInterval=Math.min(3600,Math.max(30,Number(e.target.value)||60));
+  persistAll(); syncPushUI();
+  if(pushTimer){ stopPushLoop(); startPushLoop(); }
+  toast('检测间隔设为 '+pushIntervalSec()+' 秒');
+};
+$('kaBtn').onclick=()=>{ activateKeepAlive(true); };
+
+/* ---- 后台保活：静音音频 + ping，让手机别冻结页面 ---- */
+let silentAudio=null, kaTimers=[];
+function makeSilentWavUrl(){
+  const sr=8000,n=sr;                      // 1 秒静音，循环播放
+  const b=new ArrayBuffer(44+n),dv=new DataView(b);
+  const wr=(o,s)=>{for(let i=0;i<s.length;i++)dv.setUint8(o+i,s.charCodeAt(i));};
+  wr(0,'RIFF');dv.setUint32(4,36+n,true);wr(8,'WAVE');wr(12,'fmt ');
+  dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,1,true);
+  dv.setUint32(24,sr,true);dv.setUint32(28,sr,true);dv.setUint16(32,1,true);dv.setUint16(34,8,true);
+  wr(36,'data');dv.setUint32(40,n,true);
+  for(let i=0;i<n;i++)dv.setUint8(44+i,128);   // 8-bit 静音 = 128
+  return URL.createObjectURL(new Blob([b],{type:'audio/wav'}));
+}
+function activateKeepAlive(userGesture){
+  if(!silentAudio){
+    silentAudio=document.createElement('audio');
+    silentAudio.loop=true; silentAudio.volume=0; silentAudio.setAttribute('playsinline','');
+    silentAudio.src=makeSilentWavUrl();
+    document.body.appendChild(silentAudio);
+  }
+  silentAudio.play().then(()=>{
+    kaActive=true; syncPushUI();
+    if(userGesture) toast('后台保活已激活 ⚡ 锁屏/切后台时也会尽量保持运行');
+  }).catch(()=>{
+    kaActive=false; syncPushUI();
+    if(userGesture) toast('激活失败，再点一次试试（要在点击后才能播放）');
+  });
+  /* ping 循环：主线程戳 SW + 假请求，延缓休眠 */
+  kaTimers.forEach(t=>clearInterval(t)); kaTimers=[];
+  kaTimers.push(setInterval(()=>{ try{ navigator.serviceWorker?.controller?.postMessage('xw-alive'); }catch(_){} },12000));
+  kaTimers.push(setInterval(()=>{ fetch('./__xw_keepalive').catch(()=>{}); },27000));   // 相对路径，确保落在 SW 作用域内
+}
+/* 切回前台时若音频被系统暂停了，悄悄续上 */
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible' && kaActive && silentAudio && silentAudio.paused) silentAudio.play().catch(()=>{});
+});
+/* 开了推送的话，用户第一次点屏幕就自动激活保活（浏览器要求手势后才能播音频），省得每次手动点 */
+document.addEventListener('pointerdown',function autoKa(){
+  if(settings.sysPush && pushPerm()==='granted' && !kaActive){ activateKeepAlive(false); }
+  if(kaActive) document.removeEventListener('pointerdown',autoKa);
+},{passive:true});
+
+/* ---- 弹系统通知 ---- */
+async function showCharNotification(ch,txt,c){
+  if(pushPerm()!=='granted') return;
+  const title=(ch&&ch.name)||'TA';
+  const body=stripThink(String(txt||'')).replace(/\s+/g,' ').trim().slice(0,120);
+  const icon=(ch&&ch.avatar)||'icon.svg';
+  const opts={body,icon,badge:'icon.svg',tag:'xw_'+(c?c.id:'test'),renotify:true,data:{chatId:c?c.id:null}};
+  try{
+    const reg=await navigator.serviceWorker?.ready;
+    if(reg&&reg.showNotification){ await reg.showNotification(title,opts); return; }
+  }catch(_){}
+  try{ new Notification(title,opts); }catch(_){}
+}
+
+/* ---- 后台 headless 生成（不碰 DOM）：给某个对话生成一条主动消息 ---- */
+async function bgApiCall(api,body){
+  const isOA=api.fmt==='openai';
+  if(!isOA&&body.temperature!=null) body.temperature=Math.min(1,body.temperature);
+  if(!isOA&&body.max_tokens==null) body.max_tokens=8192;
+  if(!isOA) addCacheControl(body);
+  body.stream=false;
+  let payload=isOA?toOpenAI(body):body;
+  if(api.extraBody) payload={...payload,...api.extraBody};
+  const res=await fetch(api.apiUrl,{method:'POST',headers:apiHeaders(api),body:JSON.stringify(payload)});
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const data=await res.json();
+  return isOA?(data.choices?.[0]?.message?.content||'')
+            :((data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join(''));
+}
+/* 不弹 UI、不依赖当前选中 Key 的取 API（无 Key 直接返回 null，不打扰） */
+function apiForCharSilent(ch){
+  const k=(ch&&ch.keyId&&apiKeys.find(x=>x.id===ch.keyId))||apiKeys.find(x=>x.id===selKeyId);
+  if(!k?.key) return null;
+  const api=apiFromKey(k);
+  if(customReqOn()&&ch){ const hs=parseCustomHeaders(ch.customHeaders); if(Object.keys(hs).length)api.extraHeaders=hs; const bd=parseCustomBody(ch.customBody); if(bd)api.extraBody=bd; }
+  return api;
+}
+async function bgProactiveFor(c){
+  const ch=curChar(c); if(!ch) return null;
+  const api=apiForCharSilent(ch); if(!api) return null;
+  /* —— 复刻单聊上下文拼装（与 generateReplyOnce 的单聊分支一致） —— */
+  let msgs=c.messages;
+  if(ch.ctxOn&&Number(ch.ctxN)>0){ const N=Math.min(Number(ch.ctxN),516); msgs=c.messages.slice(Math.min(c.summarizedUpTo||0,c.messages.length)); if(msgs.length>N) msgs=msgs.slice(-N); }
+  msgs=msgs.slice(); while(msgs.length&&msgs[0].role!=='user') msgs.shift();
+  const apiMsgs=[];
+  msgs.forEach((m,i)=>{ const role=m.role==='sys'?'user':m.role; const ct=m.role==='sys'?`（${m.content}）`:degradeContent(m,i<msgs.length-3); const prev=apiMsgs[apiMsgs.length-1]; if(prev&&prev.role===role){ if(typeof prev.content==='string'&&typeof ct==='string') prev.content+='\n'+ct; else prev.content=toBlocks(prev.content).concat(toBlocks(ct)); }else apiMsgs.push({role,content:ct}); });
+  applyDepthInjections(apiMsgs,ch);
+  injectIntoLastUser(apiMsgs,buildDynamic(c,ch));
+  const gap=Date.now()-(c.messages[c.messages.length-1]?.ts||c.ts||0);
+  const extraUser=`（系统提示：${userName()}现在没有打开和你的聊天，你们已经${fmtGap(gap)}没说话了。请你主动发一条消息给TA，这条会作为手机推送通知送达——可以是想念、关心，或接着上次的话题。简短自然一点，绝对不要提到这条系统提示。）`;
+  const last=apiMsgs[apiMsgs.length-1];
+  if(last&&last.role==='user'){ if(typeof last.content==='string') last.content+='\n\n'+extraUser; else last.content=last.content.concat([{type:'text',text:extraUser}]); }else apiMsgs.push({role:'user',content:extraUser});
+  const body=baseBody(apiMsgs,ch);
+  if(ch.temp!=null&&ch.temp!=='') body.temperature=Number(ch.temp);
+  const noteParts=[];
+  const soloOnline=chatOnline(c);
+  if(soloOnline){ noteParts.push('【线上聊天】你和{{user}}正在手机上互发消息。用发消息的口吻回复：短句、口语化。'); noteParts.push(onlineExtraNote()); }
+  else noteParts.push(offlineNote());
+  if(ch.autoMem) noteParts.push(memNote());
+  noteParts.push(directorNote());
+  const sys=buildSystem(ch.prompt+extraPromptOf(ch,soloOnline),c,noteParts.join('\n\n')||null,ch);
+  if(sys) body.system=sys;
+  const txt=(await bgApiCall(api,body)).trim();
+  if(!txt) return null;
+  c.messages.push({role:'assistant',charId:ch.id,content:txt,ts:Date.now(),online:soloOnline,push:true});
+  c.ts=Date.now(); c.lastProactive=Date.now(); persistAll();
+  if(curChat()&&curChat().id===c.id) renderChat();   // 万一这个对话正好开着，顺手刷新
+  return {ch,txt};
+}
+
+/* ---- 后台轮询：只扫开了 push 的角色，一次最多推一个 ---- */
+let pushTimer=null, pushBusy=false;
+function startPushLoop(){ if(pushTimer||!settings.sysPush) return; pushTimer=setInterval(pushTick,pushIntervalSec()*1000); }
+function stopPushLoop(){ if(pushTimer){ clearInterval(pushTimer); pushTimer=null; } }
+async function pushTick(){
+  if(!settings.sysPush||pushPerm()!=='granted') return;
+  if(document.visibilityState==='visible') return;   // 前台不推（前台靠 maybeProactive）
+  if(streaming||pushBusy) return;
+  pushBusy=true;
+  try{
+    for(const c of chats){
+      if(c.members&&c.members.length) continue;       // 群聊不后台推
+      if(!c.push) continue;                            // 只推开了「系统推送」的窗口
+      const ch=curChar(c); if(!ch) continue;
+      if(!c.messages.length) continue;
+      const lastTs=c.messages[c.messages.length-1].ts||c.ts||0;
+      if(Date.now()-lastTs<proactiveGapMs(c)) continue;
+      if(c.lastProactive&&Date.now()-c.lastProactive<3600e3) continue;  // 1 小时内不重复
+      c.lastProactive=Date.now(); persistAll();        // 先占位，防止下一 tick 重复
+      try{ const r=await bgProactiveFor(c); if(r) await showCharNotification(r.ch,r.txt,c); }catch(_){}
+      break;   // 一次只推一个，避免到点全员轰炸 + 省 token
+    }
+  }finally{ pushBusy=false; }
+}
+/* 点通知回来 → SW 让我们打开对应聊天 */
+navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',e=>{
+  if(e.data&&e.data.type==='openChat'&&e.data.chatId){
+    const c=chats.find(x=>x.id===e.data.chatId);
+    if(c) switchChat(c.id);
+  }
+});
+/* 启动时若推送开着就拉起轮询（保活仍需用户点一次激活） */
+if(settings.sysPush) startPushLoop();
 document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
   const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes},null,2)],{type:'application/json'});
