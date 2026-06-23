@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>RikkaHub → 小窝 搬家</title>
+<style>
+  :root{
+    --bg:#F7EFE6; --card:#FFFBF6; --ink:#4A3F35; --ink-soft:#9C8C7A;
+    --accent:#E8A87C; --accent-deep:#C97B4A; --line:#EADBC8; --ok:#5BA37A; --danger:#D8745F;
+    --shadow:0 6px 22px rgba(160,120,80,.14);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(120% 120% at 50% 0%,#FBF4EC 0%,#F4E8D8 100%);
+    color:var(--ink);min-height:100vh;padding:24px 16px 60px;line-height:1.6}
+  .wrap{max-width:620px;margin:0 auto}
+  h1{font-size:22px;margin:6px 0 2px;display:flex;align-items:center;gap:10px}
+  .sub{color:var(--ink-soft);font-size:13px;margin:0 0 22px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;
+    padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .step{font-size:12px;color:var(--accent-deep);font-weight:700;letter-spacing:.5px;margin-bottom:8px}
+  .drop{border:2px dashed var(--line);border-radius:14px;padding:26px 16px;text-align:center;
+    cursor:pointer;transition:.18s;background:#fff8f0}
+  .drop:hover,.drop.over{border-color:var(--accent);background:#fff3e6}
+  .drop .big{font-size:30px;line-height:1}
+  .drop .t{margin-top:8px;font-weight:600}
+  .drop .h{margin-top:4px;font-size:12px;color:var(--ink-soft)}
+  .pill{display:inline-block;margin-top:10px;font-size:12px;padding:4px 10px;border-radius:999px;
+    background:#F0E4D2;color:var(--accent-deep)}
+  .hint{font-size:12px;color:var(--ink-soft);margin-top:10px}
+  button.go{width:100%;border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;
+    background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;cursor:pointer;
+    box-shadow:var(--shadow);transition:.15s}
+  button.go:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+  button.go:not(:disabled):active{transform:translateY(1px)}
+  .opt{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);margin-top:12px}
+  .log{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:#3a3128;color:#f3e7d6;
+    border-radius:12px;padding:12px 14px;margin-top:14px;white-space:pre-wrap;max-height:240px;overflow:auto;display:none}
+  .sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:10px;margin-top:6px}
+  .sum .b{background:#fff8f0;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+  .sum .n{font-size:20px;font-weight:800;color:var(--accent-deep)}
+  .sum .k{font-size:11px;color:var(--ink-soft)}
+  a.dl{display:none;text-align:center;margin-top:14px;font-weight:700;color:var(--accent-deep);
+    text-decoration:none;background:#fff3e6;border:1px solid var(--line);border-radius:14px;padding:13px}
+  code{background:#F0E4D2;padding:1px 6px;border-radius:6px;font-size:12px}
+  .warn{background:#FDF2E9;border:1px solid #F2D6BE;border-radius:12px;padding:12px 14px;font-size:13px;color:#9a5a30}
+  .ok{color:var(--ok)} .err{color:var(--danger)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧳 RikkaHub → 小窝 搬家</h1>
+  <p class="sub">把 RikkaHub 导出的备份，转换成小窝能「从备份恢复」的文件。全程在你自己的浏览器里跑，不上传任何数据。</p>
+
+  <div class="card">
+    <div class="step">第 1 步 · 必填</div>
+    <div class="drop" id="dropRikka">
+      <div class="big">📦</div>
+      <div class="t">拖入 / 点击选择 RikkaHub 备份 zip</div>
+      <div class="h">就是 <code>rikkahub_backup_....zip</code>（在 RikkaHub 设置里导出）</div>
+      <div class="pill" id="rikkaName" style="display:none"></div>
+    </div>
+    <input type="file" id="fileRikka" accept=".zip" hidden>
+  </div>
+
+  <div class="card">
+    <div class="step">第 2 步 · 可选（你已经在用小窝就选上）</div>
+    <div class="drop" id="dropMine">
+      <div class="big">🏠</div>
+      <div class="t">拖入你「当前的小窝备份」一起合并</div>
+      <div class="h">小窝里 百宝箱→备份所有数据 导出的 json。选了就把 RikkaHub 的角色/对话<b>追加</b>进去，不会清空你现在的东西。</div>
+      <div class="pill" id="mineName" style="display:none"></div>
+    </div>
+    <input type="file" id="fileMine" accept=".json" hidden>
+    <div class="warn" id="noMineWarn">⚠️ 没选当前备份时：导出的文件直接「从备份恢复」会<b>覆盖</b>小窝现有数据。空白小窝（新用户）随便导；已经在用的话，强烈建议选上第 2 步合并。</div>
+  </div>
+
+  <div class="card">
+    <div class="step">第 3 步</div>
+    <label class="opt"><input type="checkbox" id="optThink" checked> 保留 TA 的思考链（折叠成 <code>&lt;think&gt;</code>，关掉则丢弃思考、只留正文）</label>
+    <label class="opt"><input type="checkbox" id="optImg" checked> 导入图片（头像/背景/聊天图，会压缩；关掉则不带图、文件更小）</label>
+    <button class="go" id="run" disabled>开始转换</button>
+    <div class="log" id="log"></div>
+    <div class="sum" id="sum" style="display:none"></div>
+    <a class="dl" id="dl">⬇️ 下载小窝备份文件</a>
+  </div>
+
+  <p class="sub" style="text-align:center;margin-top:20px">转好后回到小窝 → 百宝箱 → 从备份恢复 → 选这个文件就完成啦 🌿</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let rikkaFile=null, mineFile=null;
+
+/* ---------- 文件选择 / 拖放 ---------- */
+function wireDrop(dropId,inputId,onFile){
+  const d=$(dropId),i=$(inputId);
+  d.onclick=()=>i.click();
+  i.onchange=e=>{ if(e.target.files[0]) onFile(e.target.files[0]); };
+  ['dragenter','dragover'].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.add('over');}));
+  ['dragleave','drop'].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.remove('over');}));
+  d.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) onFile(f); });
+}
+wireDrop('dropRikka','fileRikka',f=>{ rikkaFile=f; $('rikkaName').style.display='inline-block'; $('rikkaName').textContent='✓ '+f.name; refresh(); });
+wireDrop('dropMine','fileMine',f=>{ mineFile=f; $('mineName').style.display='inline-block'; $('mineName').textContent='✓ '+f.name; $('noMineWarn').style.display='none'; refresh(); });
+function refresh(){ $('run').disabled=!rikkaFile; }
+
+/* ---------- 日志 ---------- */
+function log(msg,cls){ const el=$('log'); el.style.display='block'; const line=document.createElement('div'); if(cls)line.className=cls; line.textContent=msg; el.appendChild(line); el.scrollTop=el.scrollHeight; }
+
+/* ---------- 工具 ---------- */
+function rows(db,sql,params){ const st=db.prepare(sql); if(params)st.bind(params); const out=[]; while(st.step())out.push(st.getAsObject()); st.free(); return out; }
+const uuidOf=url=>String(url||'').split('/').pop();   // file:///.../upload/UUID -> UUID
+function epoch(s){ if(!s)return 0; const t=Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(s)?s:s+'Z'); return isNaN(t)?0:t; }
+
+/* 把 blob 压成 jpeg data URL（square=true 时中心裁成正方形，给头像用） */
+async function compress(blob,maxDim,quality,square){
+  const bmp=await createImageBitmap(blob);
+  let sx=0,sy=0,sw=bmp.width,sh=bmp.height;
+  if(square){ const s=Math.min(bmp.width,bmp.height); sx=(bmp.width-s)/2; sy=(bmp.height-s)/2; sw=sh=s; }
+  let dw=sw,dh=sh; const scale=Math.min(1,maxDim/Math.max(sw,sh)); dw=Math.round(sw*scale); dh=Math.round(sh*scale);
+  const cv=document.createElement('canvas'); cv.width=dw; cv.height=dh;
+  const ctx=cv.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,dw,dh); ctx.drawImage(bmp,sx,sy,sw,sh,0,0,dw,dh);
+  bmp.close&&bmp.close();
+  return cv.toDataURL('image/jpeg',quality);
+}
+
+/* ---------- 主流程 ---------- */
+$('run').onclick=async()=>{
+  $('run').disabled=true; $('log').innerHTML=''; $('sum').style.display='none'; $('dl').style.display='none';
+  try{
+    const wantThink=$('optThink').checked, wantImg=$('optImg').checked;
+    log('读取 zip…');
+    const zip=await JSZip.loadAsync(rikkaFile);
+    const settingsTxt=await zip.file('settings.json').async('string');
+    const settings=JSON.parse(settingsTxt);
+    const assistants=settings.assistants||[];
+    log(`找到 ${assistants.length} 个角色`);
+
+    log('加载 SQLite 引擎…');
+    const SQL=await initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`});
+    const dbBytes=new Uint8Array(await zip.file('rikka_hub.db').async('arraybuffer'));
+    const db=new SQL.Database(dbBytes);
+
+    const convs=rows(db,'SELECT id,assistant_id,title,update_at FROM ConversationEntity');
+    const mems=rows(db,'SELECT assistant_id,content FROM MemoryEntity');
+    log(`对话 ${convs.length} 个 · 记忆 ${mems.length} 条`);
+
+    /* 收集所有要用到的图片 UUID，稍后只解这些 */
+    const imgRefs=new Set();
+    if(wantImg){
+      for(const a of assistants){
+        if(a.avatar&&/Avatar\.Image/.test(a.avatar.type)&&a.avatar.url) imgRefs.add(uuidOf(a.avatar.url));
+        if(a.background) imgRefs.add(uuidOf(a.background));
+      }
+    }
+    /* 预读消息节点（按对话+顺序） */
+    const nodeRows=rows(db,'SELECT conversation_id,node_index,select_index,messages FROM message_node ORDER BY conversation_id,node_index');
+    const parsedNodes=nodeRows.map(r=>{
+      let variants=[]; try{variants=JSON.parse(r.messages);}catch(e){}
+      const v=variants[Math.min(r.select_index||0,Math.max(0,variants.length-1))]||null;
+      if(wantImg&&v) for(const p of (v.parts||[])) if(/UIMessagePart\.Image/.test(p.type)&&p.url) imgRefs.add(uuidOf(p.url));
+      return {cid:r.conversation_id,vi:v};
+    });
+
+    /* 解图 + 压缩，建 UUID->dataURL 映射 */
+    const imgMap={};   // uuid -> {url(dataURL), base64, media}
+    if(wantImg && imgRefs.size){
+      log(`处理 ${imgRefs.size} 张图片（压缩中，稍候）…`);
+      let done=0;
+      for(const id of imgRefs){
+        const f=zip.file('upload/'+id);
+        if(!f){ continue; }
+        try{
+          const blob=await f.async('blob');
+          const url=await compress(blob,1280,.72,false);
+          imgMap[id]={url,base64:url.split(',')[1],media:'image/jpeg'};
+        }catch(e){ log('  图片跳过 '+id.slice(0,8)+'：'+e.message,'err'); }
+        if(++done%10===0) log(`  …${done}/${imgRefs.size}`);
+      }
+    }
+
+    /* ---- 角色 ---- */
+    const idMap={};   // assistant_id -> 小窝 charId
+    const characters=[];
+    for(const a of assistants){
+      const cid='rkc_'+String(a.id).slice(0,8);
+      idMap[a.id]=cid;
+      let avatar=null;
+      if(wantImg&&a.avatar&&/Avatar\.Image/.test(a.avatar.type)){
+        const m=imgMap[uuidOf(a.avatar.url)]; if(m){ try{ avatar=await squareAvatar(zip,uuidOf(a.avatar.url)); }catch(e){ avatar=m.url; } }
+      }
+      let bg=null; if(wantImg&&a.background){ const m=imgMap[uuidOf(a.background)]; if(m) bg=m.url; }
+      const ctxN=Number(a.contextMessageSize)||0;
+      characters.push({
+        id:cid, name:a.name||'未命名', emoji:'☺', prompt:a.systemPrompt||'',
+        avatar, bg,
+        temp:(a.temperature==null?null:Number(a.temperature)),
+        ctxOn: ctxN>0 && ctxN<=516, ctxN: Math.min(516,Math.max(1,ctxN||50)),
+        autoMem: !!a.enableMemory,
+        customHeaders: hdrToStr(a.customHeaders), customBody: bodyToStr(a.customBodies),
+        model:null, keyId:null,
+      });
+    }
+
+    /* ---- 对话 + 消息 ---- */
+    const convMeta={}; convs.forEach(c=>convMeta[c.id]=c);
+    const byConv={}; parsedNodes.forEach(n=>{ (byConv[n.cid]=byConv[n.cid]||[]).push(n.vi); });
+    const chats=[]; let msgCount=0;
+    for(const c of convs){
+      const charId=idMap[c.assistant_id]; if(!charId) continue;
+      const msgs=[]; let firstUserText='';
+      for(const v of (byConv[c.id]||[])){
+        if(!v||v.role==='tool') continue;
+        const role=v.role==='assistant'?'assistant':'user';
+        const texts=[], images=[]; let reasoning='';
+        for(const p of (v.parts||[])){
+          if(/UIMessagePart\.Text/.test(p.type) && p.text) texts.push(p.text);
+          else if(/UIMessagePart\.Reasoning/.test(p.type) && p.reasoning) reasoning+=p.reasoning;
+          else if(/UIMessagePart\.Image/.test(p.type) && wantImg){ const m=imgMap[uuidOf(p.url)]; if(m) images.push(m); }
+          /* ToolCall / ToolResult 跳过 */
+        }
+        let text=texts.join('\n');
+        if(role==='assistant' && wantThink && reasoning.trim()) text='<think>'+reasoning.trim()+'</think>\n\n'+text;
+        if(!text && !images.length) continue;
+        if(role==='user' && !firstUserText && texts.length) firstUserText=texts[0];
+        let content;
+        if(images.length){ content=images.map(m=>({type:'image',source:{type:'base64',media_type:m.media,data:m.base64}})); if(text) content.push({type:'text',text}); }
+        else content=text;
+        const msg={role,content,ts:epoch(v.createdAt)||c.update_at};
+        if(role==='assistant') msg.charId=charId;
+        msgs.push(msg); msgCount++;
+      }
+      if(!msgs.length) continue;
+      chats.push({ id:'rkt_'+String(c.id).slice(0,8), charId,
+        title:(c.title&&c.title.trim())||firstUserText.slice(0,16)||'（无标题）',
+        ts:Number(c.update_at)||Date.now(), messages:msgs });
+    }
+
+    /* ---- 记忆 ---- */
+    const memories=[];
+    mems.forEach((m,i)=>{ const charId=idMap[m.assistant_id]; if(charId) memories.push({id:'rkm_'+i+'_'+Date.now(),charId,text:m.content||''}); });
+
+    db.close();
+
+    /* ---- 合并或新建备份 ---- */
+    let backup;
+    if(mineFile){
+      log('合并你当前的小窝备份…');
+      const mine=JSON.parse(await mineFile.text());
+      backup={...mine,
+        characters:[...(mine.characters||[]),...characters],
+        chats:[...(mine.chats||[]),...chats],
+        memories:[...(mine.memories||[]),...memories],
+      };
+    }else{
+      backup={characters,chats,memories};
+    }
+
+    /* ---- 输出 ---- */
+    const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const d=new Date();
+    const fname=`小窝备份-从RikkaHub导入-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+    const a=$('dl'); a.href=url; a.download=fname; a.style.display='block';
+
+    const sizeMB=(blob.size/1048576).toFixed(1);
+    $('sum').style.display='grid';
+    $('sum').innerHTML=[
+      ['角色',characters.length],['对话',chats.length],['消息',msgCount],
+      ['图片',Object.keys(imgMap).length],['记忆',memories.length],['大小',sizeMB+'M'],
+    ].map(([k,n])=>`<div class="b"><div class="n">${n}</div><div class="k">${k}</div></div>`).join('');
+    log('✓ 全部完成！点下面下载。',  'ok');
+  }catch(e){
+    log('出错了：'+(e&&e.message||e),'err');
+    console.error(e);
+  }finally{ $('run').disabled=false; }
+};
+
+/* 头像专门方形裁切到 256 */
+async function squareAvatar(zip,uuid){
+  const f=zip.file('upload/'+uuid); if(!f) return null;
+  return await compress(await f.async('blob'),256,.85,true);
+}
+/* RikkaHub customHeaders[] -> 小窝多行字符串 */
+function hdrToStr(arr){
+  if(!Array.isArray(arr)||!arr.length) return null;
+  const lines=arr.map(h=>{
+    const k=h.name??h.key??h.header??''; const v=h.value??h.val??'';
+    return k?`${k}: ${v}`:'';
+  }).filter(Boolean);
+  return lines.length?lines.join('\n'):null;
+}
+/* RikkaHub customBodies[] -> 小窝 JSON 字符串 */
+function bodyToStr(arr){
+  if(!Array.isArray(arr)||!arr.length) return null;
+  const obj={};
+  for(const b of arr){
+    const k=b.key??b.name??''; if(!k) continue;
+    let v=b.value;
+    if(typeof v==='string'){ try{ v=JSON.parse(v); }catch(e){} }   // 能解就解成真值
+    obj[k]=v;
+  }
+  return Object.keys(obj).length?JSON.stringify(obj,null,2):null;
+}
+</script>
+</body>
+</html>
