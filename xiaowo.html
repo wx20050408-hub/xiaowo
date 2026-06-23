@@ -1358,7 +1358,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 <div class="sheetScrim" id="charEditSheet">
   <div class="sheet">
     <div class="sheetTitle" id="charEditTitle">新角色<button class="close" data-close="charEditSheet">✕</button></div>
-    <div class="field"><label>名字</label><input id="ceName" placeholder="比如：黎湛"></div>
+    <div class="field"><label>名字</label><input id="ceName" placeholder="比如：李明"></div>
     <div class="field"><label>头像（一个emoji或颜文字）</label><input id="ceEmoji" placeholder="❄"></div>
     <div class="field"><label>图片头像（选了就优先用图片）</label>
       <div style="display:flex;align-items:center;gap:12px">
@@ -1413,7 +1413,16 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <div class="boxRow"><span class="ic">🔑</span><span class="grow">这个角色专用 API</span></div>
       <select id="ceKey" style="margin-top:8px"></select>
       <input id="ceModel" style="margin-top:8px" placeholder="模型名（留空＝用全局模型）">
-      <div class="hintText">给这个角色单独绑一个 API Key 和模型，切到 TA 就自动用这套，不用手动换。两项都留空＝跟随设置里全局选中的。模型名可以去 ⚙ 里复制。</div>
+      <button class="ghostBtn" id="ceFetchModels" style="margin-top:8px;font-size:13px">🔄 拉取这个 Key 的模型列表</button>
+      <select id="ceModelPick" style="margin-top:8px;display:none"></select>
+      <div class="hintText">给这个角色单独绑一个 API Key 和模型，切到 TA 就自动用这套，不用手动换。两项都留空＝跟随设置里全局选中的。上面选好 Key，点「拉取模型」就能从下拉里挑一个填进模型框（不绑专用 Key 时拉的是全局当前 Key）。</div>
+    </div>
+    <div class="field" id="ceCustomReqField" style="display:none">
+      <label>自定义 Header（每行一条，<code>键: 值</code>）</label>
+      <textarea id="ceCustomHeaders" style="min-height:60px;font-family:monospace;font-size:12px" placeholder="比如：&#10;X-Title: 小窝&#10;HTTP-Referer: https://example.com"></textarea>
+      <label style="margin-top:10px">自定义 Body（一段 JSON，会并进请求体）</label>
+      <textarea id="ceCustomBody" style="min-height:60px;font-family:monospace;font-size:12px" placeholder='比如：&#10;{ "top_p": 0.9, "provider": { "sort": "throughput" } }'></textarea>
+      <div class="hintText">只对这个角色的对话回复生效。Header 会加到请求头里；Body 里的字段会并进请求 JSON（同名字段会覆盖默认）。填错 JSON 会被忽略、不影响发送。给中转站/反代用的进阶功能，不懂可以留空。</div>
     </div>
     <div class="field">
       <div class="boxRow"><span class="ic">📚</span><span class="grow">单独指定世界书/预设/注入</span><button class="wbToggle" id="ceOwnScope"></button></div>
@@ -1514,6 +1523,11 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <button class="wbToggle" id="splashToggle"></button>
     </div>
     <div class="boxRow">
+      <span class="ic">🧪</span><span class="grow">自定义 Header / Body（进阶，给每个角色单独填）</span>
+      <button class="wbToggle" id="customReqToggle"></button>
+    </div>
+    <div class="hintText" style="margin:0 2px 10px">给中转站/反代用的。开了之后，每个角色卡最下面会多出「自定义 Header / Body」两栏，单独填、互不影响；关掉就完全隐藏，不影响正常使用。</div>
+    <div class="boxRow">
       <span class="ic">🌤</span><input id="cityInput" placeholder="你的城市（填了TA就能感知天气）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
     </div>
     <div class="boxRow">
@@ -1539,6 +1553,10 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <button class="boxRow" id="exportBtn" style="width:100%"><span class="ic">📦</span><span class="grow" style="text-align:left">备份所有数据（导出 JSON）</span></button>
     <button class="boxRow" id="importBtn" style="width:100%"><span class="ic">📥</span><span class="grow" style="text-align:left">从备份恢复</span></button>
     <input type="file" id="importFile" accept=".json" style="display:none">
+    <div class="boxRow">
+      <span class="ic">🗂️</span><span class="grow">好久没备份时温柔提醒</span>
+      <button class="wbToggle" id="backupRemindToggle"></button>
+    </div>
     <div class="hintText">以后想到什么小玩意儿，都往这里塞。</div>
   </div>
 </div>
@@ -2010,7 +2028,7 @@ const save = (k,v)=> store.set(k, JSON.stringify(v));
 /* ================= 状态 ================= */
 let settings = load('xw_settings', { apiKey:'', model:'claude-sonnet-4-6', maxTokens:2048, theme:'cream', status:'' });
 let characters = load('xw_characters', [
-  { id:'c1', name:'黎湛', emoji:'❄', prompt:'' }
+  { id:'c1', name:'char', emoji:'❄', prompt:'' }
 ]);
 let chats = load('xw_chats', []);   // {id,title,charId,ts,messages:[{role,content}]}
 let currentId = load('xw_current', null);
@@ -2254,7 +2272,7 @@ const contentHtml = ct => typeof ct==='string' ? fmtFiles(ct) :
   }).join('');
 
 function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
-const userName = ()=> (settings.myName||'').trim()||'溪溪';
+const userName = ()=> (settings.myName||'').trim()||'user';
 /* 聊天和角色（带图，体积大）住 IndexedDB；其余小数据住 localStorage */
 const persistAll = ()=>{
   save('xw_current',currentId); save('xw_selchar',selCharId); save('xw_settings',settings);
@@ -2433,7 +2451,7 @@ $('menuBtn').onclick = ()=>{ if(privSuppressClick){ privSuppressClick=false; ret
 $('scrim').onclick = ()=>openDrawer(false);
 $('profileStatus').value = settings.status||'';
 $('profileStatus').onchange = e=>{ settings.status=e.target.value; persistAll(); };
-$('profileName').value = settings.myName||'溪溪';
+$('profileName').value = settings.myName||'user';
 $('profileName').onchange = e=>{
   settings.myName=e.target.value.trim();
   persistAll(); toast(`以后就叫你「${userName()}」`);
@@ -3001,6 +3019,7 @@ function topWords(msgs){
 
 /* ===== 开屏页 ===== */
 const splashOn=()=>settings.splash!==false;
+const backupRemindOn=()=>settings.backupReminder!==false;   // 默认开，可在百宝箱关
 let splashDone=false;
 /* 开屏当前展示哪个角色：优先记住的 splashCharId → 当前单聊 → 最近活跃 */
 function splashCurrentChar(){
@@ -3865,8 +3884,14 @@ function getApi(){
 /* 角色专用 API：绑了就用角色自己的 Key，没绑回退到全局选中的 */
 function apiForChar(ch){
   const k=ch&&ch.keyId&&apiKeys.find(x=>x.id===ch.keyId);
-  if(k?.key) return apiFromKey(k);
-  return getApi();
+  const api = k?.key ? apiFromKey(k) : getApi();
+  if(api && customReqOn() && ch){   // 角色自定义 Header / Body（仅总开关开着时）
+    const hs=parseCustomHeaders(ch.customHeaders);
+    if(Object.keys(hs).length) api.extraHeaders=hs;
+    const bd=parseCustomBody(ch.customBody);
+    if(bd) api.extraBody=bd;
+  }
+  return api;
 }
 /* 次要 API：弹幕、模拟评论这类随意内容走它（省钱）；没设就回退主 API */
 function getApi2(){
@@ -3915,6 +3940,25 @@ function statsEl(s){
   return d;
 }
 
+/* 自定义请求（进阶）：总开关 settings.customReq，关着＝角色里这俩字段一律不读 */
+const customReqOn=()=> !!settings.customReq;
+/* 「键: 值」逐行 → 对象。空行、没冒号的行跳过 */
+function parseCustomHeaders(str){
+  const out={};
+  for(const line of String(str||'').split('\n')){
+    const i=line.indexOf(':'); if(i<0) continue;
+    const k=line.slice(0,i).trim(); if(!k) continue;
+    out[k]=line.slice(i+1).trim();
+  }
+  return out;
+}
+/* 一段 JSON → 对象；空/非法 → null（忽略，不影响发送） */
+function parseCustomBody(str){
+  const s=String(str||'').trim(); if(!s) return null;
+  try{ const o=JSON.parse(s); return (o&&typeof o==='object'&&!Array.isArray(o))?o:null; }
+  catch(e){ return null; }
+}
+
 function apiHeaders(api){
   const headers={'content-type':'application/json'};
   if(api.fmt==='openai') headers['authorization']='Bearer '+api.key;
@@ -3924,6 +3968,7 @@ function apiHeaders(api){
     headers['anthropic-dangerous-direct-browser-access']='true';
     if(cache1h()) headers['anthropic-beta']='extended-cache-ttl-2025-04-11';
   }
+  if(api.extraHeaders) Object.assign(headers,api.extraHeaders);   // 角色自定义头放最后，可覆盖默认
   return headers;
 }
 
@@ -3941,11 +3986,13 @@ async function callStream(api,body,bub,area,out){
   try{
   const stream=body.stream!==false;
   if(stream) armStall();
+  let payload=isOA?toOpenAI(body):body;
+  if(api.extraBody) payload={...payload,...api.extraBody};   // 角色自定义 Body，并在格式转换之后、可覆盖默认字段
   const res=await fetch(api.apiUrl,{
     method:'POST',
     signal:aborter.signal,
     headers:apiHeaders(api),
-    body:JSON.stringify(isOA?toOpenAI(body):body),
+    body:JSON.stringify(payload),
   });
   if(!res.ok){
     const errText=await res.text();
@@ -5658,12 +5705,43 @@ $('ceOwnScope').onclick=()=>{
   $('ceOwnScope').classList.toggle('on',ceOwnScopeOn);
   $('ceScopeBox').style.display=ceOwnScopeOn?'block':'none';
 };
+/* 角色专用 API：换 Key 时刷新可挑模型；点拉取就去对应 Key 拉一次 */
+$('ceKey').onchange=fillCeModelPick;
+$('ceModelPick').onchange=e=>{ if(e.target.value){ $('ceModel').value=e.target.value; e.target.value=''; } };
+$('ceFetchModels').onclick=async()=>{
+  const k=ceEffectiveKey();
+  if(!k?.key){ toast('先选一个填好的 Key（或去 ⚙ 选中一个全局 Key）'); return; }
+  const api=apiFromKey(k);
+  const btn=$('ceFetchModels');
+  btn.textContent='拉取中…';
+  try{
+    const ids=await fetchModelList(api);
+    k.models=ids; persistAll();
+    fillCeModelPick();
+    toast(`拉到 ${ids.length} 个模型 ✓ 去下面挑`);
+  }catch(e){ toast('拉取失败：'+(e.message||'').slice(0,60)); }
+  btn.textContent='🔄 拉取这个 Key 的模型列表';
+};
 /* 填角色的「专用 API Key + 模型」 */
 function fillCeKey(ch){
   $('ceKey').innerHTML='<option value="">跟随全局选中的</option>'+
     apiKeys.map(k=>`<option value="${esc(k.id)}">${esc(k.label||'(未命名)')}${k.id===selKeyId?'（全局当前）':''}</option>`).join('');
   $('ceKey').value=ch&&ch.keyId&&apiKeys.some(k=>k.id===ch.keyId)?ch.keyId:'';
   $('ceModel').value=ch?.model||'';
+  fillCeModelPick();
+}
+/* 角色编辑里当前生效的 Key：选了专用就用它，留空＝跟随全局选中的 */
+function ceEffectiveKey(){
+  const id=$('ceKey').value||selKeyId;
+  return apiKeys.find(k=>k.id===id)||null;
+}
+/* 把生效 Key 已拉到的模型，灌进「挑一个」下拉；没拉过就藏起来 */
+function fillCeModelPick(){
+  const sel=$('ceModelPick'); if(!sel) return;
+  const models=ceEffectiveKey()?.models||[];
+  if(!models.length){ sel.style.display='none'; sel.innerHTML=''; return; }
+  sel.style.display='block';
+  sel.innerHTML='<option value="">↓ 从拉到的模型里挑一个填进上面</option>'+models.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
 }
 /* 填角色的「世界书/预设/注入」勾选清单。没存过的：世界书/注入按全局开关预勾、预设跟全局当前 */
 function fillCeScope(ch){
@@ -5712,6 +5790,9 @@ function openCharEdit(ch){
   ceAutoMemOn=!!ch?.autoMem;
   $('ceAutoMem').classList.toggle('on',ceAutoMemOn);
   fillCeKey(ch);
+  $('ceCustomReqField').style.display=customReqOn()?'block':'none';
+  $('ceCustomHeaders').value=ch?.customHeaders||'';
+  $('ceCustomBody').value=ch?.customBody||'';
   fillCeScope(ch);
   $('delChar').style.display=ch&&characters.length>1?'block':'none';
   $('exportChar').style.display=ch?'block':'none';
@@ -5790,6 +5871,8 @@ $('saveChar').onclick=()=>{
     autoMem: ceAutoMemOn,
     keyId: $('ceKey').value||null,
     model: $('ceModel').value.trim()||null,
+    customHeaders: $('ceCustomHeaders').value.trim()||null,
+    customBody: $('ceCustomBody').value.trim()||null,
     ownScope: ceOwnScopeOn,
     wbIds: [...$('ceWbList').querySelectorAll('input[data-wb]:checked')].map(x=>x.dataset.wb),
     injIds: [...$('ceInjList').querySelectorAll('input[data-inj]:checked')].map(x=>x.dataset.inj),
@@ -5801,7 +5884,10 @@ $('saveChar').onclick=()=>{
     const nc={id:'c'+Date.now(),name,emoji:$('ceEmoji').value.trim(),prompt:$('cePrompt').value,...extra};
     characters.push(nc); selCharId=nc.id;
   }
-  persistAll(); closeSheet('charEditSheet'); renderChars(); renderChat(); toast('存好啦');
+  persistAll(); closeSheet('charEditSheet'); renderChars(); renderChat();
+  if(customReqOn() && extra.customBody && !parseCustomBody(extra.customBody))
+    toast('存好啦（但自定义 Body 不是合法 JSON，发送时会忽略，记得检查下）');
+  else toast('存好啦');
 };
 $('delChar').onclick=()=>{
   if(!editingChar||!confirm(`删掉「${editingChar.name}」？`)) return;
@@ -7398,6 +7484,8 @@ $('boxBtn').onclick=()=>{
   $('streamToggle').classList.toggle('on',streamOn());
   $('webfetchToggle').classList.toggle('on',!!settings.webfetch);
   $('splashToggle').classList.toggle('on',splashOn());
+  $('customReqToggle').classList.toggle('on',customReqOn());
+  $('backupRemindToggle').classList.toggle('on',backupRemindOn());
   $('cityInput').value=settings.city?.name||'';
   $('tavilyInput').value=settings.tavilyKey||'';
   syncBubUI();
@@ -7455,6 +7543,18 @@ $('splashToggle').onclick=()=>{
   persistAll();
   $('splashToggle').classList.toggle('on',splashOn());
   toast(splashOn()?'开屏关系树开啦，下次打开就能看到 🌳':'已关开屏，直接进聊天');
+};
+$('customReqToggle').onclick=()=>{
+  settings.customReq=!customReqOn();
+  persistAll();
+  $('customReqToggle').classList.toggle('on',customReqOn());
+  toast(customReqOn()?'开啦，每个角色卡里能填自定义 Header / Body 了 🧪':'已关，角色卡里的自定义 Header / Body 隐藏（填过的内容还留着）');
+};
+$('backupRemindToggle').onclick=()=>{
+  settings.backupReminder=!backupRemindOn();
+  persistAll();
+  $('backupRemindToggle').classList.toggle('on',backupRemindOn());
+  toast(backupRemindOn()?'好啦，好久没备份时会温柔提醒你一下 🗂️':'已关，不再提醒备份啦（记得偶尔自己导一份哦）');
 };
 document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
@@ -7561,8 +7661,8 @@ setInterval(()=>{ if(!streaming) renderHeader(); },60e3);
   const tn=calNotes.filter(n=>n.date===todayStr());
   if(tn.length) setTimeout(()=>toast(`📅 今天有 ${tn.length} 条备忘：${tn[0].text.slice(0,12)}${tn.length>1||tn[0].text.length>12?'…':''}`),800);
 }
-/* 好久没备份 → 开屏温柔提醒一次（默认超 7 天；备过就从上次算） */
-{
+/* 好久没备份 → 开屏温柔提醒一次（默认超 7 天；备过就从上次算）。可在百宝箱里关掉 */
+if(backupRemindOn()){
   const lb=settings.lastBackup||0;
   const days=lb?Math.floor((Date.now()-lb)/86400000):9999;
   if(days>=7) setTimeout(()=>toast(lb?`🗂️ 已经 ${days} 天没备份啦，百宝箱里导一份吧～`:'🗂️ 还没备份过哦，去百宝箱导一份，别让回忆只存一处 💛'),1800);
