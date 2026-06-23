@@ -1462,7 +1462,12 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     </div>
     <div class="field">
       <div class="boxRow"><span class="ic">🔔</span><span class="grow">这个窗口发系统推送</span><button class="wbToggle" id="winPush"></button></div>
-      <div class="hintText">隔了上面「主动开口」那么久没聊，就算你没打开小窝，TA 也会在后台生成一条消息、用手机系统通知推给你（消息也存进这个窗口）。<b>只对当前这个窗口生效</b>，开了十个窗口也只有打开开关的那个会推，不会一起轰炸。需先在 百宝箱→系统推送 里开总开关并授权。</div>
+      <div class="hintText">就算你没打开小窝，TA 也会在后台生成一条消息、用手机系统通知推给你（消息也存进这个窗口）。<b>只对当前这个窗口生效</b>，开了十个窗口也只有打开开关的那个会推，不会一起轰炸。需先在 百宝箱→系统推送 里开总开关并授权。</div>
+    </div>
+    <div class="field" id="winPushGapField">
+      <label>隔多久没聊，就推送一次（小时）</label>
+      <input type="number" id="winPushGap" min="0.5" max="72" step="0.5" placeholder="2">
+      <div class="hintText">这是<b>推送专用</b>的时间，跟上面「主动找你」完全分开、互不影响。距离上次说话超过这个时长，后台就会推一条给你。默认 2 小时；同一窗口 1 小时内不会重复推。</div>
     </div>
     <button class="primaryBtn" id="saveWin">保存</button>
   </div>
@@ -2594,6 +2599,11 @@ function proactiveGapMs(c){
   const h=(c&&c.proactiveGap>0)?c.proactiveGap:2;
   return h*3600e3;
 }
+/* 系统推送专用间隔：独立于「主动找你」；没单独设过就先沿用主动开口的值，都没设默认 2 小时 */
+function pushGapMs(c){
+  const h=(c&&c.pushGap>0)?c.pushGap : ((c&&c.proactiveGap>0)?c.proactiveGap:2);
+  return h*3600e3;
+}
 /* 线上/线下：群聊用窗口的 c.online；单聊窗口设过用窗口的，否则跟随角色 */
 function chatOnline(c){
   if(!c) return !!curChar(null)?.online;
@@ -2675,6 +2685,7 @@ $('winProactive').onclick=()=>{
 $('winPush').onclick=()=>{
   winPushEnabled=!winPushEnabled;
   $('winPush').classList.toggle('on',winPushEnabled);
+  $('winPushGapField').style.display=winPushEnabled?'block':'none';
   if(winPushEnabled && !settings.sysPush) toast('记得去 百宝箱→系统推送 开总开关并授权，这个才会生效哦');
 };
 function openWinSettings(c){
@@ -2688,6 +2699,8 @@ function openWinSettings(c){
   $('winGap').value=(c.proactiveGap>0?c.proactiveGap:2);
   winPushEnabled=!!c.push;
   $('winPush').classList.toggle('on',winPushEnabled);
+  $('winPushGapField').style.display=winPushEnabled?'block':'none';
+  $('winPushGap').value=(c.pushGap>0?c.pushGap : (c.proactiveGap>0?c.proactiveGap:2));
   openSheet('winSheet');
 }
 $('saveWin').onclick=()=>{
@@ -2701,6 +2714,8 @@ $('saveWin').onclick=()=>{
   c.push=winPushEnabled;
   const g=Number($('winGap').value);
   c.proactiveGap=(g>0)?Math.min(72,Math.max(0.5,g)):2;
+  const pg=Number($('winPushGap').value);
+  c.pushGap=(pg>0)?Math.min(72,Math.max(0.5,pg)):2;
   persistAll(); renderHistory();
   if(c.id===currentId){ renderHeader(); renderChat(); }
   closeSheet('winSheet');
@@ -7753,7 +7768,7 @@ async function pushTick(){
       const ch=curChar(c); if(!ch) continue;
       if(!c.messages.length) continue;
       const lastTs=c.messages[c.messages.length-1].ts||c.ts||0;
-      if(Date.now()-lastTs<proactiveGapMs(c)) continue;
+      if(Date.now()-lastTs<pushGapMs(c)) continue;
       if(c.lastProactive&&Date.now()-c.lastProactive<3600e3) continue;  // 1 小时内不重复
       c.lastProactive=Date.now(); persistAll();        // 先占位，防止下一 tick 重复
       try{ const r=await bgProactiveFor(c); if(r) await showCharNotification(r.ch,r.txt,c); }catch(_){}
