@@ -245,7 +245,8 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 #avatar{overflow:hidden;cursor:pointer}
 #avatar img{width:100%;height:100%;object-fit:cover}
 #menuBtn{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
-#profileStatus{font-size:12px;color:var(--ink-soft);border:none;background:none;width:100%;padding:0}
+#profileStatus,#profilePat{font-size:12px;color:var(--ink-soft);border:none;background:none;width:100%;padding:0}
+#profilePat{font-size:11px;opacity:.85}
 
 #searchWrap{margin:0 16px 6px;position:relative}
 #searchWrap::before{content:"⌕";position:absolute;left:14px;top:50%;transform:translateY(-50%) rotate(-45deg);color:var(--ink-soft);font-size:17px}
@@ -1042,6 +1043,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div id="profileText">
       <input id="profileName" placeholder="你的昵称">
       <input id="profileStatus" placeholder="写点状态…">
+      <input id="profilePat" placeholder="拍一拍后缀（拍自己时显示，如「的脑袋瓜」）">
     </div>
     <input type="file" id="myAvFile" accept="image/*" style="display:none">
   </div>
@@ -1384,6 +1386,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div class="sheetTitle" id="charEditTitle">新角色<button class="close" data-close="charEditSheet">✕</button></div>
     <div class="field"><label>名字</label><input id="ceName" placeholder="比如：李明"></div>
     <div class="field"><label>头像（一个emoji或颜文字）</label><input id="ceEmoji" placeholder="❄"></div>
+    <div class="field"><label>拍一拍后缀（双击TA头像，如「的脑袋」→「你拍了拍「TA」的脑袋」）</label><input id="cePatSuffix" maxlength="24" placeholder="留空＝就只是「拍了拍TA」"></div>
     <div class="field"><label>图片头像（选了就优先用图片）</label>
       <div style="display:flex;align-items:center;gap:12px">
         <div id="ceAvPreview"></div>
@@ -2636,6 +2639,8 @@ $('menuBtn').onclick = ()=>{ if(privSuppressClick){ privSuppressClick=false; ret
 $('scrim').onclick = ()=>openDrawer(false);
 $('profileStatus').value = settings.status||'';
 $('profileStatus').onchange = e=>{ settings.status=e.target.value; persistAll(); };
+$('profilePat').value = settings.patSuffix||'';
+$('profilePat').onchange = e=>{ settings.patSuffix=e.target.value.trim(); persistAll(); };
 $('profileName').value = settings.myName||'user';
 $('profileName').onchange = e=>{
   settings.myName=e.target.value.trim();
@@ -3021,7 +3026,7 @@ function bubbleEl(role,html,extra,ch){
   const m=document.createElement('div');
   m.className='msg '+(role==='user'?'me':'ta');
   if(role==='user'){
-    const av=settings.myAvatar?`<img class="av" src="${safeUrl(settings.myAvatar)}">`:'';
+    const av=settings.myAvatar?`<img class="av" src="${safeUrl(settings.myAvatar)}">`:`<div class="av">☺</div>`;
     m.innerHTML=`<div class="bubble ${extra||''}">${html}</div>${av}`;
   }else{
     const av=ch&&ch.avatar?`<img class="av" src="${safeUrl(ch.avatar)}">`:`<div class="av">${esc(ch?.emoji||'☺')}</div>`;
@@ -3118,7 +3123,7 @@ function renderChat(){
     const el=bubbleEl(m.role,qref+html,spWhole?'plain':(ooc?'ooc':''),ch);
     el.querySelector('.bubble').onclick=()=>openMsgActions(i);
     wireThink(el); wireCode(el);
-    if(m.role!=='user') attachPat(el,ch,c);
+    if(m.role!=='user') attachPat(el,ch,c); else attachPatSelf(el,c);
     wireTransfer(el,m); wireVoice(el,m);
     area.appendChild(el);
     if(m.role!=='user'&&m.stats&&showStats()) area.appendChild(statsEl(m.stats));
@@ -5376,12 +5381,38 @@ function attachPat(el,ch,c){
 }
 async function patChar(c,ch){
   if(streaming) return;
-  c.messages.push({role:'sys',content:`你拍了拍「${ch.name}」`,ts:Date.now()});
+  c.messages.push({role:'sys',content:`你拍了拍「${ch.name}」${ch.patSuffix||''}`,ts:Date.now()});
   c.ts=Date.now(); persistAll(); renderChat();
   if(!apiKeys.find(k=>k.id===selKeyId)?.key) return;
   const api=getApi(); if(!api) return;
   const txt=await quickGen(api,momentSystem(ch),
     applyVars(`${userName()}刚刚在聊天里拍了拍你（就像微信的拍一拍）。请用一句简短的话回应，符合你的性格和你们的关系。只输出这句话本身，不要动作描写。`,ch),80);
+  if(txt){
+    c.messages.push({role:'assistant',charId:ch.id,content:txt.slice(0,200),ts:Date.now(),online:chatOnline(c)});
+    c.ts=Date.now(); persistAll();
+    if(c.id===currentId) renderChat();
+  }
+}
+/* 拍自己：双击「我」的头像。系统小字用「我」的后缀，再让当前角色俏皮地搭句话 */
+function attachPatSelf(el,c){
+  const av=el.querySelector('.av');
+  if(!av) return;
+  av.onclick=()=>{
+    const now=Date.now();
+    if(now-lastTapTs<400 && lastTapKey==='__self__'){ lastTapTs=0; patSelf(c); }
+    else{ lastTapTs=now; lastTapKey='__self__'; }
+  };
+}
+async function patSelf(c){
+  if(streaming) return;
+  c=c||curChat(); if(!c) return;
+  c.messages.push({role:'sys',content:`你拍了拍自己${settings.patSuffix||''}`,ts:Date.now()});
+  c.ts=Date.now(); persistAll(); renderChat();
+  const ch=curChar(c); if(!ch) return;
+  if(!apiKeys.find(k=>k.id===selKeyId)?.key) return;
+  const api=getApi(); if(!api) return;
+  const txt=await quickGen(api,momentSystem(ch),
+    applyVars(`${userName()}刚刚在聊天里拍了拍自己（就像微信里拍自己一下，有点呆萌好笑）。请用一句简短、俏皮的话调侃或回应，符合你的性格和你们的关系。只输出这句话本身，不要动作描写。`,ch),80);
   if(txt){
     c.messages.push({role:'assistant',charId:ch.id,content:txt.slice(0,200),ts:Date.now(),online:chatOnline(c)});
     c.ts=Date.now(); persistAll();
@@ -6143,6 +6174,7 @@ function openCharEdit(ch){
   $('charEditTitle').childNodes[0].textContent=ch?'编辑角色':'新角色';
   $('ceName').value=ch?ch.name:'';
   $('ceEmoji').value=ch?ch.emoji:'';
+  $('cePatSuffix').value=ch?.patSuffix||'';
   $('cePrompt').value=ch?ch.prompt:'';
   $('ceMyPersona').value=ch?.myPersona||'';
   $('ceExtra').value=ch?.extra||'';
@@ -6229,6 +6261,7 @@ $('saveChar').onclick=()=>{
   const extra={
     avatar:editingAvatar,
     bg:editingBg,
+    patSuffix:$('cePatSuffix').value.trim(),
     myPersona:$('ceMyPersona').value,
     extra:$('ceExtra').value,
     extraMode:ceExtraMode,
