@@ -1328,6 +1328,8 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
           <button class="modeTab" data-fmt="openai">OpenAI 兼容</button>
         </div>
       </div>
+      <label class="ceCheckRow" style="margin-bottom:6px"><input type="checkbox" id="newKeyCompat"><span>中转兼容缓存（仅 Anthropic 格式）</span></label>
+      <div style="font-size:12px;color:var(--ink-soft);line-height:1.5;margin-bottom:10px">这个中转老是「只写不读」、缓存吃不上时勾它：把系统提示词合并成<b>一整个大缓存块</b>、去掉每轮都变的消息断点。专治通道乱跳、门槛偏高的中转，能少花冤枉钱。官方 API 或好中转<b>别勾</b>，那样反而更省。</div>
       <div style="display:flex;gap:8px">
         <button class="primaryBtn" id="confirmAddKey" style="margin-top:0">确认添加</button>
         <button class="ghostBtn" id="cancelAddKey" style="margin-top:0;flex:1">取消</button>
@@ -4167,11 +4169,19 @@ function cacheUserId(){
   }
   return settings.userId;
 }
-function addCacheControl(body){
+/* compat=中转兼容模式：把整个 system 合并成「一个大缓存块」、且不打会动的消息断点。
+   专治通道乱跳/门槛偏高的烂中转——块越大越容易过门槛、越少越快预热全通道，少花冤枉钱。
+   正常中转/官方 API 不要开：多断点（慢区/快区分开 + 增长的历史）才是更省的常规策略。 */
+function addCacheControl(body,compat){
   body.metadata={...(body.metadata||{}),user_id:cacheUserId()};
   const cc=()=>cache1h()?{type:'ephemeral',ttl:'1h'}:{type:'ephemeral'};
-  if(body.system)
-    body.system=body.system.split(CACHE_BP).filter(s=>s.trim()).map(s=>({type:'text',text:s,cache_control:cc()}));
+  if(body.system){
+    const parts=body.system.split(CACHE_BP).filter(s=>s.trim());
+    body.system = compat
+      ? (parts.length?[{type:'text',text:parts.join('\n\n'),cache_control:cc()}]:[])
+      : parts.map(s=>({type:'text',text:s,cache_control:cc()}));
+  }
+  if(compat) return;   // 兼容模式：只缓存合并后的 system 单块，不动消息断点
   const ms=body.messages;
   if(ms.length>=2){
     const t=ms[ms.length-2];
@@ -4231,7 +4241,7 @@ function apiFromKey(curKey){
   let apiUrl=(curKey.url||'').trim()||'https://api.anthropic.com';
   if(!apiUrl.includes('/v1/'))
     apiUrl=apiUrl.replace(/\/+$/,'')+(fmt==='openai'?'/v1/chat/completions':'/v1/messages');
-  return {apiUrl,key:curKey.key,fmt};
+  return {apiUrl,key:curKey.key,fmt,compatCache:!!curKey.compatCache};
 }
 function getApi(){
   const curKey=apiKeys.find(k=>k.id===selKeyId);
@@ -4335,7 +4345,7 @@ async function callStream(api,body,bub,area,out){
   if(!isOA&&body.temperature!=null) body.temperature=Math.min(1,body.temperature);
   /* Anthropic 接口 max_tokens 必填：用户留空（不限制）时补个足够大的默认，正常聊天到不了 */
   if(!isOA&&body.max_tokens==null) body.max_tokens=8192;
-  if(!isOA) addCacheControl(body);
+  if(!isOA) addCacheControl(body,api.compatCache);
   /* 卡死看门狗：超过 60 秒没有任何新内容就当作 TA 那边卡住了，主动断开让用户重试。
      流式每收到一段就重置计时；非流式（一次性返回本来就要等久）不挂表，免得误杀长回复 */
   let stall;
@@ -5596,7 +5606,7 @@ function renderKeyList(){
     it.innerHTML=`<div class="selMark">${k.id===selKeyId?'✓':''}</div>
       <div class="keyInfo">
         <div class="keyLabel">${esc(k.label||'未命名')}</div>
-        <div class="keyPreview">${maskKey(k.key)}${k.url?' · '+esc(k.url.replace(/^https?:\/\//,'').split('/')[0]):''}${k.fmt==='openai'?' · OpenAI格式':''}</div>
+        <div class="keyPreview">${maskKey(k.key)}${k.url?' · '+esc(k.url.replace(/^https?:\/\//,'').split('/')[0]):''}${k.fmt==='openai'?' · OpenAI格式':''}${k.compatCache?' · 兼容缓存':''}</div>
       </div>
       <button class="delKey kEdit" title="编辑" style="color:var(--accent-deep);font-weight:600">✎ 改</button>
       <button class="delKey kDel" title="删除">✕ 删</button>`;
@@ -5624,6 +5634,7 @@ function openKeyEdit(k){
   editingKeyId=k.id;
   $('addKeyForm').style.display='block'; $('addKeyBtn').style.display='none';
   $('newKeyLabel').value=k.label||''; $('newKeyVal').value=k.key||''; $('newKeyUrl').value=k.url||'';
+  $('newKeyCompat').checked=!!k.compatCache;
   newKeyFmt=k.fmt==='openai'?'openai':'anthropic';
   document.querySelectorAll('#addKeyForm .modeTab').forEach(x=>x.classList.toggle('on',x.dataset.fmt===newKeyFmt));
 }
@@ -5635,7 +5646,7 @@ $('addKeyBtn').onclick=()=>{
   editingKeyId=null;
   $('addKeyForm').style.display='block';
   $('addKeyBtn').style.display='none';
-  $('newKeyLabel').value=''; $('newKeyVal').value=''; $('newKeyUrl').value='';
+  $('newKeyLabel').value=''; $('newKeyVal').value=''; $('newKeyUrl').value=''; $('newKeyCompat').checked=false;
   newKeyFmt='anthropic';
   document.querySelectorAll('#addKeyForm .modeTab').forEach(x=>x.classList.toggle('on',x.dataset.fmt==='anthropic'));
   setTimeout(()=>$('newKeyLabel').focus(),50);
@@ -5645,7 +5656,7 @@ $('confirmAddKey').onclick=()=>{
   const label=$('newKeyLabel').value.trim();
   const key=$('newKeyVal').value.trim();
   if(!key){ toast('Key 不能空着'); return; }
-  const data={label:label||'未命名',key,url:$('newKeyUrl').value.trim(),fmt:newKeyFmt};
+  const data={label:label||'未命名',key,url:$('newKeyUrl').value.trim(),fmt:newKeyFmt,compatCache:$('newKeyCompat').checked};
   if(editingKeyId){
     const k=apiKeys.find(x=>x.id===editingKeyId);
     if(k) Object.assign(k,data);
@@ -8022,7 +8033,7 @@ async function bgApiCall(api,body){
   const isOA=api.fmt==='openai';
   if(!isOA&&body.temperature!=null) body.temperature=Math.min(1,body.temperature);
   if(!isOA&&body.max_tokens==null) body.max_tokens=8192;
-  if(!isOA) addCacheControl(body);
+  if(!isOA) addCacheControl(body,api.compatCache);
   body.stream=false;
   let payload=isOA?toOpenAI(body):body;
   if(api.extraBody) payload={...payload,...api.extraBody};
