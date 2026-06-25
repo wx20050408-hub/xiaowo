@@ -3120,15 +3120,17 @@ function renderChat(){
       const thinks=segs.filter(x=>x.type==='think');
       const text=segs.filter(x=>x.type==='text').map(x=>x.text).join('\n');
       const pieces=[];
-      if(thinks.length) pieces.push({html:thinks.map(t=>thinkHtml(t.text,t.closed)).join(''),plain:''});
+      if(thinks.length) pieces.push({html:thinks.map(t=>thinkHtml(t.text,t.closed)).join(''),plain:'',line:null,nth:0});
+      const seenLine={};
       text.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
+        const nth=seenLine[line]||0; seenLine[line]=nth+1;
         const sp=specialHtml(line,m);
-        pieces.push(sp?{html:sp,plain:'plain'}:{html:fmt(line,settings.mdAssistant!==false),plain:''});
+        pieces.push(sp?{html:sp,plain:'plain',line,nth}:{html:fmt(line,settings.mdAssistant!==false),plain:'',line,nth});
       });
       if(pieces.length>1||thinks.length){
         pieces.forEach(p=>{
           const el=bubbleEl(m.role,p.html,p.plain,ch);
-          el.querySelector('.bubble').onclick=()=>openMsgActions(i);
+          el.querySelector('.bubble').ondblclick=()=>openMsgActions(i,p.line,p.nth);
           wireThink(el); wireCode(el); attachPat(el,ch,c); wireTransfer(el,m); wireVoice(el,m);
           area.appendChild(el);
         });
@@ -3142,7 +3144,7 @@ function renderChat(){
     const ooc=m.role==='user'&&typeof m.content==='string'&&/^[（(][\s\S]*[)）]$/.test(m.content.trim());
     const qref=m.quote?quoteRefHtml(m.quote):'';
     const el=bubbleEl(m.role,qref+html,spWhole?'plain':(ooc?'ooc':''),ch);
-    el.querySelector('.bubble').onclick=()=>openMsgActions(i);
+    el.querySelector('.bubble').ondblclick=()=>openMsgActions(i);
     wireThink(el); wireCode(el);
     if(m.role!=='user') attachPat(el,ch,c); else attachPatSelf(el,c);
     wireTransfer(el,m); wireVoice(el,m);
@@ -4564,7 +4566,7 @@ async function runReply(c,api,body,ch){
     c.messages.push(_nm);
     c.ts=Date.now(); persistAll();
     const idx=c.messages.length-1;
-    bub.onclick=()=>openMsgActions(idx);
+    bub.ondblclick=()=>openMsgActions(idx);
     wireThink(bub); wireCode(bub);
     /* 线上模式：回复完按行拆成小气泡；含特殊卡片（语音/拍照等）也重渲染成卡片 */
     const onlineNow=chatOnline(c);
@@ -6388,11 +6390,24 @@ $('delChar').onclick=()=>{
 
 /* ================= 消息操作 ================= */
 let actMsgIdx=null;
-function openMsgActions(i){
+let actMsgLine=null;     // 线上拆行时，记着点的是哪一行（null=整条）
+let actMsgLineNth=0;     // 同样文字出现多次时，记是第几次出现，写回时不认错行
+function openMsgActions(i,line=null,nth=0){
   if(streaming) return;
   const c=curChat(); if(!c||!c.messages[i]) return;
-  actMsgIdx=i;
+  actMsgIdx=i; actMsgLine=line; actMsgLineNth=nth;
   openSheet('msgActionSheet');
+}
+/* 把整条消息里"第 nth 次出现、去空格后等于 lineText 的那一行"换成 repl */
+function replaceNthLine(content,lineText,nth,repl){
+  const lines=content.split('\n'); let seen=0;
+  for(let j=0;j<lines.length;j++){
+    if(lines[j].trim()===lineText){
+      if(seen===nth){ lines[j]=repl; return {content:lines.join('\n'),done:true}; }
+      seen++;
+    }
+  }
+  return {content,done:false};
 }
 /* ===== 引用回复（像微信那样指明在回哪条） ===== */
 let quoting=null;  // {name,text,role,cid}
@@ -6410,7 +6425,7 @@ $('quoteMsg').onclick=()=>{
   const c=curChat(); const m=c&&c.messages[actMsgIdx]; if(!m||m.role==='sys') return;
   let name=userName();
   if(m.role!=='user'){ const ch=(m.charId&&characters.find(x=>x.id===m.charId))||curChar(c); name=ch?.name||'TA'; }
-  let text=shotText(m).replace(/\s+/g,' ').trim();
+  let text=(actMsgLine!=null?actMsgLine:shotText(m)).replace(/\s+/g,' ').trim();
   if(!text){ toast('这条没法引用哦'); return; }
   if(text.length>50) text=text.slice(0,50)+'…';
   quoting={name,text,role:m.role,cid:c.id};
@@ -6473,7 +6488,11 @@ function addSwipe(area,m,i){
 function applyMsgEdit(){
   const c=curChat(); const m=c.messages[actMsgIdx];
   const t=$('meText').value;
-  if(typeof m.content==='string') m.content=t;
+  if(actMsgLine!=null && typeof m.content==='string'){
+    const r=replaceNthLine(m.content,actMsgLine,actMsgLineNth,t);   // 只改点的那一行，其它句子原样保留
+    if(r.done) m.content=r.content; else m.content=t;               // 万一没匹配上（极少见），退回整条
+  }
+  else if(typeof m.content==='string') m.content=t;
   else{
     m.content=m.content.filter(b=>b.type!=='text');
     if(t.trim()) m.content.push({type:'text',text:t});
@@ -6483,7 +6502,7 @@ function applyMsgEdit(){
 }
 $('editMsg').onclick=()=>{
   const m=curChat().messages[actMsgIdx];
-  $('meText').value=textOf(m.content);
+  $('meText').value=actMsgLine!=null?actMsgLine:textOf(m.content);
   $('saveRegenMsg').style.display=m.role==='user'?'block':'none';
   closeSheet('msgActionSheet'); openSheet('msgEditSheet');
 };
