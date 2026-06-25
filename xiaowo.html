@@ -1330,8 +1330,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
           <button class="modeTab" data-fmt="openai">OpenAI 兼容</button>
         </div>
       </div>
-      <label class="ceCheckRow" style="margin-bottom:6px"><input type="checkbox" id="newKeyCompat"><span>中转兼容缓存（仅 Anthropic 格式）</span></label>
-      <div style="font-size:12px;color:var(--ink-soft);line-height:1.5;margin-bottom:10px">这个中转老是「只写不读」、缓存吃不上时勾它：把系统提示词合并成<b>一整个大缓存块</b>、去掉每轮都变的消息断点。专治通道乱跳、门槛偏高的中转，能少花冤枉钱。官方 API 或好中转<b>别勾</b>，那样反而更省。</div>
+      <div style="font-size:12px;color:var(--ink-soft);line-height:1.5;margin-bottom:10px">缓存策略（默认时长 + 按站子特调）统一挪到了 <b>百宝箱 → 缓存设置</b> 里调。</div>
       <div style="display:flex;gap:8px">
         <button class="primaryBtn" id="confirmAddKey" style="margin-top:0">确认添加</button>
         <button class="ghostBtn" id="cancelAddKey" style="margin-top:0;flex:1">取消</button>
@@ -1628,10 +1627,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <span class="ic">📊</span><span class="grow">显示 token 统计</span>
       <button class="wbToggle" id="statsToggle"></button>
     </div>
-    <div class="boxRow">
-      <span class="ic">🕐</span><span class="grow">缓存1小时（Claude官方接口省钱）</span>
-      <button class="wbToggle" id="cacheToggle"></button>
-    </div>
+    <button class="boxRow" id="cacheSetBtn" style="width:100%"><span class="ic">🗄</span><span class="grow" style="text-align:left">缓存设置（默认时长 + 按站子特调）</span><span style="color:var(--ink-soft);font-size:12px">›</span></button>
     <div class="boxRow">
       <span class="ic">🌊</span><span class="grow">流式输出（关掉改一次性返回，Gemini等不支持流式时关）</span>
       <button class="wbToggle" id="streamToggle"></button>
@@ -1693,6 +1689,22 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <button class="wbToggle" id="backupRemindToggle"></button>
     </div>
     <div class="hintText">以后想到什么小玩意儿，都往对应分组里塞。</div>
+  </div>
+</div>
+
+<!-- 缓存设置弹层 -->
+<div class="sheetScrim" id="cacheSheet">
+  <div class="sheet">
+    <div class="sheetTitle">缓存设置<button class="close" data-close="cacheSheet">✕</button></div>
+    <div class="boxSec">默认缓存</div>
+    <div class="boxRow">
+      <span class="ic">🕐</span><span class="grow">默认缓存时长：开＝存 1 小时，关＝5 分钟短缓存</span>
+      <button class="wbToggle" id="cacheToggle"></button>
+    </div>
+    <div class="hintText" style="margin:0 2px 10px">没单独特调的 Key 都走这个默认（标准多断点 + 这里选的时长）。官方接口和路由正常的好中转，用默认就最省。</div>
+    <div class="boxSec">按站子特调</div>
+    <div class="hintText" style="margin:0 2px 8px">某个中转老「只写不读」、缓存吃不上，就给它单独开开关换机制；关掉开关＝回默认。<b>标准多断点</b>＝好站默认；<b>兼容单块</b>＝系统合一块、去消息断点，治通道乱跳/门槛高的烂站；<b>关闭</b>＝完全不挂缓存，治一挂缓存就报错的站。仅 Anthropic 格式可调。</div>
+    <div id="cacheKeyList"></div>
   </div>
 </div>
 
@@ -2175,6 +2187,11 @@ if(!apiKeys.length && settings.apiKey){
   apiKeys=[{id:'k1',label:'默认',key:settings.apiKey}];
   selKeyId='k1';
   settings.apiKey='';
+}
+/* 兼容旧数据：per-key compatCache 布尔 → 新的 cacheMode/cacheTtl */
+for(const k of apiKeys){
+  if(k.cacheMode) continue;
+  if(k.compatCache){ k.cacheMode='compat'; k.cacheTtl=(settings.cache1h!==false)?'1h':'5m'; }
 }
 if(!selKeyId && apiKeys.length) selKeyId=apiKeys[0].id;
 let worldbook = load('xw_worldbook', []);   // [{id,name,on,entries:[{id,title,content,mode,keywords,on}]}]
@@ -4174,19 +4191,32 @@ function cacheUserId(){
   }
   return settings.userId;
 }
-/* compat=中转兼容模式：把整个 system 合并成「一个大缓存块」、且不打会动的消息断点。
-   专治通道乱跳/门槛偏高的烂中转——块越大越容易过门槛、越少越快预热全通道，少花冤枉钱。
-   正常中转/官方 API 不要开：多断点（慢区/快区分开 + 增长的历史）才是更省的常规策略。 */
-function addCacheControl(body,compat){
+/* 某个 Key 的有效缓存配置（百宝箱→缓存设置 里按站子调）：
+   cacheMode: default=跟随全局 / standard=标准多断点 / compat=兼容单块 / off=完全不挂缓存
+   - standard：慢区+快区分开 + 增长的历史，常规最省，给路由正常的好站
+   - compat：把整个 system 合并成一个大缓存块、不打会动的消息断点，治通道乱跳/门槛高的烂站
+   - off：一挂 cache_control 就报 4xx 的站，只留 user_id 路由键 */
+function effCache(api){
+  const m=(api&&api.cacheMode)||'default';
+  if(m==='off')      return {on:false,compat:false,ttl:null};
+  if(m==='standard') return {on:true, compat:false,ttl:(api.cacheTtl==='5m'?null:'1h')};
+  if(m==='compat')   return {on:true, compat:true, ttl:(api.cacheTtl==='5m'?null:'1h')};
+  return {on:true,compat:false,ttl:cache1h()?'1h':null};   // default → 跟随全局开关
+}
+function addCacheControl(body,eff){
   body.metadata={...(body.metadata||{}),user_id:cacheUserId()};
-  const cc=()=>cache1h()?{type:'ephemeral',ttl:'1h'}:{type:'ephemeral'};
+  if(!eff.on){   // 关闭缓存：不挂 cache_control，但把 system 里的断点标记还原掉
+    if(typeof body.system==='string') body.system=body.system.split(CACHE_BP).join('\n\n');
+    return;
+  }
+  const cc=()=>eff.ttl?{type:'ephemeral',ttl:eff.ttl}:{type:'ephemeral'};
   if(body.system){
     const parts=body.system.split(CACHE_BP).filter(s=>s.trim());
-    body.system = compat
+    body.system = eff.compat
       ? (parts.length?[{type:'text',text:parts.join('\n\n'),cache_control:cc()}]:[])
       : parts.map(s=>({type:'text',text:s,cache_control:cc()}));
   }
-  if(compat) return;   // 兼容模式：只缓存合并后的 system 单块，不动消息断点
+  if(eff.compat) return;   // 兼容模式：只缓存合并后的 system 单块，不动消息断点
   const ms=body.messages;
   if(ms.length>=2){
     const t=ms[ms.length-2];
@@ -4246,7 +4276,7 @@ function apiFromKey(curKey){
   let apiUrl=(curKey.url||'').trim()||'https://api.anthropic.com';
   if(!apiUrl.includes('/v1/'))
     apiUrl=apiUrl.replace(/\/+$/,'')+(fmt==='openai'?'/v1/chat/completions':'/v1/messages');
-  return {apiUrl,key:curKey.key,fmt,compatCache:!!curKey.compatCache};
+  return {apiUrl,key:curKey.key,fmt,cacheMode:curKey.cacheMode||'default',cacheTtl:curKey.cacheTtl||'1h'};
 }
 function getApi(){
   const curKey=apiKeys.find(k=>k.id===selKeyId);
@@ -4338,7 +4368,7 @@ function apiHeaders(api){
     headers['x-api-key']=api.key;
     headers['anthropic-version']='2023-06-01';
     headers['anthropic-dangerous-direct-browser-access']='true';
-    if(cache1h()) headers['anthropic-beta']='extended-cache-ttl-2025-04-11';
+    if(effCache(api).ttl==='1h') headers['anthropic-beta']='extended-cache-ttl-2025-04-11';
   }
   if(api.extraHeaders) Object.assign(headers,api.extraHeaders);   // 角色自定义头放最后，可覆盖默认
   return headers;
@@ -4350,7 +4380,7 @@ async function callStream(api,body,bub,area,out){
   if(!isOA&&body.temperature!=null) body.temperature=Math.min(1,body.temperature);
   /* Anthropic 接口 max_tokens 必填：用户留空（不限制）时补个足够大的默认，正常聊天到不了 */
   if(!isOA&&body.max_tokens==null) body.max_tokens=8192;
-  if(!isOA) addCacheControl(body,api.compatCache);
+  if(!isOA) addCacheControl(body,effCache(api));
   /* 卡死看门狗：超过 60 秒没有任何新内容就当作 TA 那边卡住了，主动断开让用户重试。
      流式每收到一段就重置计时；非流式（一次性返回本来就要等久）不挂表，免得误杀长回复 */
   let stall;
@@ -5625,6 +5655,59 @@ document.querySelectorAll('.sheetScrim').forEach(s=>s.addEventListener('click',e
 
 /* ================= API Key 管理 ================= */
 function maskKey(k){ return k.length>12 ? k.slice(0,8)+'••••'+k.slice(-4) : '••••••••'; }
+/* Key 列表上的缓存档位小标（跟默认就不显示） */
+function cacheBadge(k){
+  const m=k.cacheMode||'default';
+  if(m==='default') return '';
+  const t=k.cacheTtl==='5m'?'5m':'1h';
+  return ' · '+(m==='off'?'缓存关':m==='compat'?'兼容'+t:'标准'+t);
+}
+/* 百宝箱→缓存设置：按站子（Key）逐个调缓存机制 */
+function renderCacheList(){
+  const box=$('cacheKeyList'); if(!box) return;
+  if(!apiKeys.length){ box.innerHTML='<div class="hintText" style="margin:6px 2px">还没有 Key，先去 设置→API Key 里添加。</div>'; return; }
+  box.innerHTML=apiKeys.map(k=>{
+    const host=k.url?esc(k.url.replace(/^https?:\/\//,'').split('/')[0]):'官方';
+    if(k.fmt==='openai')
+      return `<div class="boxRow" style="align-items:flex-start"><span class="grow"><b>${esc(k.label||'未命名')}</b> <span style="color:var(--ink-soft);font-size:12px">${host} · OpenAI格式</span><div style="font-size:12px;color:var(--ink-soft);margin-top:2px">OpenAI 格式缓存由服务器自动管理，只发稳定路由键，无需特调。</div></span></div>`;
+    const m=k.cacheMode||'default', custom=m!=='default', ttl1h=(k.cacheTtl||'1h')!=='5m';
+    return `<div class="ckRow" data-id="${esc(k.id)}" style="border-bottom:1px solid var(--line);padding:4px 0">
+      <div class="boxRow" style="margin-bottom:0">
+        <span class="grow"><b>${esc(k.label||'未命名')}</b> <span style="color:var(--ink-soft);font-size:12px">${host}</span></span>
+        <button class="wbToggle ckToggle${custom?' on':''}" data-id="${esc(k.id)}"></button>
+      </div>
+      <div style="display:${custom?'block':'none'};padding:2px 8px 6px">
+        <div style="font-size:12px;margin:4px 0 4px">缓存模式</div>
+        <div class="modeTabs ckMode" data-id="${esc(k.id)}">
+          <button class="modeTab${m==='standard'?' on':''}" data-m="standard">标准多断点</button>
+          <button class="modeTab${m==='compat'?' on':''}" data-m="compat">兼容单块</button>
+          <button class="modeTab${m==='off'?' on':''}" data-m="off">关闭</button>
+        </div>
+        <div class="ckTtlWrap" style="display:${m==='off'?'none':'block'}">
+          <div style="font-size:12px;margin:8px 0 4px">缓存时长 TTL</div>
+          <div class="modeTabs ckTtl" data-id="${esc(k.id)}">
+            <button class="modeTab${ttl1h?' on':''}" data-t="1h">1 小时</button>
+            <button class="modeTab${!ttl1h?' on':''}" data-t="5m">5 分钟</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.ckToggle').forEach(b=>b.onclick=()=>{
+    const k=apiKeys.find(x=>x.id===b.dataset.id); if(!k) return;
+    if((k.cacheMode||'default')==='default'){ k.cacheMode='standard'; if(!k.cacheTtl) k.cacheTtl='1h'; }
+    else k.cacheMode='default';
+    persistAll(); renderCacheList(); renderKeyList();
+  });
+  box.querySelectorAll('.ckMode .modeTab').forEach(b=>b.onclick=()=>{
+    const k=apiKeys.find(x=>x.id===b.closest('.ckMode').dataset.id); if(!k) return;
+    k.cacheMode=b.dataset.m; persistAll(); renderCacheList(); renderKeyList();
+  });
+  box.querySelectorAll('.ckTtl .modeTab').forEach(b=>b.onclick=()=>{
+    const k=apiKeys.find(x=>x.id===b.closest('.ckTtl').dataset.id); if(!k) return;
+    k.cacheTtl=b.dataset.t; persistAll(); renderCacheList(); renderKeyList();
+  });
+}
 function renderKeyList(){
   const list=$('keyList'); list.innerHTML='';
   if(!apiKeys.length){
@@ -5637,7 +5720,7 @@ function renderKeyList(){
     it.innerHTML=`<div class="selMark">${k.id===selKeyId?'✓':''}</div>
       <div class="keyInfo">
         <div class="keyLabel">${esc(k.label||'未命名')}</div>
-        <div class="keyPreview">${maskKey(k.key)}${k.url?' · '+esc(k.url.replace(/^https?:\/\//,'').split('/')[0]):''}${k.fmt==='openai'?' · OpenAI格式':''}${k.compatCache?' · 兼容缓存':''}</div>
+        <div class="keyPreview">${maskKey(k.key)}${k.url?' · '+esc(k.url.replace(/^https?:\/\//,'').split('/')[0]):''}${k.fmt==='openai'?' · OpenAI格式':''}${cacheBadge(k)}</div>
       </div>
       <button class="delKey kEdit" title="编辑" style="color:var(--accent-deep);font-weight:600">✎ 改</button>
       <button class="delKey kDel" title="删除">✕ 删</button>`;
@@ -5665,7 +5748,6 @@ function openKeyEdit(k){
   editingKeyId=k.id;
   $('addKeyForm').style.display='block'; $('addKeyBtn').style.display='none';
   $('newKeyLabel').value=k.label||''; $('newKeyVal').value=k.key||''; $('newKeyUrl').value=k.url||'';
-  $('newKeyCompat').checked=!!k.compatCache;
   newKeyFmt=k.fmt==='openai'?'openai':'anthropic';
   document.querySelectorAll('#addKeyForm .modeTab').forEach(x=>x.classList.toggle('on',x.dataset.fmt===newKeyFmt));
 }
@@ -5677,7 +5759,7 @@ $('addKeyBtn').onclick=()=>{
   editingKeyId=null;
   $('addKeyForm').style.display='block';
   $('addKeyBtn').style.display='none';
-  $('newKeyLabel').value=''; $('newKeyVal').value=''; $('newKeyUrl').value=''; $('newKeyCompat').checked=false;
+  $('newKeyLabel').value=''; $('newKeyVal').value=''; $('newKeyUrl').value='';
   newKeyFmt='anthropic';
   document.querySelectorAll('#addKeyForm .modeTab').forEach(x=>x.classList.toggle('on',x.dataset.fmt==='anthropic'));
   setTimeout(()=>$('newKeyLabel').focus(),50);
@@ -5687,7 +5769,7 @@ $('confirmAddKey').onclick=()=>{
   const label=$('newKeyLabel').value.trim();
   const key=$('newKeyVal').value.trim();
   if(!key){ toast('Key 不能空着'); return; }
-  const data={label:label||'未命名',key,url:$('newKeyUrl').value.trim(),fmt:newKeyFmt,compatCache:$('newKeyCompat').checked};
+  const data={label:label||'未命名',key,url:$('newKeyUrl').value.trim(),fmt:newKeyFmt};
   if(editingKeyId){
     const k=apiKeys.find(x=>x.id===editingKeyId);
     if(k) Object.assign(k,data);
@@ -7932,6 +8014,11 @@ $('cacheToggle').onclick=()=>{
   $('cacheToggle').classList.toggle('on',cache1h());
   toast(cache1h()?'缓存改成存1小时啦':'已换回5分钟短缓存');
 };
+$('cacheSetBtn').onclick=()=>{
+  $('cacheToggle').classList.toggle('on',cache1h());
+  renderCacheList();
+  openSheet('cacheSheet');
+};
 $('streamToggle').onclick=()=>{
   settings.stream=!streamOn();
   persistAll();
@@ -8066,7 +8153,7 @@ async function bgApiCall(api,body){
   const isOA=api.fmt==='openai';
   if(!isOA&&body.temperature!=null) body.temperature=Math.min(1,body.temperature);
   if(!isOA&&body.max_tokens==null) body.max_tokens=8192;
-  if(!isOA) addCacheControl(body,api.compatCache);
+  if(!isOA) addCacheControl(body,effCache(api));
   body.stream=false;
   let payload=isOA?toOpenAI(body):body;
   if(api.extraBody) payload={...payload,...api.extraBody};
