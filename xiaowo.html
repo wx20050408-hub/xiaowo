@@ -1031,6 +1031,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <button class="ppItem" id="ppSticker"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4 4 0 0 0 7 0"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/></svg></span>表情包</button>
     <button class="ppItem" id="ppTransfer"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M5.5 9.5h.01M18.5 14.5h.01"/></svg></span>转账</button>
     <button class="ppItem" id="ppVoice"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/></svg></span>语音</button>
+    <button class="ppItem" id="ppShop"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8h13l-1 11.2a1.5 1.5 0 0 1-1.5 1.3H8a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M9 8V6.2a3 3 0 0 1 6 0V8"/></svg></span>购物</button>
     <button class="ppItem" id="ppAlbum"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2L8 4.8h8L17.5 7h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/><circle cx="12" cy="12.5" r="3.2"/></svg></span>相册</button>
     <button class="ppItem" id="ppGame"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7.5" width="20" height="9" rx="4.5"/><path d="M6.5 11v3M5 12.5h3"/><circle cx="16" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="18.5" cy="13.5" r="1" fill="currentColor" stroke="none"/></svg></span>小游戏</button>
     <button class="ppItem" id="ppStudy"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10.5 5 8 4.5 4 5v13c4-.5 6.5 0 8 1.5 1.5-1.5 4-2 8-1.5V5c-4-.5-6.5 0-8 1.5z"/><path d="M12 6.5v13"/></svg></span>自习</button>
@@ -1862,6 +1863,26 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   </div>
 </div>
 
+<!-- 🛍️ 购物清单弹层 -->
+<div class="sheetScrim" id="shopSheet">
+  <div class="sheet">
+    <div class="sheetTitle">🛍️ 购物清单<button class="close" data-close="shopSheet">✕</button></div>
+    <div class="field"><label>看谁的清单</label><select id="shopOwner"></select></div>
+    <div id="shopTotal" style="text-align:right;font-size:13px;color:var(--ink-soft);margin:-4px 2px 8px"></div>
+    <div id="shopList"></div>
+    <div class="field" style="margin-top:10px"><label>添加一笔 / 点上面某条来编辑</label>
+      <input id="shopName" placeholder="买了什么">
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="shopPrice" type="number" inputmode="decimal" placeholder="价格 ¥" style="flex:0 0 40%">
+        <input id="shopNote" placeholder="备注（可选）" style="flex:1">
+      </div>
+    </div>
+    <button class="primaryBtn" id="saveShop">添加</button>
+    <button class="ghostBtn" id="genShop">✨ 让 TA 买买买（按人设虚构 TA 会买的东西）</button>
+    <div class="hintText">「我的」记你自己买了啥；切到某个角色，点「✨ 让 TA 买买买」让 TA 按自己的性格 / 喜好虚构出会买的东西和价格，可以多点几次慢慢攒。点任意一条可改，✕ 删。换角色就看那个角色的清单（角色去「角色」里自己加）。</div>
+  </div>
+</div>
+
 <!-- 一起读：共读列表 -->
 <div class="sheetScrim" id="readSheet">
   <div class="sheet">
@@ -2211,6 +2232,7 @@ let presets = load('xw_presets', []);       // {id,name,prompt,temperature,maxTo
 let selPresetId = load('xw_selpreset', null);
 if(selPresetId && !presets.some(p=>p.id===selPresetId)) selPresetId=null;
 let memories = load('xw_memories', []);     // {id,charId,text,core?}
+let shopping = load('xw_shopping', []);      // 购物清单 {id,owner:'user'|charId,name,price,note,ts,by:'me'|'ta'}
 let reads = load('xw_reads', []);           // 一起读：{id,charId,title,paras:[str],notes:[{para,by:'ta'|'me',text,ts}],ts,updated}
 let moments = load('xw_moments', []);       // {id,charId|null,text,ts,likes:[by],comments:[{by,text,ts}]}  by='me' 或角色id
 let annivs = load('xw_annivs', []);         // {id,charId,name,date:'YYYY-MM-DD',last:'已庆祝的日期'}
@@ -2486,6 +2508,7 @@ const persistAll = ()=>{
   save('xw_current',currentId); save('xw_selchar',selCharId); save('xw_settings',settings);
   save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook);
   save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories);
+  save('xw_shopping',shopping);
   save('xw_reads',reads);
   save('xw_moments',moments); save('xw_annivs',annivs); save('xw_injections',injections);
   save('xw_wishes',wishes);
@@ -3212,8 +3235,8 @@ $('ppAlbum').onclick=()=>{ togglePlus(false); renderAlbum(); openSheet('albumShe
 $('ppGame').onclick=()=>{ togglePlus(false); openSheet('gameSheet'); };
 
 /* ===== 功能 ➕ 面板图标配色：默认多彩 / 纯墨色(跟随主题) / 每个图标可单独自定义 ===== */
-const PP_ICONS=[['ppImg','图片'],['ppFile','文件'],['ppSticker','表情'],['ppTransfer','转账'],['ppVoice','语音'],['ppAlbum','相册'],['ppGame','游戏'],['ppStudy','自习'],['ppHome','恋爱'],['ppCall','通话']];
-const DEFAULT_PP_COLORS={ppImg:'#E8A87C',ppFile:'#8C84C8',ppSticker:'#4A4036',ppTransfer:'#6FA88E',ppVoice:'#D98EA0',ppAlbum:'#7AA0C8',ppGame:'#C98AB8',ppStudy:'#C2954E',ppHome:'#E07A8B',ppCall:'#5FA89E'};
+const PP_ICONS=[['ppImg','图片'],['ppFile','文件'],['ppSticker','表情'],['ppTransfer','转账'],['ppVoice','语音'],['ppShop','购物'],['ppAlbum','相册'],['ppGame','游戏'],['ppStudy','自习'],['ppHome','恋爱'],['ppCall','通话']];
+const DEFAULT_PP_COLORS={ppImg:'#E8A87C',ppFile:'#8C84C8',ppSticker:'#4A4036',ppTransfer:'#6FA88E',ppVoice:'#D98EA0',ppShop:'#D88C5A',ppAlbum:'#7AA0C8',ppGame:'#C98AB8',ppStudy:'#C2954E',ppHome:'#E07A8B',ppCall:'#5FA89E'};
 /* 返回某图标该用的颜色：单独覆盖优先 → 纯墨色档返回''(空＝跟随CSS主题墨色) → 否则默认多彩 */
 function ppIconColor(id){
   const ov=settings.ppColors&&settings.ppColors[id];
@@ -6771,6 +6794,80 @@ $('tidyMem').onclick=async()=>{
     lines.forEach((tx,i)=>memories.push({id:'m'+now+'_t'+i,charId:cid,text:tx}));
     resetMemForm(); persistAll(); renderMems(); toast(`整理好啦：${normal.length} → ${lines.length} 条`);
   }catch(e){ toast('整理出错了：'+(e.message||'')); }
+  finally{ btn.disabled=false; btn.textContent=old; }
+};
+
+/* ================= 🛍️ 购物清单 ================= */
+let editingShopId=null, lastShopOwner='user';
+const shopItems=owner=>shopping.filter(s=>s.owner===owner);
+function buildShopOwnerSel(){
+  const sel=$('shopOwner');
+  const opts=['<option value="user">🧑 '+esc(userName())+'（我的）</option>'];
+  characters.forEach(ch=>opts.push(`<option value="${ch.id}">🛍 ${esc(ch.name)}</option>`));
+  sel.innerHTML=opts.join('');
+  sel.value=(lastShopOwner==='user'||characters.some(c=>c.id===lastShopOwner))?lastShopOwner:'user';
+}
+function resetShopForm(){ editingShopId=null; $('shopName').value=''; $('shopPrice').value=''; $('shopNote').value=''; $('saveShop').textContent='添加'; }
+function renderShop(){
+  const owner=$('shopOwner').value; lastShopOwner=owner;
+  const isChar=owner!=='user';
+  $('genShop').style.display=isChar?'block':'none';
+  const items=shopItems(owner);
+  const list=$('shopList'); list.innerHTML='';
+  if(!items.length){
+    list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:14px 0">'
+      +(isChar?'还没有——点下面「✨ 让 TA 买买买」试试':'还没有，加一笔你买的东西吧')+'</div>';
+  }else{
+    items.forEach(s=>{
+      const it=document.createElement('div'); it.className='keyItem'+(s.id===editingShopId?' sel':'');
+      const price=(s.price!==''&&s.price!=null)?`<b style="color:var(--accent-deep);white-space:nowrap;margin-left:8px">¥${esc(String(s.price))}</b>`:'';
+      it.innerHTML=`<div class="keyInfo"><div class="keyPreview" style="white-space:normal">${s.by==='ta'?'🛍 ':''}${esc(s.name)}${s.note?`<span style="color:var(--ink-soft);font-size:12px"> · ${esc(s.note)}</span>`:''}</div></div>${price}<button class="delKey">✕</button>`;
+      it.onclick=ev=>{ if(ev.target.classList.contains('delKey'))return;
+        editingShopId=s.id; $('shopName').value=s.name; $('shopPrice').value=(s.price??''); $('shopNote').value=s.note||''; $('saveShop').textContent='保存修改'; renderShop();
+      };
+      it.querySelector('.delKey').onclick=()=>{ shopping=shopping.filter(x=>x.id!==s.id); if(editingShopId===s.id)resetShopForm(); persistAll(); renderShop(); };
+      list.appendChild(it);
+    });
+  }
+  const sum=items.reduce((a,s)=>a+(parseFloat(s.price)||0),0);
+  $('shopTotal').textContent=items.length?`共 ${items.length} 件 · 合计 ¥${Math.round(sum*100)/100}`:'';
+}
+$('ppShop').onclick=()=>{ togglePlus(false); buildShopOwnerSel(); resetShopForm(); renderShop(); openSheet('shopSheet'); };
+$('shopOwner').onchange=()=>{ resetShopForm(); renderShop(); };
+$('saveShop').onclick=()=>{
+  const name=$('shopName').value.trim();
+  if(!name){ toast('写点买了啥吧'); return; }
+  const price=$('shopPrice').value.trim();
+  const note=$('shopNote').value.trim();
+  if(editingShopId){ const s=shopping.find(x=>x.id===editingShopId); if(s){ s.name=name; s.price=price; s.note=note; } }
+  else shopping.push({id:'sh'+Date.now(),owner:$('shopOwner').value,name,price,note,ts:Date.now(),by:'me'});
+  resetShopForm(); persistAll(); renderShop(); toast('记好啦');
+};
+$('genShop').onclick=async()=>{
+  const owner=$('shopOwner').value; if(owner==='user'){ toast('切到某个角色再用哦'); return; }
+  const ch=characters.find(c=>c.id===owner); if(!ch){ toast('角色不在了'); return; }
+  const api=apiForChar(ch); if(!api) return;
+  const btn=$('genShop'), old=btn.textContent; btn.disabled=true; btn.textContent='TA 逛街中…🛍';
+  try{
+    const sys=momentSystem(ch);
+    const user=`请以「${ch.name}」的身份，按你的性格、喜好和最近状态，列出你最近会买的 5~8 样东西`
+      +`（日常用品、爱好相关、想送${userName()}的小东西都行，只要符合你的人设）。`
+      +`\n严格每行一样，用这个格式，不要表头、不要编号、不要任何多余解释：\n物品名 | 价格数字 | 一句很短的理由`
+      +`\n价格用人民币、只写数字（如 39 或 128.5）。`;
+    const out=await quickGen(api,sys,user,800,(ch.model||'').trim()||undefined);
+    if(!out){ toast('TA 这会儿没逛成，待会儿再试'); return; }
+    const now=Date.now(); let n=0;
+    out.split('\n').forEach(line=>{
+      if(/物品名|价格数字/.test(line)) return;   // 模型有时会把格式表头也输出，滤掉
+      const parts=line.split(/[|｜]/); if(parts.length<2) return;
+      const name=parts[0].replace(/^\s*[-*#0-9.、)）]+\s*/,'').trim(); if(!name) return;
+      const pm=(parts[1]||'').match(/[\d.]+/); const price=pm?pm[0]:'';
+      const note=(parts[2]||'').trim();
+      shopping.push({id:'sh'+now+'_'+(n++),owner,name:name.slice(0,40),price,note:note.slice(0,40),ts:now,by:'ta'});
+    });
+    if(!n){ toast('没解析出东西，再试一次试试'); return; }
+    persistAll(); renderShop(); toast(`${ch.name} 买了 ${n} 样～`);
+  }catch(e){ toast('出错了：'+(e.message||'')); }
   finally{ btn.disabled=false; btn.textContent=old; }
 };
 
