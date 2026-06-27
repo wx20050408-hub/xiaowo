@@ -58,7 +58,7 @@
     <div class="drop" id="dropRikka">
       <div class="big">📦</div>
       <div class="t">拖入 / 点击选择 聊天软件的备份文件</div>
-      <div class="h">拖进来会<b>自动识别来源</b>。目前支持 <b>RikkaHub</b> 和 <b>Kelivo</b> 的备份 zip；更多陆续加。</div>
+      <div class="h">拖进来会<b>自动识别来源</b>。目前支持 <b>RikkaHub</b>、<b>Kelivo</b>、<b>Claude</b>、<b>ChatGPT</b>（官方导出 zip）；更多陆续加。</div>
       <div class="pill" id="rikkaName" style="display:none"></div>
     </div>
     <input type="file" id="fileRikka" accept=".zip,.json,.db" hidden>
@@ -138,7 +138,9 @@ $('run').onclick=async()=>{
     let r=null;
     if(zip.file('rikka_hub.db')&&zip.file('settings.json')){ log('识别为：RikkaHub'); r=await buildFromRikka(zip,wantImg,wantThink); }
     else if(zip.file('chats.json')&&zip.file('settings.json')){ log('识别为：Kelivo'); r=await buildFromKelivo(zip,wantImg,wantThink); }
-    else throw new Error('没认出这是哪个软件的备份。目前支持 RikkaHub、Kelivo 的 zip；别的把文件发给作者就能加上支持～');
+    else if(zip.file('conversations.json')&&zip.file('chat.html')){ log('识别为：ChatGPT（官方导出）'); r=await buildFromChatGPT(zip,wantImg,wantThink); }
+    else if(zip.file('conversations.json')&&zip.file('users.json')){ log('识别为：Claude（官方导出）'); r=await buildFromClaude(zip,wantImg,wantThink); }
+    else throw new Error('没认出这是哪个软件的备份。目前支持 RikkaHub、Kelivo、Claude、ChatGPT 的 zip；别的把文件发给作者就能加上支持～');
     const {characters,chats,memories,imgCount,msgCount}=r;
 
     /* 合并或新建备份 */
@@ -325,6 +327,148 @@ async function buildFromKelivo(zip,wantImg,wantThink){
   /* 记忆 */
   const memories=[];
   mems.forEach((m,i)=>{ const charId=idMap[m.assistantId]; if(charId) memories.push({id:'klm_'+i+'_'+Date.now(),charId,text:m.content||''}); });
+  return {characters,chats,memories,imgCount,msgCount};
+}
+
+/* ========== ChatGPT 官方导出：conversations.json(mapping 树) + chat.html + 图片文件 ========== */
+async function buildFromChatGPT(zip,wantImg,wantThink){
+  const conv=JSON.parse(await zip.file('conversations.json').async('string'));
+  log(`找到 对话 ${conv.length} 个`);
+
+  /* 角色提示词：ChatGPT 把「自定义指令/人设」存在 user_editable_context 里，会随导出带出来。
+     取最近一次更新的那条当角色提示词（Claude 导出反而没有这段） */
+  let prompt='';
+  outer: for(const c of [...conv].sort((a,b)=>(b.update_time||0)-(a.update_time||0))){
+    for(const id of Object.keys(c.mapping||{})){ const m=c.mapping[id].message;
+      if(m&&m.content&&m.content.content_type==='user_editable_context'&&m.content.user_instructions){
+        const raw=m.content.user_instructions, mm=raw.match(/```([\s\S]*?)```/);
+        prompt=(mm?mm[1]:raw).trim(); break outer;
+      } }
+  }
+  if(prompt) log('  ✓ 从「自定义指令」里找回了人设提示词（'+prompt.length+' 字）');
+
+  const mainId='gpt_main';
+  const characters=[{ id:mainId, name:'ChatGPT', emoji:'☺', prompt,
+    avatar:null, bg:null, temp:null, ctxOn:false, ctxN:50, autoMem:false,
+    customHeaders:null, customBody:null, model:null, keyId:null }];
+
+  /* 图片：zip 文件按 basename 索引，用 asset_pointer 的 file-id 前缀匹配（含 dalle-generations/） */
+  const fileList=[]; zip.forEach((p,f)=>{ if(!f.dir) fileList.push({base:p.split('/').pop(),f}); });
+  const imgCache={}; let imgCount=0;
+  async function img(assetPointer){
+    if(!wantImg||!assetPointer) return null;
+    const id=String(assetPointer).split('/').pop();   // file-service://file-XXXX -> file-XXXX
+    if(id in imgCache) return imgCache[id];
+    const hit=fileList.find(x=>x.base.startsWith(id));
+    let url=null;
+    if(hit){ try{ url=await compress(await hit.f.async('blob'),1280,.72,false); imgCount++; }catch(e){ log('  图片跳过 '+id.slice(0,14)+'：'+e.message,'err'); } }
+    imgCache[id]=url; return url;
+  }
+
+  /* 对话：从 current_node 回溯到根得到当前可见主线，过滤掉系统/工具/隐藏消息 */
+  const chats=[]; let msgCount=0;
+  for(const c of conv){
+    const mp=c.mapping||{};
+    const path=[]; let cur=c.current_node; const guard=new Set();
+    while(cur&&mp[cur]&&!guard.has(cur)){ guard.add(cur); const n=mp[cur]; if(n.message) path.unshift(n.message); cur=n.parent; }
+    const msgs=[]; let firstUserText='';
+    for(const m of path){
+      const role=m.author&&m.author.role;
+      if(role!=='user'&&role!=='assistant') continue;
+      if(m.recipient&&m.recipient!=='all') continue;                              // 工具调用
+      if(m.metadata&&m.metadata.is_visually_hidden_from_conversation) continue;   // 隐藏的上下文注入
+      const ct=m.content&&m.content.content_type;
+      if(ct!=='text'&&ct!=='multimodal_text') continue;
+      const texts=[], images=[];
+      for(const p of (m.content.parts||[])){
+        if(typeof p==='string'){ if(p) texts.push(p); }
+        else if(p&&p.content_type==='image_asset_pointer'){ const u=await img(p.asset_pointer); if(u) images.push(u); }
+      }
+      let text=texts.join('\n').trim();
+      if(!text&&!images.length) continue;
+      const r=role==='assistant'?'assistant':'user';
+      if(r==='user'&&!firstUserText&&text) firstUserText=text;
+      let content;
+      if(images.length){ content=images.map(u=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:u.split(',')[1]}})); if(text) content.push({type:'text',text}); }
+      else content=text;
+      const ts=m.create_time?Math.round(m.create_time*1000):Math.round((c.update_time||0)*1000);
+      const msg={role:r,content,ts};
+      if(r==='assistant') msg.charId=mainId;
+      msgs.push(msg); msgCount++;
+    }
+    if(!msgs.length) continue;
+    chats.push({ id:'gpt_'+String(c.conversation_id||c.id||'').slice(0,8), charId:mainId,
+      title:(c.title&&c.title.trim())||firstUserText.slice(0,16)||'（无标题）',
+      ts:Math.round((c.update_time||c.create_time||0)*1000)||Date.now(), messages:msgs });
+  }
+  return {characters,chats,memories:[],imgCount,msgCount};
+}
+
+/* ========== Claude.ai 官方导出：users/projects/memories/conversations.json ========== */
+async function buildFromClaude(zip,wantImg,wantThink){
+  const readJSON=async n=>{ const f=zip.file(n); return f?JSON.parse(await f.async('string')):null; };
+  const projects=(await readJSON('projects.json'))||[];
+  const conversations=(await readJSON('conversations.json'))||[];
+  const memObj=((await readJSON('memories.json'))||[])[0]||{};
+  log(`找到 项目 ${projects.length} 个 · 对话 ${conversations.length} 个`);
+  log('ℹ️ 说明：Claude 官方导出只含「对话 / 项目 / 记忆」三样，');
+  log('   不包含你在 Claude 设置里写的「个人偏好 / 自定义风格」那段人设提示词。');
+  log('   所以聊天记录会完整导入，但角色的提示词可能是空的或只是项目模板——');
+  log('   导入小窝后到角色设置里把人设补回去就好，聊天记录一条都不会少 🌿');
+
+  /* 角色模板（与小窝角色结构对齐） */
+  const mkChar=(id,name,prompt)=>({ id, name:name||'未命名', emoji:'☺', prompt:prompt||'',
+    avatar:null, bg:null, temp:null, ctxOn:false, ctxN:50, autoMem:false,
+    customHeaders:null, customBody:null, model:null, keyId:null });
+  /* 会话不关联项目：单项目时直接用它当主角色（带提示词）；多/无项目时主角色叫 Claude，
+     另把每个项目建成角色以保留其提示词 */
+  const characters=[]; const projCharId={}; const mainId='cld_main';
+  if(projects.length===1){
+    characters.push(mkChar(mainId, projects[0].name||'Claude', projects[0].prompt_template||''));
+    projCharId[projects[0].uuid]=mainId;
+  }else{
+    characters.push(mkChar(mainId,'Claude',''));
+    for(const p of projects){ const id='cldp_'+String(p.uuid).slice(0,8); projCharId[p.uuid]=id; characters.push(mkChar(id,p.name,p.prompt_template)); }
+  }
+
+  /* 对话 + 消息（content[] 取 text/thinking，跳过 tool_use/tool_result/flag） */
+  const chats=[]; let msgCount=0, imgCount=0;
+  for(const cv of conversations){
+    const msgs=[]; let firstUserText='';
+    for(const m of (cv.chat_messages||[])){
+      const role=m.sender==='assistant'?'assistant':'user';
+      const texts=[]; let reasoning='';
+      for(const p of (m.content||[])){
+        if(p.type==='text'&&p.text) texts.push(p.text);
+        else if(p.type==='thinking'&&p.thinking) reasoning+=(reasoning?'\n':'')+p.thinking;
+      }
+      let text=texts.join('\n').trim();
+      if(!text&&m.text) text=String(m.text).trim();   // 兜底
+      /* Claude 导出不含图片字节，只有文件名 → 用占位文字标记 */
+      if(wantImg) for(const f of (m.files||[])){ if(f&&f.file_name){ text+=(text?'\n':'')+'［图片：'+f.file_name+'］'; imgCount++; } }
+      if(role==='assistant'&&wantThink&&reasoning.trim()) text='<think>'+reasoning.trim()+'</think>\n\n'+text;
+      if(!text.trim()) continue;
+      if(role==='user'&&!firstUserText&&texts.length) firstUserText=texts[0];
+      const msg={role,content:text,ts:epoch(m.created_at)||epoch(cv.updated_at)};
+      if(role==='assistant') msg.charId=mainId;
+      msgs.push(msg); msgCount++;
+    }
+    if(!msgs.length) continue;
+    chats.push({ id:'cldt_'+String(cv.uuid).slice(0,8), charId:mainId,
+      title:(cv.name&&cv.name.trim())||firstUserText.slice(0,16)||'（无标题）',
+      ts:epoch(cv.updated_at)||epoch(cv.created_at)||Date.now(), messages:msgs });
+  }
+  if(imgCount) log('  注：Claude 导出不含图片文件，已用「［图片：…］」文字标记 '+imgCount+' 处');
+
+  /* 记忆：conversations_memory(全局) 挂主角色；project_memories 按 uuid 挂对应角色。
+     按 **小标题** 分段成多条，读起来更清爽 */
+  const memories=[]; let mi=0;
+  const splitMem=t=>String(t||'').split(/\n(?=\*\*[^*\n]+\*\*\s*\n)/).map(s=>s.trim()).filter(Boolean);
+  for(const sec of splitMem(memObj.conversations_memory)) memories.push({id:'cldm_'+(mi++)+'_'+Date.now(),charId:mainId,text:sec});
+  const pmem=memObj.project_memories||{};
+  for(const uuid of Object.keys(pmem)){ const cid=projCharId[uuid]||mainId;
+    for(const sec of splitMem(pmem[uuid])) memories.push({id:'cldm_'+(mi++)+'_'+Date.now(),charId:cid,text:sec}); }
+
   return {characters,chats,memories,imgCount,msgCount};
 }
 
