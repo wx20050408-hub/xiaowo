@@ -1437,8 +1437,16 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <div class="hintText">隔了两小时以上再打开和TA的聊天，TA会先给你发消息——想你了、关心你，或者接着上次的话题。</div>
     </div>
     <div class="field">
+      <div class="boxRow"><span class="ic">🧠</span><span class="grow">带记忆</span><button class="wbToggle" id="ceMemOn"></button></div>
+      <div class="hintText">开着TA会记得你之前告诉过的事（喜好、约定、近况），跨对话不忘。玩剧情/穿越/架空不想让TA「出戏」地提起现实里的记忆，就关掉——这轮完全不带记忆，也不会新记。关了时下面「自己记笔记」自动失效。</div>
+    </div>
+    <div class="field">
       <div class="boxRow"><span class="ic">📝</span><span class="grow">TA会自己记笔记</span><button class="wbToggle" id="ceAutoMem"></button></div>
-      <div class="hintText">聊天中TA了解到你的重要信息（喜好、约定、近况）会自己写进记忆，过时或记错了也会自己改或删，跨对话不忘。每条记忆都有 #编号，去 百宝箱→记忆 里能看、改、删。</div>
+      <div class="hintText">聊天中TA了解到你的重要信息（喜好、约定、近况）会自己写进记忆，过时或记错了也会自己改或删，跨对话不忘。每条记忆都有 #编号，去 百宝箱→记忆 里能看、改、删。（需先开「带记忆」）</div>
+    </div>
+    <div class="field">
+      <div class="boxRow"><span class="ic">⏰</span><span class="grow">时间感知</span><button class="wbToggle" id="ceTimeAware"></button></div>
+      <div class="hintText">开着TA就知道现在几点几号、你们多久没说话，熬夜时也会心疼你。玩剧情/穿越/架空世界不想被现实时间打扰，就关掉——TA完全没有时间概念。</div>
     </div>
     <div class="field">
       <div class="boxRow"><span class="ic">🔑</span><span class="grow">这个角色专用 API</span></div>
@@ -3952,6 +3960,12 @@ const memNote=()=>`【记忆本】你有一本只关于${userName()}的记忆本
 标⭐的是核心记忆（${userName()}亲手钉住的），无论如何都不要用<忘记>删它；内容若过时可以用<改记忆>更新，但绝不能删。
 没有要记/改/删的就什么都别写。编号一律以本次【记忆】里显示的为准。`;
 
+/* 角色级开关，默认都「开」（老角色没这俩字段时视作开启，保持原行为）：
+   memActive  —— 带记忆：关掉则既不把已存记忆注入提示词，也不让TA自己记/改/删
+   timeActive —— 时间感知：关掉则TA不知道现在几点几号、多久没说话，也不会因熬夜心疼你 */
+const memActive=ch=>!!ch && ch.memOn!==false;
+const timeActive=ch=>!ch || ch.timeAware!==false;
+
 /* 角色的补充设定：按开关和线上/线下状态决定要不要拼进人设 */
 function extraPromptOf(ch,isOnline){
   if(!ch?.extra||!ch.extra.trim()) return '';
@@ -4010,7 +4024,7 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   if(always.length) slow.push('【世界设定】\n'+always.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
   if(preset && preset.prompt.trim()) slow.push(preset.prompt);
   if(groupNote) fast.push(groupNote);
-  const mems=charMems(ch?.id);
+  const mems=memActive(ch)?charMems(ch?.id):[];
   if(mems.length) fast.push('【记忆】关于用户，你记得这些事（每条前面的 #编号 用来修改或删除它；标⭐的是核心记忆，格外重要、要一直记牢，绝不能删）：\n'+mems.map((m,i)=>`#${i+1} ${m.core?'⭐ ':''}${m.text}`).join('\n'));
   const ans=annivs.filter(a=>a.charId===ch?.id);
   if(ans.length) fast.push('【纪念日】对你们很重要的日子，你一直记得：\n'+ans.map(a=>`- ${a.name}：${a.date}`).join('\n'));
@@ -4078,10 +4092,11 @@ function usualSleepHour(){
   if(v.length<3) return null;
   return v.reduce((a,b)=>a+b,0)/v.length;
 }
-function senseNotes(){
+function senseNotes(timeAware){
   const parts=[];
   if(batteryInfo&&!batteryInfo.charging&&batteryInfo.level<=25)
     parts.push(`【感知】${userName()}的手机电量只剩 ${batteryInfo.level}% 了，还没插电。合适的时候提醒一句去充电。`);
+  if(timeAware===false) return parts;   // 时间感知关了：熬夜/深夜这类时间推导的心疼不再提
   const now=new Date();
   let h=now.getHours()+now.getMinutes()/60;
   if(h<6) h+=24;
@@ -4097,13 +4112,16 @@ function senseNotes(){
 function buildDynamic(c,ch){
   const parts=[];
   const now=new Date();
-  const wd=['日','一','二','三','四','五','六'][now.getDay()];
-  let timeNote=`【时间】现在是${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${wd} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  if(c.messages.length>=2){
-    const prev=c.messages[c.messages.length-2];
-    if(prev.ts && Date.now()-prev.ts>30*60e3) timeNote+=`。距离上一条消息已经过去${fmtGap(Date.now()-prev.ts)}了`;
+  const timeAware=timeActive(ch);
+  if(timeAware){
+    const wd=['日','一','二','三','四','五','六'][now.getDay()];
+    let timeNote=`【时间】现在是${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${wd} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    if(c.messages.length>=2){
+      const prev=c.messages[c.messages.length-2];
+      if(prev.ts && Date.now()-prev.ts>30*60e3) timeNote+=`。距离上一条消息已经过去${fmtGap(Date.now()-prev.ts)}了`;
+    }
+    parts.push(timeNote+'。');
   }
-  parts.push(timeNote+'。');
   const recentText=c.messages.slice(-5).map(m=>textOf(m.content)).join('\n');
   const sc=charScope(ch);
   const hits=[];
@@ -4116,8 +4134,8 @@ function buildDynamic(c,ch){
     }
   }
   if(hits.length) parts.push('【世界设定·当前相关】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
-  /* TA的感知：电量 / 熬夜 */
-  for(const n of senseNotes()) parts.push(n);
+  /* TA的感知：电量 / 熬夜（熬夜属时间推导，跟着时间感知一起关；电量不受影响） */
+  for(const n of senseNotes(timeAware)) parts.push(n);
   /* TA的感知：天气 */
   if(weatherInfo&&settings.city&&weatherInfo.city===settings.city.name)
     parts.push(`【天气】${userName()}那边（${weatherInfo.city}）现在${weatherInfo.desc}，${weatherInfo.temp}°C（体感${weatherInfo.app}°C），今天${weatherInfo.tmin}~${weatherInfo.tmax}°C，降水概率${weatherInfo.rain}%。聊到出门、天气、穿衣时自然用上：要下雨提醒带伞，降温提醒多穿点。别没头没尾硬聊天气。`);
@@ -4530,7 +4548,7 @@ async function runReply(c,api,body,ch){
     /* TA 自己管理记忆本：<记住>新增 / <改记忆 N>覆盖第N条 / <忘记 N>删第N条
        N 以本轮注入【记忆】里显示的编号为准。先按快照把编号解析成具体记忆，再统一改，
        这样同一条回复里又删又改也不会因为编号错位而误伤 */
-    if(/<(?:记住|改记忆|忘记)/.test(out.acc)){
+    if(memActive(ch) && /<(?:记住|改记忆|忘记)/.test(out.acc)){
       const myMems=charMems(ch?.id);   // 快照：#N → myMems[N-1]（和注入同一套排序，核心在前）
       let added=0,edited=0,forgot=0; const delIds=new Set();
       out.acc=out.acc
@@ -4767,7 +4785,7 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
       for(const m of members){
         const note=`【群聊】这是一个群聊，成员有：${allNames}，还有用户「${myName}」。你只扮演「${m.name}」，以${m.name}的身份说一条消息，不要替其他任何人发言，也不要在开头加自己的名字。`
           +(c.online?'\n\n【线上群聊】大家在手机群里发消息。用发消息的口吻：短句、口语化、像平时在微信群里那样。想连发几条就分行写，一行算一条。不要写动作、神态、旁白。\n\n'+onlineExtraNote():'\n\n'+offlineNote())
-          +(m.autoMem?'\n\n'+memNote():'')
+          +(memActive(m)&&m.autoMem?'\n\n'+memNote():'')
           +'\n\n'+directorNote();
         let gm=c.messages;
         if(m.ctxOn&&Number(m.ctxN)>0) gm=gm.slice(-Math.min(Number(m.ctxN),516));
@@ -4822,7 +4840,7 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
       }else{
         noteParts.push(offlineNote());
       }
-      if(ch?.autoMem) noteParts.push(memNote());
+      if(memActive(ch)&&ch?.autoMem) noteParts.push(memNote());
       if((settings.tavilyKey||'').trim()) noteParts.push(searchNote());
       if(settings.webfetch) noteParts.push(fetchNote());
       noteParts.push(directorNote());
@@ -5998,7 +6016,7 @@ $('cardFile').onchange=async e=>{
     // 小窝自己导出的卡：把扩展字段（头像/「我」的人设/各种开关）原样还原回来
     const ext=(card&&card.data&&card.data.extensions&&card.data.extensions.xiaowo)||card.xiaowo||null;
     if(ext&&typeof ext==='object'){
-      ['emoji','bg','myPersona','extra','extraMode','temp','ctxOn','ctxN','online','proactive','autoMem','model','treeStyle','treeColor'].forEach(k=>{ if(ext[k]!==undefined) nc[k]=ext[k]; });
+      ['emoji','bg','myPersona','extra','extraMode','temp','ctxOn','ctxN','online','proactive','autoMem','memOn','timeAware','model','treeStyle','treeColor'].forEach(k=>{ if(ext[k]!==undefined) nc[k]=ext[k]; });
       if(!avatar && ext.avatar) nc.avatar=ext.avatar;
     }
     characters.push(nc); selCharId=nc.id;
@@ -6012,7 +6030,7 @@ $('cardFile').onchange=async e=>{
 /* 导出角色卡：V2 通用格式（别的酒馆 app 也能读），小窝专属字段塞进 extensions.xiaowo */
 function charToCardJson(ch){
   const x={};
-  ['emoji','avatar','bg','myPersona','extra','extraMode','temp','ctxOn','ctxN','online','proactive','autoMem','model','treeStyle','treeColor']
+  ['emoji','avatar','bg','myPersona','extra','extraMode','temp','ctxOn','ctxN','online','proactive','autoMem','memOn','timeAware','model','treeStyle','treeColor']
     .forEach(k=>{ if(ch[k]!==undefined && ch[k]!==null && ch[k]!=='') x[k]=ch[k]; });
   return {
     spec:'chara_card_v2', spec_version:'2.0',
@@ -6207,6 +6225,16 @@ $('ceProactive').onclick=()=>{
   ceProactiveOn=!ceProactiveOn;
   $('ceProactive').classList.toggle('on',ceProactiveOn);
 };
+let ceMemOn=true;
+$('ceMemOn').onclick=()=>{
+  ceMemOn=!ceMemOn;
+  $('ceMemOn').classList.toggle('on',ceMemOn);
+};
+let ceTimeAwareOn=true;
+$('ceTimeAware').onclick=()=>{
+  ceTimeAwareOn=!ceTimeAwareOn;
+  $('ceTimeAware').classList.toggle('on',ceTimeAwareOn);
+};
 let ceAutoMemOn=false;
 $('ceAutoMem').onclick=()=>{
   ceAutoMemOn=!ceAutoMemOn;
@@ -6303,6 +6331,10 @@ function openCharEdit(ch){
   $('ceProactive').classList.toggle('on',ceProactiveOn);
   ceAutoMemOn=!!ch?.autoMem;
   $('ceAutoMem').classList.toggle('on',ceAutoMemOn);
+  ceMemOn=ch?.memOn!==false;              // 默认开（老角色无此字段视作开）
+  $('ceMemOn').classList.toggle('on',ceMemOn);
+  ceTimeAwareOn=ch?.timeAware!==false;    // 默认开
+  $('ceTimeAware').classList.toggle('on',ceTimeAwareOn);
   fillCeKey(ch);
   $('ceCustomReqField').style.display=customReqOn()?'block':'none';
   $('ceCustomHeaders').value=ch?.customHeaders||'';
@@ -6384,6 +6416,8 @@ $('saveChar').onclick=()=>{
     online: ceOnlineOn,
     proactive: ceProactiveOn,
     autoMem: ceAutoMemOn,
+    memOn: ceMemOn,
+    timeAware: ceTimeAwareOn,
     keyId: $('ceKey').value||null,
     model: $('ceModel').value.trim()||null,
     customHeaders: $('ceCustomHeaders').value.trim()||null,
@@ -7006,7 +7040,7 @@ async function quickGen(api,system,userText,maxTok,model){
 function momentSystem(ch){
   const parts=[];
   if(ch.prompt&&ch.prompt.trim()) parts.push(ch.prompt);
-  const mems=memories.filter(m=>m.charId===ch.id);
+  const mems=memActive(ch)?memories.filter(m=>m.charId===ch.id):[];
   if(mems.length) parts.push(`【记忆】关于${userName()}，你记得这些事：\n`+mems.map(m=>'- '+m.text).join('\n'));
   const ans=annivs.filter(a=>a.charId===ch.id);
   if(ans.length) parts.push('【纪念日】对你们很重要的日子：\n'+ans.map(a=>`- ${a.name}：${a.date}`).join('\n'));
@@ -8314,7 +8348,7 @@ async function bgProactiveFor(c){
   const soloOnline=chatOnline(c);
   if(soloOnline){ noteParts.push('【线上聊天】你和{{user}}正在手机上互发消息。用发消息的口吻回复：短句、口语化。'); noteParts.push(onlineExtraNote()); }
   else noteParts.push(offlineNote());
-  if(ch.autoMem) noteParts.push(memNote());
+  if(memActive(ch)&&ch.autoMem) noteParts.push(memNote());
   noteParts.push(directorNote());
   const sys=buildSystem(ch.prompt+extraPromptOf(ch,soloOnline),c,noteParts.join('\n\n')||null,ch);
   if(sys) body.system=sys;
