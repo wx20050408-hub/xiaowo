@@ -1296,7 +1296,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <header id="studyHeader">
     <button class="iconBtn" id="studyBack" aria-label="返回">‹</button>
     <div id="studyTitle">自习室</div>
-    <div style="width:38px"></div>
+    <button class="iconBtn" id="studyStatBtn" aria-label="自习统计">📊</button>
   </header>
   <div id="studyBody">
     <div id="studyAvatar"></div>
@@ -1307,8 +1307,27 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <button class="durChip" data-min="45">45分钟</button>
       <button class="durChip" data-min="60">60分钟</button>
     </div>
+    <input id="studyTask" maxlength="30" placeholder="这次要专注做什么？比如：背单词（可不填）" style="width:min(320px,88%);text-align:center;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-size:14px">
     <button class="primaryBtn" id="studyStart">开始专注</button>
     <div id="studyStats" class="hintText"></div>
+  </div>
+</div>
+
+<!-- 自习统计弹层 -->
+<div class="sheetScrim" id="studyStatSheet">
+  <div class="sheet">
+    <div class="sheetTitle">自习统计<button class="close" data-close="studyStatSheet">✕</button></div>
+    <div id="ssTabs" style="display:flex;gap:8px;justify-content:center;margin:2px 0 12px">
+      <button class="durChip on" data-range="day">日</button>
+      <button class="durChip" data-range="week">周</button>
+      <button class="durChip" data-range="month">月</button>
+      <button class="durChip" data-range="year">年</button>
+    </div>
+    <div id="ssTiles" style="display:flex;gap:8px;margin-bottom:12px"></div>
+    <div id="ssReadout" style="text-align:center;font-size:12px;color:var(--ink-soft);min-height:16px;margin-bottom:2px"></div>
+    <div id="ssChart"></div>
+    <div id="ssTasks" style="margin-top:14px"></div>
+    <div class="hintText">点柱子能看那天 / 那段的具体数字；任务分布统计的是图里这一段时间。</div>
   </div>
 </div>
 
@@ -1914,7 +1933,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div class="sheetTitle">一起读<button class="close" data-close="readSheet">✕</button></div>
     <div id="readList"></div>
     <button class="primaryBtn" id="readNewBtn">＋ 开始新共读</button>
-    <div class="hintText">挑一段文字（诗、书摘、文章都行）和 TA 一起读。TA 会在打动它的句子旁写下旁批，你点任意一句也能写下自己的想法、或问问 TA。一行一句最好看。</div>
+    <div class="hintText">挑一段文字（诗、书摘、文章，甚至整本 txt 小说）和 TA 一起读。TA 会在打动它的句子旁写下旁批，你点任意一句也能写下自己的想法、或问问 TA。长文会自动分章，读到哪记到哪。</div>
   </div>
 </div>
 
@@ -1924,7 +1943,9 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div class="sheetTitle">开始新共读<button class="close" data-close="readNewSheet">✕</button></div>
     <div class="field"><label>和谁一起读</label><select id="readChar"></select></div>
     <div class="field"><label>标题（可留空，默认取第一句）</label><input id="readTitle" placeholder="比如：海子的诗"></div>
-    <div class="field"><label>要一起读的文字</label><textarea id="readText" style="min-height:160px" placeholder="把诗 / 书摘 / 文章段落贴进来…一行一句最好看"></textarea></div>
+    <div class="field"><label>要一起读的文字</label><textarea id="readText" style="min-height:160px" placeholder="把诗 / 书摘 / 文章段落贴进来…一行一句最好看。很长也没关系，会自动分章"></textarea></div>
+    <button class="ghostBtn" id="readFileBtn" style="margin:0 0 10px">📄 或者选一个 txt 文件（整本书也行）</button>
+    <input type="file" id="readFile" accept=".txt,text/plain" style="display:none">
     <button class="primaryBtn" id="readStart">开始共读（TA 先读一遍、写旁批）</button>
   </div>
 </div>
@@ -1934,9 +1955,17 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div class="sheet" style="max-height:92vh;display:flex;flex-direction:column">
     <div class="sheetTitle" id="readViewTitle">一起读<button class="close" data-close="readViewSheet">✕</button></div>
     <div id="readViewSub" class="hintText" style="margin-top:-2px"></div>
+    <div id="readChapNav" style="display:none;align-items:center;gap:8px;margin:4px 0 2px">
+      <button class="ghostBtn" id="readPrevChap" style="flex:0 0 auto;margin:0;padding:4px 12px;font-size:13px">‹ 上一章</button>
+      <div id="readChapInfo" style="flex:1;text-align:center;font-size:12px;color:var(--ink-soft)"></div>
+      <button class="ghostBtn" id="readNextChap" style="flex:0 0 auto;margin:0;padding:4px 12px;font-size:13px">下一章 ›</button>
+    </div>
     <div id="readBody" style="flex:1;overflow:auto;padding:4px 2px;font-size:15px"></div>
     <div id="readComposer" style="display:none;border-top:1px solid var(--line);padding-top:8px;margin-top:6px">
-      <div id="readTarget" class="hintText" style="margin-bottom:6px"></div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <div id="readTarget" class="hintText" style="margin:0;flex:1"></div>
+        <span id="readComposerClose" style="cursor:pointer;opacity:.5;padding:2px 6px;font-size:13px">✕</span>
+      </div>
       <textarea id="readMyText" style="min-height:50px" placeholder="写下你对这句的想法，或问问 TA…"></textarea>
       <div style="display:flex;gap:8px;margin-top:6px">
         <button class="ghostBtn" id="readSaveThought" style="flex:1;margin:0">✍️ 记我的想法</button>
@@ -2258,14 +2287,14 @@ let selPresetId = load('xw_selpreset', null);
 if(selPresetId && !presets.some(p=>p.id===selPresetId)) selPresetId=null;
 let memories = load('xw_memories', []);     // {id,charId,text,core?}
 let shopping = load('xw_shopping', []);      // 购物清单 {id,owner:'user'|charId,name,price,note,ts,by:'me'|'ta'}
-let reads = load('xw_reads', []);           // 一起读：{id,charId,title,paras:[str],notes:[{para,by:'ta'|'me',text,ts}],ts,updated}
+let reads = load('xw_reads', []);           // 一起读：{id,charId,title,paras:[str],notes:[{para,by:'ta'|'me',text,ts}],chap?,mark?,ts,updated}
 let moments = load('xw_moments', []);       // {id,charId|null,text,ts,likes:[by],comments:[{by,text,ts}]}  by='me' 或角色id
 let annivs = load('xw_annivs', []);         // {id,charId,name,date:'YYYY-MM-DD',last:'已庆祝的日期'}
 let wishes = load('xw_wishes', []);         // {id,charId,text,done,ts} 一起想做的事/心愿单
 let injections = load('xw_injections', []); // {id,name,content,on,pos:'sys_start|sys_end|chat_end|depth',depth}
 let stickers = load('xw_stickers', []);     // {id,name,data:dataURL}（正式存 IndexedDB）
 let diaries = load('xw_diaries', []);       // {id,charId,date:'YYYY-MM-DD',text,ts}
-let studyLog = load('xw_study_log', []);    // {date,min,charId}
+let studyLog = load('xw_study_log', []);    // {date,min,charId,task?}
 let studySt = load('xw_study_state', null); // {start,min,charId} 进行中的专注
 let calNotes = load('xw_cal_notes', []);    // {id,date:'YYYY-MM-DD',text}
 let periods = load('xw_periods', []);       // ['YYYY-MM-DD',...] 标记为经期的日子
@@ -4267,7 +4296,7 @@ function buildDynamic(c,ch){
     parts.push(`【天气】${userName()}那边（${weatherInfo.city}）现在${weatherInfo.desc}，${weatherInfo.temp}°C（体感${weatherInfo.app}°C），今天${weatherInfo.tmin}~${weatherInfo.tmax}°C，降水概率${weatherInfo.rain}%。聊到出门、天气、穿衣时自然用上：要下雨提醒带伞，降温提醒多穿点。别没头没尾硬聊天气。`);
   /* 自习时间跑来聊天 → TA 知道该催你回去学习 */
   if(studySt&&Date.now()<studySt.start+studySt.min*60e3)
-    parts.push(`【自习中】${userName()}本来正在自习（还剩${Math.ceil((studySt.start+studySt.min*60e3-Date.now())/60000)}分钟），现在却来找你聊天——多半是分心了。回应TA，但温柔地催TA回去专注。`);
+    parts.push(`【自习中】${userName()}本来正在自习${studySt.task?`「${studySt.task}」`:''}（还剩${Math.ceil((studySt.start+studySt.min*60e3-Date.now())/60000)}分钟），现在却来找你聊天——多半是分心了。回应TA，但温柔地催TA回去专注。`);
   /* 今天的备忘和经期 → TA 看得到，会自然关心 */
   {
     const tdy=new Date(), tds=`${tdy.getFullYear()}-${String(tdy.getMonth()+1).padStart(2,'0')}-${String(tdy.getDate()).padStart(2,'0')}`;
@@ -5448,6 +5477,9 @@ function updateStudyUI(){
   const ch=charOf(studySt?.charId)||curChar(curChat());
   $('studyAvatar').innerHTML=ch?(ch.avatar?`<img class="avSm" src="${safeUrl(ch.avatar)}">`:`<div class="avSm" style="background:var(--bubble-me);display:flex;align-items:center;justify-content:center">${esc(ch.emoji||'☺')}</div>`):'';
   $('studyDurs').style.opacity=studySt?'.4':'1';
+  $('studyTask').disabled=!!studySt;
+  $('studyTask').style.opacity=studySt?'.55':'1';
+  if(studySt) $('studyTask').value=studySt.task||'';
   $('studyStart').textContent=studySt?'提前结束':'开始专注';
   const today=studyLog.filter(l=>l.date===todayStr()).reduce((a,l)=>a+l.min,0);
   const total=studyLog.reduce((a,l)=>a+l.min,0);
@@ -5465,8 +5497,8 @@ function startStudyTick(){
 function endStudy(done){
   if(!studySt) return;
   const min=done?studySt.min:Math.floor((Date.now()-studySt.start)/60000);
-  const charId=studySt.charId;
-  if(done||min>=5) studyLog.push({date:todayStr(),min:Math.max(1,min),charId});
+  const charId=studySt.charId, task=studySt.task||'';
+  if(done||min>=5) studyLog.push({date:todayStr(),min:Math.max(1,min),charId,task});
   studySt=null;
   save('xw_study_state',studySt); save('xw_study_log',studyLog);
   if(studyTick){ clearInterval(studyTick); studyTick=null; }
@@ -5474,22 +5506,22 @@ function endStudy(done){
   if(done){
     $('studyLine').textContent='完成啦！喝口水，看看远处休息下眼睛～';
     toast('专注完成 ✓');
-    studyPraise(min,charId);
+    studyPraise(min,charId,task);
   }else toast(min>=5?`提前下课，这 ${min} 分钟也给你记上了`:'好叭，下次再来');
 }
 async function studyCheer(ch){
   if(!ch||!apiKeys.find(k=>k.id===selKeyId)?.key) return;
   const api=getApi(); if(!api) return;
   const txt=await quickGen(api,momentSystem(ch),
-    applyVars(`${userName()}现在要开始${studySt?.min||25}分钟的专注学习（最近在备考）。请说一句简短的鼓励，10~25字，符合你的性格。只输出这句话。`,ch),60);
+    applyVars(`${userName()}现在要开始${studySt?.min||25}分钟的专注学习${studySt?.task?`，任务是「${studySt.task}」`:'（最近在备考）'}。请说一句简短的鼓励，10~25字，符合你的性格。只输出这句话。`,ch),60);
   if(txt&&studySt) $('studyLine').textContent=txt.replace(/\n/g,' ').slice(0,50);
 }
-async function studyPraise(min,charId){
+async function studyPraise(min,charId,task){
   const ch=charOf(charId); if(!ch) return;
   if(!apiKeys.find(k=>k.id===selKeyId)?.key) return;
   const api=getApi(); if(!api) return;
   const txt=await quickGen(api,momentSystem(ch),
-    applyVars(`${userName()}刚完成了${min}分钟的专注自习（在备考）。请夸夸TA、心疼TA两句，提醒TA休息眼睛、喝口水。两三句话，口语化。`,ch),150);
+    applyVars(`${userName()}刚完成了${min}分钟的专注自习${task?`，任务是「${task}」`:'（在备考）'}。请夸夸TA、心疼TA两句，提醒TA休息眼睛、喝口水。两三句话，口语化。`,ch),150);
   if(!txt) return;
   const c=chats.filter(x=>!(x.members&&x.members.length)&&x.charId===ch.id).sort((a,b)=>b.ts-a.ts)[0];
   if(c){
@@ -5501,20 +5533,98 @@ async function studyPraise(min,charId){
 }
 $('ppStudy').onclick=()=>{ togglePlus(false); $('studyPage').classList.add('show'); updateStudyUI(); if(studySt) startStudyTick(); };
 $('studyBack').onclick=()=>$('studyPage').classList.remove('show');
-document.querySelectorAll('.durChip').forEach(b=>b.onclick=()=>{
+document.querySelectorAll('#studyDurs .durChip').forEach(b=>b.onclick=()=>{
   if(studySt) return;
   studyMin=Number(b.dataset.min);
-  document.querySelectorAll('.durChip').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('#studyDurs .durChip').forEach(x=>x.classList.toggle('on',x===b));
   renderStudyTimer();
 });
 $('studyStart').onclick=()=>{
   if(studySt){ if(confirm('提前结束这次专注？')) endStudy(false); return; }
   const ch=curChar(curChat());
-  studySt={start:Date.now(),min:studyMin,charId:ch?.id};
+  const task=$('studyTask').value.trim().slice(0,30);
+  studySt={start:Date.now(),min:studyMin,charId:ch?.id,task};
+  save('xw_study_task',task);                 // 记住上次的任务，下次打开自动填好
   save('xw_study_state',studySt);
   $('studyLine').textContent='专注开始，我在这儿陪着你';
   updateStudyUI(); startStudyTick(); studyCheer(ch);
 };
+$('studyTask').value=load('xw_study_task','');   // 打开就填上上次的任务
+
+/* ================= 自习统计：日/周/月/年 ================= */
+let ssRange='day', ssSel=-1;
+/* 柱色：主题深色调掺 15% 墨色，三套主题下对浅/深底的对比度都 ≥3:1（老 webview 不认 color-mix 就退回主题深色） */
+const SS_BAR='color-mix(in srgb, var(--accent-deep) 85%, var(--ink))';
+const ssParse=s=>{ const[a,b,c]=s.split('-').map(Number); return new Date(a,b-1,c||1); };
+const ssMonday=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate()-((d.getDay()+6)%7));
+const ssD=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const ssFmtMin=m=>m>=60?`${Math.floor(m/60)}小时${m%60?String(m%60)+'分':''}`:`${m}分钟`;
+/* 当前视角的时间格子：日=近14天 周=近12周(周一起) 月=近12个月 年=有记录的年份 */
+function ssBuckets(){
+  const now=new Date(), B=[];
+  if(ssRange==='day') for(let i=13;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i); B.push({key:ssD(d),label:String(d.getDate()),full:`${d.getMonth()+1}月${d.getDate()}日`}); }
+  else if(ssRange==='week'){ const mon=ssMonday(now); for(let i=11;i>=0;i--){ const d=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()-7*i); B.push({key:ssD(d),label:`${d.getMonth()+1}.${d.getDate()}`,full:`${d.getMonth()+1}月${d.getDate()}日那一周`}); } }
+  else if(ssRange==='month') for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); B.push({key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,label:(d.getMonth()+1)+'月',full:`${d.getFullYear()}年${d.getMonth()+1}月`}); }
+  else{ const ys=[...new Set(studyLog.map(l=>l.date.slice(0,4)))]; const y0=String(now.getFullYear()); if(!ys.includes(y0)) ys.push(y0); ys.sort(); ys.slice(-8).forEach(y=>B.push({key:y,label:y,full:y+'年'})); }
+  return B;
+}
+function ssKeyOf(date){
+  if(ssRange==='day') return date;
+  if(ssRange==='week') return ssD(ssMonday(ssParse(date)));
+  if(ssRange==='month') return date.slice(0,7);
+  return date.slice(0,4);
+}
+/* 只圆顶端两个角、底部贴基线的柱子 */
+function ssBarPath(x,y,w,h){
+  const r=Math.min(4,h,w/2);
+  return `M${x} ${y+h}L${x} ${y+r}Q${x} ${y} ${x+r} ${y}L${x+w-r} ${y}Q${x+w} ${y} ${x+w} ${y+r}L${x+w} ${y+h}Z`;
+}
+function renderStudyStats(){
+  const B=ssBuckets(), keys=new Set(B.map(b=>b.key));
+  const agg={}, inWin=[];
+  studyLog.forEach(l=>{ const k=ssKeyOf(l.date); if(!keys.has(k)) return; inWin.push(l); (agg[k]=agg[k]||{min:0,cnt:0}).min+=l.min; agg[k].cnt++; });
+  const vals=B.map(b=>agg[b.key]?.min||0), cnt=inWin.length, tot=vals.reduce((a,v)=>a+v,0);
+  /* 三个小数字块 */
+  const tile=(v,lab)=>`<div style="flex:1;background:var(--bg-soft);border-radius:12px;padding:10px 6px;text-align:center"><div style="font-size:17px;font-weight:600;font-variant-numeric:tabular-nums">${v}</div><div style="font-size:11px;color:var(--ink-soft);margin-top:2px">${lab}</div></div>`;
+  $('ssTiles').innerHTML=tile(tot?ssFmtMin(tot):'0分钟','这段一共')+tile(cnt,'次专注')+tile(cnt?ssFmtMin(Math.round(tot/cnt)):'—','平均每次');
+  /* 选中格：默认最近一个有记录的 */
+  if(ssSel<0||ssSel>=B.length){ let last=-1; vals.forEach((v,i)=>{ if(v>0) last=i; }); ssSel=last<0?B.length-1:last; }
+  /* 柱状图 */
+  const W=340,H=150,pl=34,pr=6,pt=12,pb=18,iw=(W-pl-pr)/B.length,bw=Math.max(3,Math.min(26,iw-2));
+  const rawMax=Math.max(...vals,10);
+  const pow=Math.pow(10,Math.floor(Math.log10(rawMax)));
+  const step=[.5,1,2,2.5,5,10].map(s=>s*pow).find(s=>2*s>=rawMax)||rawMax, max=2*step;
+  const y=v=>pt+(H-pt-pb)*(1-v/max);
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" role="img" aria-label="自习时长统计">`;
+  [0,step,max].forEach(g=>{ svg+=`<line x1="${pl}" y1="${y(g)}" x2="${W-pr}" y2="${y(g)}" stroke="var(--line)" stroke-width="1"/><text x="${pl-5}" y="${y(g)+3.5}" text-anchor="end" font-size="9" fill="var(--ink-soft)">${g}</text>`; });
+  const lblEvery=Math.ceil(B.length/7);
+  B.forEach((b,i)=>{
+    const cx=pl+iw*i+iw/2, v=vals[i], sel=i===ssSel;
+    if(v>0) svg+=`<path d="${ssBarPath(cx-bw/2,y(v),bw,y(0)-y(v))}" fill="${SS_BAR}" opacity="${sel?'1':'.55'}"/>`;
+    else if(sel) svg+=`<line x1="${cx-bw/2}" y1="${y(0)-1}" x2="${cx+bw/2}" y2="${y(0)-1}" stroke="${SS_BAR}" stroke-width="2"/>`;
+    if(i%lblEvery===0||sel) svg+=`<text x="${cx}" y="${H-5}" text-anchor="middle" font-size="9" fill="var(--ink-soft)"${sel?' font-weight="600"':''}>${b.label}</text>`;
+    svg+=`<rect data-i="${i}" x="${pl+iw*i}" y="${pt}" width="${iw}" height="${H-pt-pb}" fill="transparent" style="cursor:pointer"/>`;
+  });
+  $('ssChart').innerHTML=svg+'</svg>';
+  $('ssChart').querySelectorAll('rect[data-i]').forEach(rc=>rc.onclick=()=>{ ssSel=+rc.dataset.i; renderStudyStats(); });
+  const sb=B[ssSel], sa=agg[sb.key];
+  $('ssReadout').textContent=`${sb.full} · ${sa?`${ssFmtMin(sa.min)} · ${sa.cnt} 次`:'没有自习'}`;
+  /* 任务分布（只算图里这段） */
+  const tk={}; inWin.forEach(l=>{ const t=(l.task||'').trim()||'（没写任务）'; tk[t]=(tk[t]||0)+l.min; });
+  let rows=Object.entries(tk).sort((a,b)=>b[1]-a[1]);
+  if(rows.length>6){ const rest=rows.slice(5).reduce((a,x)=>a+x[1],0); rows=rows.slice(0,5); rows.push(['其他…',rest]); }
+  const tmax=Math.max(...rows.map(r=>r[1]),1);
+  $('ssTasks').innerHTML=!inWin.length
+    ?'<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:10px 0">这段时间还没有自习记录，去专注一次吧 ✏️</div>'
+    :'<div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px">任务分布</div>'+rows.map(([t,m])=>
+      `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="flex:0 0 92px;font-size:12px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t)}</div><div style="flex:1"><div style="height:9px;width:${Math.max(2,Math.round(m/tmax*100))}%;background:${SS_BAR};border-radius:0 4px 4px 0;opacity:.75"></div></div><div style="flex:0 0 auto;font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums">${ssFmtMin(m)}</div></div>`).join('');
+}
+$('studyStatBtn').onclick=()=>{ ssSel=-1; renderStudyStats(); openSheet('studyStatSheet'); };
+$('ssTabs').querySelectorAll('.durChip').forEach(b=>b.onclick=()=>{
+  ssRange=b.dataset.range; ssSel=-1;
+  $('ssTabs').querySelectorAll('.durChip').forEach(x=>x.classList.toggle('on',x===b));
+  renderStudyStats();
+});
 
 /* ================= 时光机 ================= */
 let timePick=null;
@@ -6190,11 +6300,24 @@ $('exportChar').onclick=()=>{
 
 /* ================= 一起读 · 共读批注 ================= */
 let curReadId=null, readSelPara=null;
+const READ_CHAP=60;                              // 每章句数：长文自动按这个粒度分章
 function splitParas(text){
-  return text.replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(s=>s.length>0).slice(0,200);
+  return text.replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(s=>s.length>0).slice(0,5000);
 }
-/* 把模型回的旁批解析成 [{para,by:'ta',text,ts}]，优先 JSON，兜底解析「3: xxx」 */
-function parseReadNotes(out,max){
+const readChapN=r=>Math.max(1,Math.ceil(r.paras.length/READ_CHAP));
+const readCurChap=r=>Math.min(r.chap||0,readChapN(r)-1);
+const readChapRange=(r,c)=>[c*READ_CHAP,Math.min(r.paras.length,(c+1)*READ_CHAP)];
+/* 共读的记忆底料：TA 的记忆 + 你们最近的聊天片段，让旁批能联想到你们的事 */
+function readHeartCtx(ch){
+  let s='';
+  const mems=memActive(ch)?charMems(ch.id):[];
+  if(mems.length) s+=`\n【记忆】关于${userName()}，你记得这些事：\n`+mems.slice(0,30).map(m=>'- '+m.text).join('\n')+'\n';
+  const snip=recentChatSnippet(ch);
+  if(snip) s+=`\n【你们最近的聊天】（只当背景，别照搬）：\n${snip}\n`;
+  return s;
+}
+/* 把模型回的旁批解析成 [{para,by:'ta',text,ts}]，优先 JSON，兜底解析「3: xxx」。编号须落在 (from,to] */
+function parseReadNotes(out,from,to){
   if(!out) return [];
   const notes=[];
   let arr=null; const m=out.match(/\[[\s\S]*\]/);
@@ -6203,35 +6326,44 @@ function parseReadNotes(out,max){
     for(const o of arr){
       const n=parseInt(o.n??o.idx??o.line??o.no,10);
       const t=String(o.note??o.text??'').trim();
-      if(n>=1&&n<=max&&t) notes.push({para:n-1,by:'ta',text:t.slice(0,160),ts:Date.now()});
+      if(n>from&&n<=to&&t) notes.push({para:n-1,by:'ta',text:t.slice(0,160),ts:Date.now()});
     }
   }
   if(!notes.length){
     out.split('\n').forEach(line=>{
       const mm=line.match(/^\s*\[?(\d+)\]?\s*[:：.、)）]\s*(.+)$/);
-      if(mm){ const n=+mm[1], t=mm[2].trim(); if(n>=1&&n<=max&&t) notes.push({para:n-1,by:'ta',text:t.slice(0,160),ts:Date.now()}); }
+      if(mm){ const n=+mm[1], t=mm[2].trim(); if(n>from&&n<=to&&t) notes.push({para:n-1,by:'ta',text:t.slice(0,160),ts:Date.now()}); }
     });
   }
   // 同一句去重
   const seen=new Set();
   return notes.filter(n=>{ const k=n.para+'|'+n.text; if(seen.has(k))return false; seen.add(k); return true; });
 }
-async function genReadNotes(r,ch){
+/* 让 TA 批注某一章（只发这一章的句子，整本书也不怕费 token） */
+async function genReadNotes(r,ch,chap){
   const api=apiForChar(ch); if(!api) return [];
-  const numbered=r.paras.map((p,i)=>`[${i+1}] ${p}`).join('\n');
+  const [from,to]=readChapRange(r,chap??readCurChap(r));
+  const numbered=r.paras.slice(from,to).map((p,i)=>`[${from+i+1}] ${p}`).join('\n');
   const sys=`你和「${userName()}」正窝在一起读同一段文字，你是${ch.name}。`
     +(ch.prompt&&ch.prompt.trim()?`\n你的设定：\n${ch.prompt.trim()}\n`:'')
-    +`\n请像在书页空白处写旁批一样，挑出最打动你、或让你想起${userName()}的 3~6 句，各写一句简短旁批：口语、亲昵、有温度，像情话或心里话，别复述原文、别长篇大论。`;
-  const user=`下面每段前面有编号。只输出 JSON 数组，形如 [{"n":3,"note":"这句像你"},{"n":7,"note":"想和你一起看"}]，不要任何额外文字：\n\n${numbered}`;
+    +readHeartCtx(ch)
+    +`\n请像在书页空白处写旁批一样，挑出最打动你、或让你想起${userName()}的 3~6 句，各写一句简短旁批：口语、亲昵、有温度，像情话或心里话。哪句真的让你想起你们的记忆或最近聊的事，就自然写进去，但别硬凑；别复述原文、别长篇大论。`;
+  const user=`下面每段前面有编号。只输出 JSON 数组，形如 [{"n":${from+3},"note":"这句像你"},{"n":${from+7},"note":"想和你一起看"}]，不要任何额外文字：\n\n${numbered}`;
   const out=await quickGen(api,applyVars(sys,ch),user,800,(ch.model||'').trim()||undefined);
-  return parseReadNotes(out,r.paras.length);
+  return parseReadNotes(out,from,to);
 }
 async function askTaAboutPara(r,ch,idx,myText){
   const api=apiForChar(ch); if(!api) return null;
   const sys=`你和「${userName()}」正一起读一段文字，你是${ch.name}。`
     +(ch.prompt&&ch.prompt.trim()?`\n你的设定：\n${ch.prompt.trim()}\n`:'')
-    +`\n${userName()}指着其中一句和你说话。就这一句、用你的口吻温柔回应，一两句话，别复述原文。`;
-  const user=`这句是：「${r.paras[idx]}」\n\n${userName()}说：${myText}`;
+    +readHeartCtx(ch)
+    +`\n${userName()}指着其中一句和你说话。就这一句、用你的口吻温柔回应，一两句话，别复述原文；真的联想到你们的事可以自然提一嘴。`;
+  const around=r.paras.slice(Math.max(0,idx-1),idx+2).join('\n');
+  const prior=r.notes.filter(n=>n.para===idx&&n.text!==myText)
+    .map(n=>(n.by==='ta'?ch.name:userName())+'：'+n.text).join('\n');
+  const user=`这句的前后文：\n${around}\n\n${userName()}指着这句：「${r.paras[idx]}」`
+    +(prior?`\n\n你们之前在这句旁边写过：\n${prior}`:'')
+    +`\n\n${userName()}说：${myText}`;
   return await quickGen(api,applyVars(sys,ch),user,300,(ch.model||'').trim()||undefined);
 }
 $('readBtn').onclick=()=>{
@@ -6244,8 +6376,9 @@ function renderReadList(){
   reads.forEach(r=>{
     const ch=characters.find(c=>c.id===r.charId);
     const taN=r.notes.filter(n=>n.by==='ta').length, meN=r.notes.filter(n=>n.by==='me').length;
+    const cn=readChapN(r), prog=cn>1?` · 读到 ${readCurChap(r)+1}/${cn} 章`:'';
     const it=document.createElement('div'); it.className='keyItem';
-    it.innerHTML=`<div class="keyInfo"><div class="keyPreview" style="white-space:normal"><b>${esc(r.title)}</b><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">和 ${esc(ch?.name||'TA')} · ${r.paras.length}句 · TA批${taN}·我${meN}</div></div></div><button class="delKey">✕</button>`;
+    it.innerHTML=`<div class="keyInfo"><div class="keyPreview" style="white-space:normal"><b>${esc(r.title)}</b><div style="font-size:12px;color:var(--ink-soft);margin-top:3px">和 ${esc(ch?.name||'TA')} · ${r.paras.length}句${prog} · TA批${taN}·我${meN}</div></div></div><button class="delKey">✕</button>`;
     it.onclick=ev=>{ if(ev.target.classList.contains('delKey')) return; openRead(r.id); };
     it.querySelector('.delKey').onclick=()=>{ reads=reads.filter(x=>x.id!==r.id); persistAll(); renderReadList(); };
     list.appendChild(it);
@@ -6263,13 +6396,27 @@ $('readStart').onclick=async()=>{
   const paras=splitParas($('readText').value);
   if(!paras.length){ toast('先贴段文字呀'); return; }
   const api=apiForChar(ch); if(!api) return;
-  const r={id:'rd'+Date.now(),charId:cid,title:$('readTitle').value.trim()||paras[0].slice(0,16),paras,notes:[],ts:Date.now(),updated:Date.now()};
+  const r={id:'rd'+Date.now(),charId:cid,title:$('readTitle').value.trim()||paras[0].slice(0,16),paras,notes:[],chap:0,ts:Date.now(),updated:Date.now()};
   const btn=$('readStart'), old=btn.textContent; btn.disabled=true; btn.textContent='TA 在读…🖋';
-  try{ r.notes=await genReadNotes(r,ch); }catch(e){}
+  try{ r.notes=await genReadNotes(r,ch,0); }catch(e){}
   finally{ btn.disabled=false; btn.textContent=old; }
   reads.unshift(r); persistAll();
   closeSheet('readNewSheet'); renderReadList(); openRead(r.id);
-  if(!r.notes.length) toast('开始共读～点任意一句也能写想法 / 问 TA');
+  if(readChapN(r)>1) toast(`有点长～帮你们分成了 ${readChapN(r)} 章，TA 先批了第一章`);
+  else if(!r.notes.length) toast('开始共读～点任意一句也能写想法 / 问 TA');
+};
+/* 选 txt 文件当共读材料：先按 UTF-8 读，乱码就按 GBK 再读一遍（老 txt 小说多是 GBK） */
+$('readFileBtn').onclick=()=>$('readFile').click();
+$('readFile').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const buf=await f.arrayBuffer(); let txt='';
+  try{ txt=new TextDecoder('utf-8',{fatal:true}).decode(buf); }
+  catch(_){ try{ txt=new TextDecoder('gbk').decode(buf); }catch(__){ txt=new TextDecoder().decode(buf); } }
+  $('readText').value=txt;
+  if(!$('readTitle').value.trim()) $('readTitle').value=f.name.replace(/\.txt$/i,'').slice(0,24);
+  const n=splitParas(txt).length;
+  toast(`读进来啦：${n} 句${n>READ_CHAP?`，会分成 ${Math.ceil(n/READ_CHAP)} 章`:''}${n>=5000?'（太长，只取前5000句）':''}`);
+  e.target.value='';
 };
 function openRead(id){
   const r=reads.find(x=>x.id===id); if(!r) return;
@@ -6279,35 +6426,75 @@ function openRead(id){
   $('readViewSub').textContent='和 '+(ch?.name||'TA')+' 一起读 · 点任意一句写想法/问TA';
   $('readComposer').style.display='none';
   renderReadView(); openSheet('readViewSheet');
-  $('readBody').scrollTop=0;
+  /* 回到上次读到的地方（🔖 在当前章里就滚过去，不在就回顶） */
+  const mk=$('readBody').querySelector('[data-mark]');
+  if(mk) mk.scrollIntoView({block:'center'}); else $('readBody').scrollTop=0;
 }
 function renderReadView(){
   const r=reads.find(x=>x.id===curReadId); if(!r) return;
   const ch=characters.find(c=>c.id===r.charId), cn=ch?.name||'TA';
+  const chapN=readChapN(r), chap=readCurChap(r), [from,to]=readChapRange(r,chap);
+  /* 章节导航（一章以内就藏起来） */
+  $('readChapNav').style.display=chapN>1?'flex':'none';
+  if(chapN>1){
+    $('readChapInfo').textContent=`第 ${chap+1} / ${chapN} 章 · ${from+1}~${to} 句`;
+    $('readPrevChap').disabled=chap<=0;
+    $('readNextChap').disabled=chap>=chapN-1;
+  }
+  /* 这一章 TA 批过没有 → 底下按钮换说法 */
+  const taHere=r.notes.some(n=>n.by==='ta'&&n.para>=from&&n.para<to);
+  $('readMoreNotes').textContent=taHere?'🖋 让 TA 再多批几句':'🖋 让 TA 读读这一章';
   const box=$('readBody'); box.innerHTML='';
-  r.paras.forEach((p,i)=>{
-    const notes=r.notes.filter(n=>n.para===i), sel=i===readSelPara;
+  for(let i=from;i<to;i++){
+    const p=r.paras[i], sel=i===readSelPara;
+    const noteIdx=[]; r.notes.forEach((n,k)=>{ if(n.para===i) noteIdx.push(k); });
+    const taLined=r.notes.some(n=>n.para===i&&n.by==='ta');
     const wrap=document.createElement('div');
-    wrap.style.cssText=`padding:9px 11px;border-radius:10px;margin-bottom:5px;cursor:pointer;line-height:1.85;border:1px solid ${sel?'var(--accent)':(notes.length?'var(--line)':'transparent')};background:${(notes.length||sel)?'var(--bg-soft)':'transparent'}`;
-    let html=`<div>${esc(p)}</div>`;
-    notes.forEach(n=>{
-      const isTa=n.by==='ta';
-      html+=`<div style="margin-top:6px;font-size:13px;line-height:1.5;padding:5px 9px;border-radius:0 8px 8px 0;border-left:3px solid ${isTa?'var(--accent)':'var(--ink-soft)'};color:${isTa?'var(--accent-deep)':'var(--ink)'};background:var(--card)"><b>${isTa?esc(cn):'我'}</b>　${esc(n.text)}</div>`;
+    if(i===r.mark) wrap.dataset.mark='1';
+    wrap.style.cssText=`padding:9px 11px;border-radius:10px;margin-bottom:5px;cursor:pointer;line-height:1.85;border:1px solid ${sel?'var(--accent)':(noteIdx.length?'var(--line)':'transparent')};background:${(noteIdx.length||sel)?'var(--bg-soft)':'transparent'}`;
+    /* TA 批过的句子带一道荧光笔划线；🔖 是上次读到的地方 */
+    let html=`<div>${taLined?`<span style="background:linear-gradient(transparent 62%,color-mix(in srgb,var(--accent) 26%,transparent) 62%);border-radius:2px">${esc(p)}</span>`:esc(p)}${i===r.mark?' <span style="opacity:.45;font-size:12px">🔖</span>':''}</div>`;
+    noteIdx.forEach(k=>{
+      const n=r.notes[k], isTa=n.by==='ta';
+      html+=`<div style="margin-top:6px;font-size:${isTa?14:13}px;line-height:1.6;padding:5px 9px;border-radius:0 8px 8px 0;border-left:3px solid ${isTa?'var(--accent)':'var(--ink-soft)'};color:${isTa?'var(--accent-deep)':'var(--ink)'};background:var(--card);display:flex;gap:6px;align-items:baseline${isTa?";font-family:'Kaiti SC','STKaiti','KaiTi',cursive,serif":''}"><b style="flex:0 0 auto">${isTa?esc(cn):'我'}</b><span style="flex:1">${esc(n.text)}</span><span class="readNoteDel" data-k="${k}" style="flex:0 0 auto;opacity:.35;font-size:12px;padding:0 4px;cursor:pointer">✕</span></div>`;
     });
     wrap.innerHTML=html;
-    wrap.onclick=()=>selectPara(i);
+    wrap.onclick=ev=>{
+      const d=ev.target.closest('.readNoteDel');
+      if(d){ ev.stopPropagation(); delReadNote(+d.dataset.k); return; }
+      selectPara(i);
+    };
     box.appendChild(wrap);
-  });
+  }
+}
+function delReadNote(k){
+  const r=reads.find(x=>x.id===curReadId); const n=r&&r.notes[k]; if(!n) return;
+  if(!confirm(`删掉这条${n.by==='ta'?'TA 的旁批':'你的批注'}？`)) return;
+  r.notes.splice(k,1); r.updated=Date.now(); persistAll(); renderReadView();
 }
 function selectPara(i){
   const r=reads.find(x=>x.id===curReadId); if(!r) return;
+  if(readSelPara===i){ readSelPara=null; $('readComposer').style.display='none'; renderReadView(); return; }
   readSelPara=i;
+  r.mark=i; persistAll();                      // 🔖 记住读到哪，下次打开直接回这
   $('readTarget').textContent='这句：'+r.paras[i].slice(0,40)+(r.paras[i].length>40?'…':'');
   $('readMyText').value='';
   $('readComposer').style.display='block';
   renderReadView();
   $('readMyText').focus();
 }
+$('readComposerClose').onclick=()=>{ readSelPara=null; $('readComposer').style.display='none'; renderReadView(); };
+function chgReadChap(d){
+  const r=reads.find(x=>x.id===curReadId); if(!r) return;
+  const c=Math.min(Math.max(0,readCurChap(r)+d),readChapN(r)-1);
+  if(c===readCurChap(r)) return;
+  r.chap=c; readSelPara=null; $('readComposer').style.display='none'; persistAll(); renderReadList();
+  renderReadView(); $('readBody').scrollTop=0;
+  const [from,to]=readChapRange(r,c);
+  if(!r.notes.some(n=>n.by==='ta'&&n.para>=from&&n.para<to)) toast('这一章 TA 还没读过，点下面「让 TA 读读这一章」🖋');
+}
+$('readPrevChap').onclick=()=>chgReadChap(-1);
+$('readNextChap').onclick=()=>chgReadChap(1);
 $('readSaveThought').onclick=()=>{
   const r=reads.find(x=>x.id===curReadId); if(!r||readSelPara==null) return;
   const t=$('readMyText').value.trim(); if(!t){ toast('写点什么呀'); return; }
@@ -6331,14 +6518,14 @@ $('readAskTa').onclick=async()=>{
 $('readMoreNotes').onclick=async()=>{
   const r=reads.find(x=>x.id===curReadId); if(!r) return;
   const ch=characters.find(c=>c.id===r.charId); if(!ch){ toast('角色不见了'); return; }
-  const btn=$('readMoreNotes'), old=btn.textContent; btn.disabled=true; btn.textContent='TA 在读…🖋';
+  const btn=$('readMoreNotes'); btn.disabled=true; btn.textContent='TA 在读…🖋';
   try{
     const notes=await genReadNotes(r,ch); let add=0;
     notes.forEach(n=>{ if(!r.notes.some(x=>x.by==='ta'&&x.para===n.para&&x.text===n.text)){ r.notes.push(n); add++; } });
-    r.updated=Date.now(); persistAll(); renderReadView();
-    toast(add?`TA 又批了 ${add} 句`:'TA 觉得该说的都说啦');
+    r.updated=Date.now(); persistAll();
+    toast(add?`TA 批了 ${add} 句 🖋`:'TA 觉得该说的都说啦');
   }catch(e){ toast('出错了'); }
-  finally{ btn.disabled=false; btn.textContent=old; }
+  finally{ btn.disabled=false; renderReadView(); }   // renderReadView 会把按钮文字按本章状态摆正
 };
 $('readDel').onclick=()=>{
   const r=reads.find(x=>x.id===curReadId); if(!r) return;
