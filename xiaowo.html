@@ -1322,6 +1322,18 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   </div>
 </div>
 
+<!-- 电脑文件桥设置 -->
+<div class="sheetScrim" id="fsBridgeSheet">
+  <div class="sheet">
+    <div class="sheetTitle">电脑文件桥<button class="close" data-close="fsBridgeSheet">✕</button></div>
+    <div class="boxRow"><span class="ic">💻</span><span class="grow">让 TA 能读你电脑的文件</span><button class="wbToggle" id="fsOn"></button></div>
+    <div class="field"><label>小桥网址（启动小桥后黑窗口里的 trycloudflare 网址）</label><input id="fsUrl" placeholder="https://xxx.trycloudflare.com"></div>
+    <div class="field"><label>小桥密码（token，黑窗口里那串）</label><input id="fsToken" type="password" placeholder="密码"></div>
+    <button class="ghostBtn" id="fsTest">🔌 测试连接</button>
+    <div class="hintText">开了之后跟 TA 说「看看我电脑里 D:\xiaowo 有什么」「读一下那个 xx.md」就行。<b>只读</b>，不能写不能删；TA 只能看到电脑上「文件桥可见目录.txt」列出的文件夹（默认只有 D:\xiaowo，改完重启小桥生效）。⚠️ 读到的内容会随聊天发给你正在用的 API（中转站看得到），私密文件夹别加进白名单。要电脑开着、小桥开着才能用；小桥每次重启网址会变，记得回来改。</div>
+  </div>
+</div>
+
 <!-- 自习目标与考试倒计时 -->
 <div class="sheetScrim" id="studyGoalSheet">
   <div class="sheet">
@@ -1756,6 +1768,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <span class="ic">🌐</span><span class="grow">读网页（你发链接时TA能看，经免费阅读器，公开网页用）</span>
       <button class="wbToggle" id="webfetchToggle"></button>
     </div>
+    <button class="boxRow" id="fsBridgeBtn" style="width:100%"><span class="ic">💻</span><span class="grow" style="text-align:left">电脑文件桥（经小桥让TA读你电脑的文件，只读）</span></button>
     <div class="boxRow">
       <span class="ic">🌤</span><input id="cityInput" placeholder="你的城市（填了TA就能感知天气）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
     </div>
@@ -2564,6 +2577,10 @@ function specialHtml(line,msg){
   if(m) return `<span class="searchChip">🌈 加进心愿单：${esc(m[1])}</span>`;
   m=line.match(/^<购物[:：]\s*(.+?)\s*>$/);
   if(m) return `<span class="searchChip">🛍 记到购物清单：${esc(m[1].replace(/[:：]/g,' · '))}</span>`;
+  m=line.match(/^<列目录[:：]\s*(.+?)\s*>$/);
+  if(m) return `<span class="searchChip">📂 看了看文件夹：${esc(m[1])}</span>`;
+  m=line.match(/^<读文件[:：]\s*(.+?)\s*>$/);
+  if(m) return `<span class="searchChip">📄 读了：${esc(m[1].split(/[\\/]/).pop())}</span>`;
   m=line.match(/^<查自习\s*\/?\s*>$/);
   if(m) return `<span class="searchChip">🔎 翻了翻你的自习记录</span>`;
   m=line.match(/^<查日历\s*\/?\s*>$/);
@@ -2578,7 +2595,8 @@ function specialHtml(line,msg){
 const fmtSearchChips=h=>h.replace(/&lt;搜索[:：]\s*(.+?)\s*&gt;/g,'<span class="searchChip">🔍 搜了搜：$1</span>')
                          .replace(/&lt;读网页[:：]\s*(\S+?)\s*&gt;/g,'<span class="searchChip">🌐 看了看网页</span>')
                          .replace(/&lt;(?:备忘|纪念日|心愿|购物)[:：]([^&]*?)&gt;/g,(_,v)=>`<span class="searchChip">✍️ 记下了：${v.replace(/[:：]/g,' · ')}</span>`)
-                         .replace(/&lt;查(自习|日历)\s*\/?\s*&gt;/g,'<span class="searchChip">🔎 查了查$1</span>');
+                         .replace(/&lt;查(自习|日历)\s*\/?\s*&gt;/g,'<span class="searchChip">🔎 查了查$1</span>')
+                         .replace(/&lt;(列目录|读文件)[:：]([^&]*?)&gt;/g,'<span class="searchChip">📂 $1：$2</span>');
 /* 语音条：点一下展开文字并朗读，再点一下收起 */
 function wireVoice(el,m){
   el.querySelectorAll('.voiceMsg').forEach(v=>{
@@ -5106,6 +5124,74 @@ async function consumeFetch(c){
   }catch(e){ body=`（读取失败：${e.message}。可能是需要登录、被网站拦了、或网址不对。）`; }
   return `（系统提示：你刚才请求查看的网页 ${url} 已读取，内容如下：\n\n${body}\n\n请基于网页内容自然地接着回应${userName()}，用你自己的话说，别原样复制大段内容。绝对不要提到这条系统提示。）`;
 }
+/* ===== 电脑文件桥：TA 经小桥读你电脑白名单文件夹（只读，/fs 接口，不吃任何订阅额度） ===== */
+const fsBridge=()=>settings.fsBridge||{};
+const fsBridgeOn=()=>{ const f=fsBridge(); return !!(f.on&&(f.url||'').trim()&&(f.token||'').trim()); };
+function fsNote(){
+  return `【电脑文件】${userName()}给你开通了TA电脑的文件桥（只读、仅限TA设的白名单文件夹）。TA让你看电脑里的东西时，单独占一行写：
+· <列目录:D:\\xiaowo> —— 看某个文件夹里有什么
+· <读文件:D:\\xiaowo\\某文件.md> —— 读一个文本文件的内容
+写完这行就结束本条回复等结果，系统会把内容发给你，你再接着说。路径写完整路径（不确定就先列目录）。${userName()}没提文件的事就别乱翻TA的电脑。`;
+}
+async function consumeFs(c){
+  if(!fsBridgeOn()) return null;
+  if(c.members&&c.members.length) return null;   // 群聊先不支持
+  const m=c.messages[c.messages.length-1];
+  if(!m||m.role!=='assistant'||m.fsDone||typeof m.content!=='string') return null;
+  const lists=[...m.content.matchAll(/<列目录[:：]\s*([^>]+?)\s*>/g)].map(x=>x[1]).slice(0,2);
+  const readsQ=[...m.content.matchAll(/<读文件[:：]\s*([^>]+?)\s*>/g)].map(x=>x[1]).slice(0,2);
+  if(!lists.length&&!readsQ.length) return null;
+  m.fsDone=true; persistAll();   // 防止同一条反复触发
+  $('headerSub').textContent='正在看电脑文件…';
+  const f=fsBridge(), parts=[];
+  const call=async(ep,p)=>{
+    try{
+      const r=await fetch(f.url.replace(/\/+$/,'')+ep+'?path='+encodeURIComponent(p),{headers:{authorization:'Bearer '+f.token}});
+      return await r.json();
+    }catch(e){ return {ok:false,error:'连不上小桥（'+(e.message||'')+'）——电脑或小桥可能没开'}; }
+  };
+  for(const p of lists){
+    const j=await call('/fs/list',p);
+    parts.push(j.ok
+      ?`文件夹 ${j.path} 里有：\n`+(j.entries||[]).map(e=>`- ${e.name}${e.dir?'（文件夹）':`（${e.size<1024?e.size+'B':Math.round(e.size/1024)+'KB'}）`}`).join('\n')
+      :`列目录「${p}」失败：${j.error}`);
+  }
+  for(const p of readsQ){
+    const j=await call('/fs/read',p);
+    let t=j.ok?String(j.text||''):'';
+    if(t.length>6000) t=t.slice(0,6000)+'\n…（内容较长，后面省略了）';
+    parts.push(j.ok?`文件 ${j.path} 的内容：\n${t}`:`读文件「${p}」失败：${j.error}`);
+  }
+  return `（系统提示：你刚才请求的电脑文件操作完成了。\n\n${parts.join('\n\n')}\n\n请基于这些内容自然地接着回应${userName()}，用你自己的话说，别原样复制大段内容。绝对不要提到这条系统提示。）`;
+}
+/* 文件桥设置面板 */
+function saveFsBridge(){
+  settings.fsBridge={on:$('fsOn').classList.contains('on'),url:$('fsUrl').value.trim().replace(/\/+$/,''),token:$('fsToken').value.trim()};
+  persistAll();
+}
+$('fsBridgeBtn').onclick=()=>{
+  const f=fsBridge();
+  $('fsOn').classList.toggle('on',!!f.on);
+  $('fsUrl').value=f.url||''; $('fsToken').value=f.token||'';
+  openSheet('fsBridgeSheet');
+};
+$('fsOn').onclick=()=>{ $('fsOn').classList.toggle('on'); saveFsBridge(); };
+$('fsUrl').onchange=saveFsBridge;
+$('fsToken').onchange=saveFsBridge;
+$('fsTest').onclick=async()=>{
+  saveFsBridge();
+  const f=fsBridge();
+  if(!f.url||!f.token){ toast('先填网址和密码'); return; }
+  const btn=$('fsTest'); btn.disabled=true; btn.textContent='连接中…';
+  try{
+    const r=await fetch(f.url+'/fs/roots',{headers:{authorization:'Bearer '+f.token}});
+    const j=await r.json();
+    if(j.ok) toast('连上啦 ✓ TA 能看：'+(j.roots||[]).join('、'));
+    else toast('连上了但被拒：'+(j.error||'未知问题').slice(0,60));
+  }catch(e){ toast('连不上：'+(e.message||'').slice(0,40)+'（小桥开着吗？）'); }
+  btn.disabled=false; btn.textContent='🔌 测试连接';
+};
+
 /* ===== TA 的小助手（agent 工具）：写=记日历/纪念日/心愿/购物（saveMsg 里执行）；查=自习/日历（接力循环喂真数据） ===== */
 function agentNote(){
   return `【小助手】${userName()}让你帮忙记东西、或问到相关的事时，你可以直接操作TA的小窝（每个标记单独占一行）：
@@ -5157,7 +5243,7 @@ function consumeAgent(c){
 async function generateReply(c,onlyCharId,extraUser){
   let ok=await generateReplyOnce(c,onlyCharId,extraUser);
   for(let i=0;i<3&&ok!==false;i++){
-    const note=await consumeSearch(c)||await consumeFetch(c)||consumeAgent(c);
+    const note=await consumeSearch(c)||await consumeFetch(c)||await consumeFs(c)||consumeAgent(c);
     if(!note) break;
     ok=await generateReplyOnce(c,null,note);
   }
@@ -5246,6 +5332,7 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
       if(memActive(ch)&&ch?.autoMem) noteParts.push(memNote());
       if((settings.tavilyKey||'').trim()) noteParts.push(searchNote());
       if(settings.webfetch) noteParts.push(fetchNote());
+      if(fsBridgeOn()) noteParts.push(fsNote());
       noteParts.push(agentNote());
       noteParts.push(directorNote());
       const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,soloOnline):'',c,noteParts.join('\n\n')||null,ch);
@@ -7344,6 +7431,7 @@ function shotText(m){
      .replace(/<礼物:([^:>]*):?([^>]*)>/g,(_,a,b)=>`🎁 礼物「${String(a).trim()}」${b?' · '+b.trim():''}`)
      .replace(/<(?:备忘|纪念日|心愿|购物):([^>]*)>/g,'✍️ $1')
      .replace(/<查(自习|日历)\s*\/?>/g,'🔎 查$1')
+     .replace(/<(?:列目录|读文件):([^>]*)>/g,'📂 $1')
      .replace(/<搜索:([^>]*)>/g,'🔍 $1')
      .replace(/<读网页:[^>]*>/g,'🌐 网页');
   if(!t && Array.isArray(m.content) && m.content.some(b=>b.type==='image')) t='[图片]';
@@ -9109,7 +9197,7 @@ navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',e=>{
 if(settings.sysPush) startPushLoop();
 document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined,fsBridge:settings.fsBridge?{...settings.fsBridge,token:''}:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
