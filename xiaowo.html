@@ -4788,7 +4788,12 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
           +(memActive(m)&&m.autoMem?'\n\n'+memNote():'')
           +'\n\n'+directorNote();
         let gm=c.messages;
-        if(m.ctxOn&&Number(m.ctxN)>0) gm=gm.slice(-Math.min(Number(m.ctxN),516));
+        if(m.ctxOn&&Number(m.ctxN)>0){
+          const N=Math.min(Number(m.ctxN),516);
+          /* 锚定窗口（同单聊）：起点钉在压缩游标上，只在摘要推进时移动，不随新消息滑动 */
+          gm=c.messages.slice(Math.min(c.summarizedUpTo||0,c.messages.length));
+          if(gm.length>N) gm=gm.slice(-N);   // 压缩没跟上时的保险帽
+        }
         const am=groupApiMessages({messages:gm},m);
         while(am.length&&am[0].role!=='user') am.shift();
         applyDepthInjections(am,m);
@@ -4799,6 +4804,11 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
         if(sys) body.system=sys;
         if(!await runReply(c,apiForChar(m),body,m)) break;
       }
+      /* 窗口超出 → 后台压前情提要并推进锚点（不等待）。按全体成员里最小的 N 压，谁的窗口都不滑 */
+      const lim=c.members.map(id=>characters.find(x=>x.id===id))
+        .filter(x=>x&&x.ctxOn&&Number(x.ctxN)>0)
+        .sort((a,b)=>Number(a.ctxN)-Number(b.ctxN))[0];
+      if(lim) summarizeChat(c,lim);
     }else{
       const ch=curChar(c);
       let msgs=c.messages;
