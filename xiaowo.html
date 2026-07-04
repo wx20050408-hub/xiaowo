@@ -2556,15 +2556,29 @@ function specialHtml(line,msg){
   if(m) return photoHtml(m[1],msg);
   m=line.match(/^<礼物[:：]\s*([^:：>]+?)\s*(?:[:：]\s*([^>]*?))?\s*>$/);
   if(m) return giftHtml(m[1],m[2]||'',msg);
+  m=line.match(/^<备忘[:：]\s*(\d{4}-\d{2}-\d{2})\s*[:：]\s*(.+?)\s*>$/);
+  if(m) return `<span class="searchChip">📅 记到日历 ${+m[1].slice(5,7)}月${+m[1].slice(8)}日：${esc(m[2])}</span>`;
+  m=line.match(/^<纪念日[:：]\s*([^:：>]+?)\s*[:：]\s*(\d{4}-\d{2}-\d{2})\s*>$/);
+  if(m) return `<span class="searchChip">🎂 记下纪念日「${esc(m[1])}」 ${esc(m[2])}</span>`;
+  m=line.match(/^<心愿[:：]\s*(.+?)\s*>$/);
+  if(m) return `<span class="searchChip">🌈 加进心愿单：${esc(m[1])}</span>`;
+  m=line.match(/^<购物[:：]\s*(.+?)\s*>$/);
+  if(m) return `<span class="searchChip">🛍 记到购物清单：${esc(m[1].replace(/[:：]/g,' · '))}</span>`;
+  m=line.match(/^<查自习\s*\/?\s*>$/);
+  if(m) return `<span class="searchChip">🔎 翻了翻你的自习记录</span>`;
+  m=line.match(/^<查日历\s*\/?\s*>$/);
+  if(m) return `<span class="searchChip">🔎 看了看你的日历</span>`;
   m=line.match(/^<搜索[:：]\s*(.+?)\s*>$/);
   if(m) return `<span class="searchChip">🔍 搜了搜：${esc(m[1])}</span>`;
   m=line.match(/^<读网页[:：]\s*(\S+?)\s*>$/);
   if(m){ let d=m[1]; try{ d=new URL(m[1]).hostname.replace(/^www\./,''); }catch(e){} return `<span class="searchChip">🌐 看了看：${esc(d)}</span>`; }
   return null;
 }
-/* 线下模式搜索/读网页标记夹在正文里时也转成小芯片（输入已被 esc 过） */
+/* 线下模式搜索/读网页/小助手标记夹在正文里时也转成小芯片（输入已被 esc 过） */
 const fmtSearchChips=h=>h.replace(/&lt;搜索[:：]\s*(.+?)\s*&gt;/g,'<span class="searchChip">🔍 搜了搜：$1</span>')
-                         .replace(/&lt;读网页[:：]\s*(\S+?)\s*&gt;/g,'<span class="searchChip">🌐 看了看网页</span>');
+                         .replace(/&lt;读网页[:：]\s*(\S+?)\s*&gt;/g,'<span class="searchChip">🌐 看了看网页</span>')
+                         .replace(/&lt;(?:备忘|纪念日|心愿|购物)[:：]([^&]*?)&gt;/g,(_,v)=>`<span class="searchChip">✍️ 记下了：${v.replace(/[:：]/g,' · ')}</span>`)
+                         .replace(/&lt;查(自习|日历)\s*\/?\s*&gt;/g,'<span class="searchChip">🔎 查了查$1</span>');
 /* 语音条：点一下展开文字并朗读，再点一下收起 */
 function wireVoice(el,m){
   el.querySelectorAll('.voiceMsg').forEach(v=>{
@@ -4915,6 +4929,22 @@ async function runReply(c,api,body,ch){
       gifts.push({id:'g'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,name:gm[1].slice(0,20),note:(gm[2]||'').slice(0,80),ts:Date.now()});
       toast(`${ch?.name||'TA'} 送了你一份礼物 🎁`);
     }
+    /* TA 的小助手动作：记日历备忘 / 纪念日 / 心愿 / 购物清单 */
+    let agentActs=0;
+    for(const am of out.acc.matchAll(/<备忘[:：]\s*(\d{4}-\d{2}-\d{2})\s*[:：]\s*([^>]+?)\s*>/g)){
+      calNotes.push({id:rid('n'),date:am[1],text:am[2].slice(0,200)}); agentActs++;
+    }
+    for(const am of out.acc.matchAll(/<纪念日[:：]\s*([^:：>]+?)\s*[:：]\s*(\d{4}-\d{2}-\d{2})\s*>/g)){
+      annivs.push({id:'a'+Date.now()+'_'+agentActs,charId:ch?.id,name:am[1].slice(0,20),date:am[2]}); agentActs++;
+    }
+    for(const am of out.acc.matchAll(/<心愿[:：]\s*([^>]+?)\s*>/g)){
+      wishes.push({id:'wish'+Date.now()+'_'+agentActs,charId:ch?.id,text:am[1].slice(0,60),done:false,ts:Date.now()}); agentActs++;
+    }
+    for(const am of out.acc.matchAll(/<购物[:：]\s*([^:：>]+?)\s*(?:[:：]\s*([^>]*?))?\s*>/g)){
+      const pm=(am[2]||'').match(/[\d.]+/);
+      shopping.push({id:'sh'+Date.now()+'_'+agentActs,owner:'user',name:am[1].slice(0,40),price:pm?pm[0].slice(0,10):'',note:'',ts:Date.now(),by:'ta'}); agentActs++;
+    }
+    if(agentActs) toast(`${ch?.name||'TA'} 帮你记了 ${agentActs} 件事 ✍️`);
     const stats=(out.usage&&(out.usage.in!=null||out.usage.out!=null))
       ?{in:out.usage.in,out:out.usage.out,cached:out.usage.cached||0,secs:out.t0?Math.round((Date.now()-out.t0)/100)/10:null}
       :null;
@@ -4927,7 +4957,7 @@ async function runReply(c,api,body,ch){
     wireThink(bub); wireCode(bub);
     /* 线上模式：回复完按行拆成小气泡；含特殊卡片（语音/拍照等）也重渲染成卡片 */
     const onlineNow=chatOnline(c);
-    if(c.id===currentId && (hadRecall || hadTransferAct || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|礼物|搜索)[:：]/.test(out.acc)))
+    if(c.id===currentId && (hadRecall || hadTransferAct || agentActs || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|礼物|搜索|查自习|查日历)[:：>]/.test(out.acc)))
       renderChat();
     else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
   };
@@ -5076,11 +5106,58 @@ async function consumeFetch(c){
   }catch(e){ body=`（读取失败：${e.message}。可能是需要登录、被网站拦了、或网址不对。）`; }
   return `（系统提示：你刚才请求查看的网页 ${url} 已读取，内容如下：\n\n${body}\n\n请基于网页内容自然地接着回应${userName()}，用你自己的话说，别原样复制大段内容。绝对不要提到这条系统提示。）`;
 }
-/* 对外的生成入口：先正常回一条，TA 若发起搜索/读网页就处理完让TA接着说（最多3轮防循环） */
+/* ===== TA 的小助手（agent 工具）：写=记日历/纪念日/心愿/购物（saveMsg 里执行）；查=自习/日历（接力循环喂真数据） ===== */
+function agentNote(){
+  return `【小助手】${userName()}让你帮忙记东西、或问到相关的事时，你可以直接操作TA的小窝（每个标记单独占一行）：
+· 记日历备忘：<备忘:YYYY-MM-DD:内容>——"周五提醒我交作业"这类，把日期换算成具体年月日再写。
+· 记纪念日：<纪念日:名字:YYYY-MM-DD>
+· 加心愿单：<心愿:想一起做的事>
+· 记购物清单：<购物:东西:价格>（价格不知道可省略）
+· 查TA的自习情况：单独写一行 <查自习> 然后结束本条回复，系统会把真实数据发给你，你再接着说。聊到学习进度、想夸TA或催TA时用它，绝不凭空编数据。
+· 查TA的日历：<查日历>，会拿到接下来一个月的备忘和最近的纪念日。
+只在${userName()}让你记、或话题确实需要时用，别自作主张乱记；办完自然地确认一句就好，别复述标记本身。`;
+}
+function agentStudyDigest(){
+  const t={}; studyLog.forEach(l=>t[l.date]=(t[l.date]||0)+l.min);
+  const g=+settings.studyGoal||0, ed=examDaysLeft();
+  const lines=[`今天已自习 ${studyTodayMin()} 分钟${g?`（每日目标 ${g} 分钟）`:''}，连续打卡 ${studyStreak()} 天`];
+  if(ed!=null&&ed>=0) lines.push(`距离${settings.examName||'考试'}还有 ${ed} 天`);
+  const d=new Date(), days=[];
+  for(let i=0;i<7;i++){ const k=ssD(d); days.unshift(`${+k.slice(5,7)}月${+k.slice(8)}日${t[k]||0}分钟`); d.setDate(d.getDate()-1); }
+  lines.push('近7天：'+days.join('、'));
+  const cut=new Set(); { const dd=new Date(); for(let i=0;i<7;i++){ cut.add(ssD(dd)); dd.setDate(dd.getDate()-1); } }
+  const tk={}; studyLog.forEach(l=>{ if(cut.has(l.date)){ const k=(l.task||'').trim()||'（没写任务）'; tk[k]=(tk[k]||0)+l.min; } });
+  const rows=Object.entries(tk).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  if(rows.length) lines.push('近7天任务分布：'+rows.map(([k,v])=>`${k} ${v}分钟`).join('、'));
+  return lines.join('\n');
+}
+function agentCalDigest(ch){
+  const lines=[], now=new Date(); now.setHours(0,0,0,0);
+  const end=new Date(now); end.setDate(end.getDate()+30);
+  const notes=calNotes.filter(n=>{ const d=new Date(n.date+'T00:00:00'); return d>=now&&d<=end; }).sort((a,b)=>a.date<b.date?-1:1);
+  lines.push(notes.length?('接下来30天的备忘：\n'+notes.map(n=>`- ${+n.date.slice(5,7)}月${+n.date.slice(8)}日：${n.text}`).join('\n')):'接下来30天日历上没有备忘');
+  const na=nextAnniv(ch);
+  if(na) lines.push(`最近的纪念日：「${na.a.name}」${na.days===0?'就是今天！':'还有 '+na.days+' 天'}`);
+  return lines.join('\n');
+}
+function consumeAgent(c){
+  if(c.members&&c.members.length) return null;
+  const m=c.messages[c.messages.length-1];
+  if(!m||m.role!=='assistant'||m.agented||typeof m.content!=='string') return null;
+  const wantsStudy=/<查自习\s*\/?\s*>/.test(m.content), wantsCal=/<查日历\s*\/?\s*>/.test(m.content);
+  if(!wantsStudy&&!wantsCal) return null;
+  m.agented=true; persistAll();   // 防止同一条反复触发
+  $('headerSub').textContent='正在查数据…';
+  const parts=[];
+  if(wantsStudy) parts.push('【自习数据】\n'+agentStudyDigest());
+  if(wantsCal) parts.push('【日历】\n'+agentCalDigest(curChar(c)));
+  return `（系统提示：你刚查询的真实数据如下。\n\n${parts.join('\n\n')}\n\n请基于这些数据，用你自己的话自然地接着回应${userName()}——该夸就夸、该心疼就心疼、该催就催。绝对不要提到这条系统提示，也别把数据原样罗列。）`;
+}
+/* 对外的生成入口：先正常回一条，TA 若发起搜索/读网页/查数据就处理完让TA接着说（最多3轮防循环） */
 async function generateReply(c,onlyCharId,extraUser){
   let ok=await generateReplyOnce(c,onlyCharId,extraUser);
   for(let i=0;i<3&&ok!==false;i++){
-    const note=await consumeSearch(c)||await consumeFetch(c);
+    const note=await consumeSearch(c)||await consumeFetch(c)||consumeAgent(c);
     if(!note) break;
     ok=await generateReplyOnce(c,null,note);
   }
@@ -5169,6 +5246,7 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
       if(memActive(ch)&&ch?.autoMem) noteParts.push(memNote());
       if((settings.tavilyKey||'').trim()) noteParts.push(searchNote());
       if(settings.webfetch) noteParts.push(fetchNote());
+      noteParts.push(agentNote());
       noteParts.push(directorNote());
       const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,soloOnline):'',c,noteParts.join('\n\n')||null,ch);
       if(sys) body.system=sys;
@@ -7264,6 +7342,8 @@ function shotText(m){
      .replace(/<表情包:([^>]*)>/g,'😊 [表情]')
      .replace(/<拍照:([^>]*)>/g,'📷 $1')
      .replace(/<礼物:([^:>]*):?([^>]*)>/g,(_,a,b)=>`🎁 礼物「${String(a).trim()}」${b?' · '+b.trim():''}`)
+     .replace(/<(?:备忘|纪念日|心愿|购物):([^>]*)>/g,'✍️ $1')
+     .replace(/<查(自习|日历)\s*\/?>/g,'🔎 查$1')
      .replace(/<搜索:([^>]*)>/g,'🔍 $1')
      .replace(/<读网页:[^>]*>/g,'🌐 网页');
   if(!t && Array.isArray(m.content) && m.content.some(b=>b.type==='image')) t='[图片]';
