@@ -1652,6 +1652,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 <div class="sheetScrim" id="projPickSheet">
   <div class="sheet" style="max-height:80vh;overflow-y:auto">
     <div class="sheetTitle">收录已有对话<button class="close" data-close="projPickSheet">✕</button></div>
+    <div id="projPickFilter" style="display:none;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
     <div id="projPickList"></div>
     <button class="primaryBtn" id="projPickSave">收进项目</button>
     <div class="hintText">勾选要收进这个项目的对话。已经在别的项目里的会标出来，勾了就挪过来。</div>
@@ -3210,28 +3211,45 @@ function renderProjChats(){
     box.appendChild(it);
   });
 }
-/* 批量收录已有对话进项目（单聊；已在别的项目的标出来，勾了就挪过来） */
-$('projAddChats').onclick=()=>{
+/* 批量收录已有对话进项目（单聊；可按角色筛选；已在别的项目的标出来，勾了就挪过来）
+   勾选状态存 projPickSel（Set），切角色筛选重渲染也不丢 */
+let projPickChar='all', projPickSel=new Set();
+const projPickable=p=>chats.filter(c=>!(c.members&&c.members.length)&&c.projectId!==p.id);
+function renderProjPickFilter(){
+  const p=curProj(); if(!p) return;
+  const ids=[...new Set(projPickable(p).map(c=>c.charId))].filter(id=>characters.some(x=>x.id===id));
+  const bar=$('projPickFilter');
+  if(ids.length<2){ bar.style.display='none'; projPickChar='all'; return; }
+  bar.style.display='flex';
+  bar.innerHTML=`<button class="durChip${projPickChar==='all'?' on':''}" data-c="all" style="padding:4px 12px;font-size:12px">全部</button>`
+    +ids.map(id=>{ const ch=characters.find(x=>x.id===id);
+      return `<button class="durChip${projPickChar===id?' on':''}" data-c="${esc(id)}" style="padding:4px 12px;font-size:12px">${esc(ch.emoji||'')} ${esc(ch.name)}</button>`; }).join('');
+  bar.querySelectorAll('.durChip').forEach(b=>b.onclick=()=>{ projPickChar=b.dataset.c; renderProjPickFilter(); renderProjPickList(); });
+}
+function renderProjPickList(){
   const p=curProj(); if(!p) return;
   const box=$('projPickList'); box.innerHTML='';
-  const cs=chats.filter(c=>!(c.members&&c.members.length)&&c.projectId!==p.id).sort((a,b)=>b.ts-a.ts);
-  if(!cs.length){ box.innerHTML='<div style="color:var(--ink-soft);font-size:13px;text-align:center;padding:14px 0">没有可收录的单聊了</div>'; }
+  const cs=projPickable(p).filter(c=>projPickChar==='all'||c.charId===projPickChar).sort((a,b)=>b.ts-a.ts);
+  if(!cs.length){ box.innerHTML='<div style="color:var(--ink-soft);font-size:13px;text-align:center;padding:14px 0">这里没有可收录的单聊</div>'; return; }
   cs.forEach(c=>{
     const ch=characters.find(x=>x.id===c.charId);
     const other=c.projectId?projects.find(x=>x.id===c.projectId):null;
     const row=document.createElement('label'); row.className='ceCheckRow';
-    row.innerHTML=`<input type="checkbox" data-pick="${esc(c.id)}"><span style="flex:1">${esc(c.title||'对话')}<span style="font-size:11px;color:var(--ink-soft)">　${esc(ch?.name||'')}${other?` · 已在「${esc(other.name||'项目')}」`:''}</span></span>`;
+    row.innerHTML=`<input type="checkbox"${projPickSel.has(c.id)?' checked':''}><span style="flex:1">${esc(c.title||'对话')}<span style="font-size:11px;color:var(--ink-soft)">　${esc(ch?.name||'')}${other?` · 已在「${esc(other.name||'项目')}」`:''}</span></span>`;
+    row.querySelector('input').onchange=e=>{ e.target.checked?projPickSel.add(c.id):projPickSel.delete(c.id); };
     box.appendChild(row);
   });
+}
+$('projAddChats').onclick=()=>{
+  const p=curProj(); if(!p) return;
+  projPickChar='all'; projPickSel=new Set();
+  renderProjPickFilter(); renderProjPickList();
   openSheet('projPickSheet');
 };
 $('projPickSave').onclick=()=>{
   const p=curProj(); if(!p) return;
   let n=0;
-  document.querySelectorAll('#projPickList input[data-pick]:checked').forEach(ck=>{
-    const c=chats.find(x=>x.id===ck.dataset.pick);
-    if(c){ c.projectId=p.id; n++; }
-  });
+  projPickSel.forEach(id=>{ const c=chats.find(x=>x.id===id); if(c&&c.projectId!==p.id){ c.projectId=p.id; n++; } });
   if(!n){ toast('先勾几个呀'); return; }
   persistAll(); closeSheet('projPickSheet'); renderProjChats(); renderHeader();
   toast(`收进来 ${n} 个对话 📥`);
