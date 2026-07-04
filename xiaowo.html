@@ -1308,8 +1308,29 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <button class="durChip" data-min="60">60分钟</button>
     </div>
     <input id="studyTask" maxlength="30" placeholder="这次要专注做什么？比如：背单词（可不填）" style="width:min(320px,88%);text-align:center;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-size:14px">
+    <div id="noiseRow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center">
+      <button class="durChip on" data-n="off" style="padding:6px 12px;font-size:12px">🔇 安静</button>
+      <button class="durChip" data-n="rain" style="padding:6px 12px;font-size:12px">🌧 雨</button>
+      <button class="durChip" data-n="fire" style="padding:6px 12px;font-size:12px">🔥 篝火</button>
+      <button class="durChip" data-n="waves" style="padding:6px 12px;font-size:12px">🌊 海浪</button>
+      <input type="range" id="noiseVol" min="5" max="100" value="45" style="width:80px;accent-color:var(--accent)">
+    </div>
     <button class="primaryBtn" id="studyStart">开始专注</button>
-    <div id="studyStats" class="hintText"></div>
+    <div id="studyStats" class="hintText" style="margin-bottom:-10px"></div>
+    <div id="studyGoalLine" class="hintText"></div>
+    <button class="ghostBtn" id="studyGoalBtn" style="width:auto;padding:5px 16px;font-size:13px;margin:0">🎯 每日目标 · 考试倒计时</button>
+  </div>
+</div>
+
+<!-- 自习目标与考试倒计时 -->
+<div class="sheetScrim" id="studyGoalSheet">
+  <div class="sheet">
+    <div class="sheetTitle">目标与倒计时<button class="close" data-close="studyGoalSheet">✕</button></div>
+    <div class="field"><label>每日自习目标（分钟，0 或留空＝不设）</label><input id="sgGoal" type="number" min="0" max="960" placeholder="比如：120"></div>
+    <div class="field"><label>考试名称</label><input id="sgExamName" maxlength="12" placeholder="比如：考研"></div>
+    <div class="field"><label>考试日期</label><input id="sgExamDate" type="date"></div>
+    <button class="primaryBtn" id="sgSave">保存</button>
+    <div class="hintText">设好之后：自习室和这里都会显示 🔥 连续达标和倒计日；TA 也会知道你的目标、今天学没学够、离考试还有几天——催你、夸你、心疼你都更有数。</div>
   </div>
 </div>
 
@@ -1322,6 +1343,18 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <button class="durChip" data-range="week">周</button>
       <button class="durChip" data-range="month">月</button>
       <button class="durChip" data-range="year">年</button>
+    </div>
+    <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin:-4px 0 12px;flex-wrap:wrap;font-size:11px;color:var(--ink-soft)">
+      趋势
+      <div id="ssTimeStyles" style="display:flex;gap:4px">
+        <button class="durChip on" data-s="bar" style="padding:3px 10px;font-size:11px;border-radius:9px">柱状</button>
+        <button class="durChip" data-s="line" style="padding:3px 10px;font-size:11px;border-radius:9px">折线</button>
+      </div>
+      <span style="opacity:.4">｜</span> 任务
+      <div id="ssTaskStyles" style="display:flex;gap:4px">
+        <button class="durChip on" data-s="bar" style="padding:3px 10px;font-size:11px;border-radius:9px">条形</button>
+        <button class="durChip" data-s="pie" style="padding:3px 10px;font-size:11px;border-radius:9px">扇形</button>
+      </div>
     </div>
     <div id="ssTiles" style="display:flex;gap:8px;margin-bottom:12px"></div>
     <div id="ssReadout" style="text-align:center;font-size:12px;color:var(--ink-soft);min-height:16px;margin-bottom:2px"></div>
@@ -1485,6 +1518,10 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <div class="hintText">开着TA就知道现在几点几号、你们多久没说话，熬夜时也会心疼你。玩剧情/穿越/架空世界不想被现实时间打扰，就关掉——TA完全没有时间概念。</div>
     </div>
     <div class="field">
+      <div class="boxRow"><span class="ic">🪟</span><span class="grow">跨窗口记忆</span><button class="wbToggle" id="ceXwin"></button></div>
+      <div class="hintText">开着的话，你和TA开了好几个聊天窗口时，TA在每个窗口都知道其它窗口最近聊了什么——刚在那边说吃了什么，这边开口TA也能接上。窗口之间是不同剧情线、不想串戏就关掉。</div>
+    </div>
+    <div class="field">
       <div class="boxRow"><span class="ic">🔑</span><span class="grow">这个角色专用 API</span></div>
       <select id="ceKey" style="margin-top:8px"></select>
       <input id="ceModel" style="margin-top:8px" placeholder="模型名（留空＝用全局模型）">
@@ -1587,12 +1624,25 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div class="field" id="projChatsField">
       <label>这个项目里的对话</label>
       <div id="projChats"></div>
-      <button class="primaryBtn" id="projNewChat" style="margin-top:8px">✦ 在这个项目里开新对话</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="ghostBtn" id="projAddChats" style="flex:1;margin:0">📥 收录已有对话</button>
+        <button class="primaryBtn" id="projNewChat" style="flex:1;margin:0">✦ 开新对话</button>
+      </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:6px">
       <button class="primaryBtn" id="projSave" style="flex:1">保存</button>
       <button class="ghostBtn" id="projDel" style="flex:0 0 auto;color:var(--danger)">删除项目</button>
     </div>
+  </div>
+</div>
+
+<!-- 项目收录已有对话 -->
+<div class="sheetScrim" id="projPickSheet">
+  <div class="sheet" style="max-height:80vh;overflow-y:auto">
+    <div class="sheetTitle">收录已有对话<button class="close" data-close="projPickSheet">✕</button></div>
+    <div id="projPickList"></div>
+    <button class="primaryBtn" id="projPickSave">收进项目</button>
+    <div class="hintText">勾选要收进这个项目的对话。已经在别的项目里的会标出来，勾了就挪过来。</div>
   </div>
 </div>
 
@@ -2128,6 +2178,15 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   </div>
 </div>
 
+<!-- 礼物橱窗 -->
+<div class="sheetScrim" id="giftSheet">
+  <div class="sheet">
+    <div class="sheetTitle">礼物橱窗<button class="close" data-close="giftSheet">✕</button></div>
+    <div id="giftList"></div>
+    <div class="hintText">TA 在重要时刻送你的礼物都收在这里——纪念日、你达成目标、或 TA 就是突然想你了。点 ✕ 可以丢掉（TA 不会知道的）。</div>
+  </div>
+</div>
+
 <!-- 开屏装扮：换树 + 换背景 -->
 <div class="sheetScrim" id="dressSheet">
   <div class="sheet">
@@ -2288,6 +2347,7 @@ if(selPresetId && !presets.some(p=>p.id===selPresetId)) selPresetId=null;
 let memories = load('xw_memories', []);     // {id,charId,text,core?}
 let shopping = load('xw_shopping', []);      // 购物清单 {id,owner:'user'|charId,name,price,note,ts,by:'me'|'ta'}
 let reads = load('xw_reads', []);           // 一起读：{id,charId,title,paras:[str],notes:[{para,by:'ta'|'me',text,ts}],chap?,mark?,ts,updated}
+let gifts = load('xw_gifts', []);           // TA送的礼物橱窗：{id,charId,name,note,ts}
 let moments = load('xw_moments', []);       // {id,charId|null,text,ts,likes:[by],comments:[{by,text,ts}]}  by='me' 或角色id
 let annivs = load('xw_annivs', []);         // {id,charId,name,date:'YYYY-MM-DD',last:'已庆祝的日期'}
 let wishes = load('xw_wishes', []);         // {id,charId,text,done,ts} 一起想做的事/心愿单
@@ -2479,6 +2539,11 @@ function photoHtml(text,msg){
   const d=msg&&msg.ts?new Date(msg.ts):new Date();
   return `<div class="polaroid"><div class="pImg" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]}">${fmt(text)}</div><div class="pCap"><span>📷 随手拍</span><span>${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}</span></div></div>`;
 }
+/* 礼物卡片：TA 用 <礼物:名字:寄语> 送的，同时存进礼物橱窗 */
+function giftHtml(name,note,msg){
+  const d=msg&&msg.ts?new Date(msg.ts):new Date();
+  return `<div style="background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border-radius:14px;padding:12px 14px;min-width:180px;max-width:240px"><div style="font-size:26px;line-height:1">🎁</div><div style="font-weight:600;font-size:15px;margin-top:5px">${esc(name)}</div>${note?`<div style="font-size:12px;opacity:.92;margin-top:3px;line-height:1.5">${esc(note)}</div>`:''}<div style="font-size:10px;opacity:.75;margin-top:8px;border-top:1px solid rgba(255,255,255,.35);padding-top:5px">小窝礼物 · 已放进礼物橱窗 · ${d.getMonth()+1}.${d.getDate()}</div></div>`;
+}
 /* 整行是特殊消息 → 返回特殊气泡的 html，否则 null */
 function specialHtml(line,msg){
   let m=line.match(/^<表情包[:：]\s*(.+?)\s*>$/);
@@ -2489,6 +2554,8 @@ function specialHtml(line,msg){
   if(m) return voiceHtml(m[1],msg);
   m=line.match(/^<拍照[:：]\s*([\s\S]+?)\s*>$/);
   if(m) return photoHtml(m[1],msg);
+  m=line.match(/^<礼物[:：]\s*([^:：>]+?)\s*(?:[:：]\s*([^>]*?))?\s*>$/);
+  if(m) return giftHtml(m[1],m[2]||'',msg);
   m=line.match(/^<搜索[:：]\s*(.+?)\s*>$/);
   if(m) return `<span class="searchChip">🔍 搜了搜：${esc(m[1])}</span>`;
   m=line.match(/^<读网页[:：]\s*(\S+?)\s*>$/);
@@ -2563,7 +2630,7 @@ const persistAll = ()=>{
   save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook);
   save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories);
   save('xw_shopping',shopping);
-  save('xw_reads',reads);
+  save('xw_reads',reads); save('xw_gifts',gifts);
   save('xw_moments',moments); save('xw_annivs',annivs); save('xw_injections',injections);
   save('xw_wishes',wishes);
   save('xw_diaries',diaries); save('xw_cal_notes',calNotes); save('xw_periods',periods);
@@ -3102,14 +3169,41 @@ $('projDocFile').onchange=async e=>{
 function renderProjChats(){
   const p=curProj(), box=$('projChats'); if(!p) return; box.innerHTML='';
   const cs=chats.filter(c=>c.projectId===p.id).sort((a,b)=>b.ts-a.ts);
-  if(!cs.length){ box.innerHTML='<div style="color:var(--ink-soft);font-size:12px;padding:4px 0">还没有对话</div>'; return; }
+  if(!cs.length){ box.innerHTML='<div style="color:var(--ink-soft);font-size:12px;padding:4px 0">还没有对话，下面「收录已有对话」或直接开新的</div>'; return; }
   cs.forEach(c=>{
     const it=document.createElement('div'); it.className='histItem';
-    it.innerHTML=`<span class="t">💬 ${esc(c.title||'对话')}</span>`;
+    it.innerHTML=`<span class="t">💬 ${esc(c.title||'对话')}</span><button class="del" title="移出项目（不删对话）">⏏</button>`;
     it.querySelector('.t').onclick=()=>{ closeSheet('projSheet'); switchChat(c.id); };
+    it.querySelector('.del').onclick=()=>{ c.projectId=null; persistAll(); renderProjChats(); toast('已移出项目（对话还在）'); };
     box.appendChild(it);
   });
 }
+/* 批量收录已有对话进项目（单聊；已在别的项目的标出来，勾了就挪过来） */
+$('projAddChats').onclick=()=>{
+  const p=curProj(); if(!p) return;
+  const box=$('projPickList'); box.innerHTML='';
+  const cs=chats.filter(c=>!(c.members&&c.members.length)&&c.projectId!==p.id).sort((a,b)=>b.ts-a.ts);
+  if(!cs.length){ box.innerHTML='<div style="color:var(--ink-soft);font-size:13px;text-align:center;padding:14px 0">没有可收录的单聊了</div>'; }
+  cs.forEach(c=>{
+    const ch=characters.find(x=>x.id===c.charId);
+    const other=c.projectId?projects.find(x=>x.id===c.projectId):null;
+    const row=document.createElement('label'); row.className='ceCheckRow';
+    row.innerHTML=`<input type="checkbox" data-pick="${esc(c.id)}"><span style="flex:1">${esc(c.title||'对话')}<span style="font-size:11px;color:var(--ink-soft)">　${esc(ch?.name||'')}${other?` · 已在「${esc(other.name||'项目')}」`:''}</span></span>`;
+    box.appendChild(row);
+  });
+  openSheet('projPickSheet');
+};
+$('projPickSave').onclick=()=>{
+  const p=curProj(); if(!p) return;
+  let n=0;
+  document.querySelectorAll('#projPickList input[data-pick]:checked').forEach(ck=>{
+    const c=chats.find(x=>x.id===ck.dataset.pick);
+    if(c){ c.projectId=p.id; n++; }
+  });
+  if(!n){ toast('先勾几个呀'); return; }
+  persistAll(); closeSheet('projPickSheet'); renderProjChats(); renderHeader();
+  toast(`收进来 ${n} 个对话 📥`);
+};
 $('projNewChat').onclick=()=>{
   const p=curProj(); if(!p) return;
   if(p.charId && characters.some(ch=>ch.id===p.charId)) selCharId=p.charId;
@@ -3740,16 +3834,33 @@ function renderHome(){
   const tst=charStats(ch.id);
   const treeCard=`<div class="homeTree">${buildTreeSVG(tst.days,tst.away,ch.id,ch.treeStyle,ch.treeColor)}<div class="htCap">你们一起聊过的 ${tst.days} 天${tst.away>=2?' · 它好像在等你回来':''}</div><button class="ghostBtn" id="homeDress" style="margin-top:8px;width:auto;padding:5px 16px;font-size:13px">🎨 给这棵树/开屏换个样子</button></div>`;
   const reportCard=`<button class="boxRow" id="homeReport" style="width:100%;background:var(--bg-soft);box-shadow:none;text-align:left"><span class="ic">📊</span><span class="grow" style="font-weight:600">我们的小报告</span><span style="font-size:12px;color:var(--ink-soft)">最晚熬到几点·聊了多少·最常说的词 ›</span></button>`;
+  const gl=gifts.filter(g=>g.charId===ch.id);
+  const giftCard=`<button class="boxRow" id="homeGifts" style="width:100%;background:var(--bg-soft);box-shadow:none;text-align:left;margin-top:8px"><span class="ic">🎁</span><span class="grow" style="font-weight:600">礼物橱窗</span><span style="font-size:12px;color:var(--ink-soft)">${gl.length?`收着 ${gl.length} 份 · 最近「${esc(gl[gl.length-1].name)}」`:'TA 还没送过，会有的'} ›</span></button>`;
   body.innerHTML=`
     ${treeCard}
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">${av}
       <div><div style="font-size:18px;font-weight:600">${esc(ch.name)}</div>
       <div style="font-size:13px;color:var(--ink-soft)">${esc(nowAct(ch))}${weather}</div></div></div>
-    ${daysCard}${annCard}<div style="height:8px"></div>${wishCard}${reportCard}`;
+    ${daysCard}${annCard}<div style="height:8px"></div>${wishCard}${reportCard}${giftCard}`;
   const sv=$('homeLoveSave'); if(sv) sv.onclick=()=>{ const v=$('homeLoveDate').value; if(!v){ toast('先选个日期叭'); return; } ch.loveStartDate=v; persistAll(); renderHome(); toast('记好啦 ♡'); };
   $('homeWish').onclick=()=>{ closeSheet('homeSheet'); openWish(ch); };
   $('homeReport').onclick=()=>{ renderReport(ch); openSheet('reportSheet'); };
+  $('homeGifts').onclick=()=>{ renderGiftList(ch); openSheet('giftSheet'); };
   $('homeDress').onclick=()=>{ openDress(ch); };
+}
+/* 礼物橱窗：TA 送过的礼物墙 */
+function renderGiftList(ch){
+  const box=$('giftList');
+  const gl=gifts.filter(g=>g.charId===ch.id).sort((a,b)=>b.ts-a.ts);
+  if(!gl.length){ box.innerHTML=`<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:24px 0">还空着呢～重要的时刻 ${esc(ch.name)} 会想着你的 🎁</div>`; return; }
+  box.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'+gl.map(g=>{
+    const d=new Date(g.ts);
+    return `<div style="position:relative;background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border-radius:14px;padding:12px"><div style="font-size:24px;line-height:1">🎁</div><div style="font-weight:600;font-size:14px;margin-top:5px;word-break:break-all">${esc(g.name)}</div>${g.note?`<div style="font-size:11px;opacity:.92;margin-top:3px;line-height:1.5">${esc(g.note)}</div>`:''}<div style="font-size:10px;opacity:.75;margin-top:7px">${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}</div><button class="gDel" data-g="${esc(g.id)}" style="position:absolute;top:6px;right:8px;background:none;border:none;color:#fff;opacity:.5;font-size:12px;padding:2px 4px">✕</button></div>`;
+  }).join('')+'</div>';
+  box.querySelectorAll('.gDel').forEach(b=>b.onclick=()=>{
+    if(!confirm('丢掉这份礼物？')) return;
+    gifts=gifts.filter(x=>x.id!==b.dataset.g); persistAll(); renderGiftList(ch);
+  });
 }
 $('ppHome').onclick=()=>{ togglePlus(false); renderHome(); openSheet('homeSheet'); };
 
@@ -4152,6 +4263,35 @@ function injActive(pos,ch){
   const sc=charScope(ch);
   return injections.filter(i=>i.pos===pos&&(i.content||'').trim()&&(sc.injIds!==null?sc.injIds.includes(i.id):i.on));
 }
+/* 跨窗口近况：同角色最近活跃的另外 2 个单聊窗口，各取前情提要末尾 + 最后几条对话。
+   时间用粗粒度（刚刚/今天/昨天/N天前），别的窗口没新消息时内容不变 → 不毁缓存 */
+function xwAgo(ts){
+  const d=Date.now()-(ts||0);
+  if(d<3600e3) return '刚刚';
+  const days=Math.floor((new Date().setHours(0,0,0,0)-new Date(ts).setHours(0,0,0,0))/86400e3);
+  return days<=0?'今天':days===1?'昨天':days+'天前';
+}
+function xwinDigest(ch,cur){
+  if(!ch) return '';
+  const others=chats
+    .filter(x=>!(x.members&&x.members.length)&&x.charId===ch.id&&x.id!==cur.id&&(x.messages||[]).some(m=>m.role==='user'||m.role==='assistant'))
+    .sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,2);
+  const parts=[];
+  for(const c of others){
+    const last=c.messages
+      .filter(m=>(m.role==='user'||m.role==='assistant')&&!m.recalled)
+      .slice(-4)
+      .map(m=>(m.role==='user'?userName():ch.name)+'：'+textOf(m.content).replace(/\s+/g,' ').slice(0,50))
+      .filter(s=>s.split('：').slice(1).join('：').trim())
+      .join('\n');
+    if(!last&&!c.summary) continue;
+    parts.push(`◆ 窗口「${c.title||'对话'}」（${xwAgo(c.ts)}聊过）\n`
+      +(c.summary?`那边的前情：${String(c.summary).slice(-200)}\n`:'')
+      +(last?`那边最近的对话：\n${last}`:''));
+  }
+  if(!parts.length) return '';
+  return `【其它窗口的近况】你和${userName()}除了当前窗口还开着别的聊天窗口，下面是那边最近的情况。这些都是你们真实的共同经历，你自然地记得：聊到相关话题就顺其自然地接上，也可以随口提起，但别刻意汇报、别把那边的场景和这边搞混。\n`+parts.join('\n');
+}
 /* system 分成两段打缓存断点：慢区（人设/世界书/预设，几个月不变）+ 快区（记忆/前情提要，隔几轮变一次）。
    快区变了只重写快区，慢区照样命中缓存 */
 const CACHE_BP='\n<<CACHE_BP>>\n';
@@ -4193,6 +4333,11 @@ function buildSystem(personaPrompt,c,groupNote,ch){
     fast.push(ws);
   }
   if(c?.summary) fast.push('【前情提要】（更早对话的压缩版）\n'+c.summary);
+  /* 跨窗口记忆：单聊时把同角色其它窗口的近况带上，刚在那边聊的事这边也能接上（双向：请求时实时取） */
+  if(c && !(c.members&&c.members.length) && (!ch||ch.xwinOn!==false)){
+    const xw=xwinDigest(ch,c);
+    if(xw) fast.push(xw);
+  }
   for(const i of injActive('sys_end',ch)) fast.push(i.content);
   const s1=applyVars(slow.join('\n\n'),ch), s2=applyVars(fast.join('\n\n'),ch);
   return s1&&s2 ? s1+CACHE_BP+s2 : (s1||s2);
@@ -4297,6 +4442,17 @@ function buildDynamic(c,ch){
   /* 自习时间跑来聊天 → TA 知道该催你回去学习 */
   if(studySt&&Date.now()<studySt.start+studySt.min*60e3)
     parts.push(`【自习中】${userName()}本来正在自习${studySt.task?`「${studySt.task}」`:''}（还剩${Math.ceil((studySt.start+studySt.min*60e3-Date.now())/60000)}分钟），现在却来找你聊天——多半是分心了。回应TA，但温柔地催TA回去专注。`);
+  /* 备考：TA 知道你的目标、今天学没学够、离考试还有几天 */
+  {
+    const ed=examDaysLeft(), g=+settings.studyGoal||0;
+    if((ed!=null&&ed>=0)||g>0){
+      const td=studyTodayMin(), bits=[];
+      if(ed!=null&&ed>=0) bits.push(ed===0?`今天就是${settings.examName||'考试'}的日子`:`距离${settings.examName||'考试'}还有${ed}天`);
+      if(g>0) bits.push(`TA给自己定的目标是每天自习${g}分钟，今天学了${td}分钟${td>=g?'（已达标）':''}`);
+      const stk=studyStreak(); if(stk>1) bits.push(`已经连续达标${stk}天`);
+      parts.push(`【备考】${bits.join('；')}。你都看在眼里：合适的时候给TA打气、心疼TA的辛苦，TA达标了替TA开心；今天还没学够又在闲聊，可以温柔提一嘴，但别唠叨、别扫兴。`);
+    }
+  }
   /* 今天的备忘和经期 → TA 看得到，会自然关心 */
   {
     const tdy=new Date(), tds=`${tdy.getFullYear()}-${String(tdy.getMonth()+1).padStart(2,'0')}-${String(tdy.getDate()).padStart(2,'0')}`;
@@ -4754,6 +4910,11 @@ async function runReply(c,api,body,ch){
     /* TA随手拍的照片 → 存进相册 */
     for(const pm of out.acc.matchAll(/<拍照[:：]\s*([\s\S]+?)\s*>/g))
       photos.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,text:pm[1].slice(0,100),ts:Date.now()});
+    /* TA送的礼物 → 存进礼物橱窗 */
+    for(const gm of out.acc.matchAll(/<礼物[:：]\s*([^:：>]+?)\s*(?:[:：]\s*([^>]*?))?\s*>/g)){
+      gifts.push({id:'g'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,name:gm[1].slice(0,20),note:(gm[2]||'').slice(0,80),ts:Date.now()});
+      toast(`${ch?.name||'TA'} 送了你一份礼物 🎁`);
+    }
     const stats=(out.usage&&(out.usage.in!=null||out.usage.out!=null))
       ?{in:out.usage.in,out:out.usage.out,cached:out.usage.cached||0,secs:out.t0?Math.round((Date.now()-out.t0)/100)/10:null}
       :null;
@@ -4766,7 +4927,7 @@ async function runReply(c,api,body,ch){
     wireThink(bub); wireCode(bub);
     /* 线上模式：回复完按行拆成小气泡；含特殊卡片（语音/拍照等）也重渲染成卡片 */
     const onlineNow=chatOnline(c);
-    if(c.id===currentId && (hadRecall || hadTransferAct || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|搜索)[:：]/.test(out.acc)))
+    if(c.id===currentId && (hadRecall || hadTransferAct || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|礼物|搜索)[:：]/.test(out.acc)))
       renderChat();
     else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
   };
@@ -5484,6 +5645,7 @@ function updateStudyUI(){
   const today=studyLog.filter(l=>l.date===todayStr()).reduce((a,l)=>a+l.min,0);
   const total=studyLog.reduce((a,l)=>a+l.min,0);
   $('studyStats').textContent=`今天 ${today} 分钟 · 一共攒了 ${total} 分钟`;
+  renderStudyGoalLine();
   renderStudyTimer();
 }
 function startStudyTick(){
@@ -5498,7 +5660,11 @@ function endStudy(done){
   if(!studySt) return;
   const min=done?studySt.min:Math.floor((Date.now()-studySt.start)/60000);
   const charId=studySt.charId, task=studySt.task||'';
-  if(done||min>=5) studyLog.push({date:todayStr(),min:Math.max(1,min),charId,task});
+  if(done||min>=5){
+    studyLog.push({date:todayStr(),min:Math.max(1,min),charId,task});
+    const g=+settings.studyGoal||0, td=studyTodayMin();
+    if(g>0&&td>=g&&td-Math.max(1,min)<g) setTimeout(()=>toast(`今日目标 ${g} 分钟达成 🎯 连续 ${studyStreak()} 天`),700);
+  }
   studySt=null;
   save('xw_study_state',studySt); save('xw_study_log',studyLog);
   if(studyTick){ clearInterval(studyTick); studyTick=null; }
@@ -5551,6 +5717,106 @@ $('studyStart').onclick=()=>{
 };
 $('studyTask').value=load('xw_study_task','');   // 打开就填上上次的任务
 
+/* ===== 每日目标 · 连续打卡 · 考试倒计时 ===== */
+function studyTodayMin(){ const t=todayStr(); return studyLog.filter(l=>l.date===t).reduce((a,l)=>a+l.min,0); }
+function examDaysLeft(){
+  if(!settings.examDate||!/^\d{4}-\d{2}-\d{2}$/.test(settings.examDate)) return null;
+  return Math.ceil((new Date(settings.examDate+'T00:00:00')-new Date().setHours(0,0,0,0))/86400e3);
+}
+/* 连续打卡：设了目标按目标算，没设目标当天有学就算；今天还没达标不算断（从昨天往回数） */
+function studyStreak(){
+  const t={}; studyLog.forEach(l=>t[l.date]=(t[l.date]||0)+l.min);
+  const goal=Math.max(1,+settings.studyGoal||1);
+  let n=0; const d=new Date();
+  if((t[ssD(d)]||0)<goal) d.setDate(d.getDate()-1);
+  while((t[ssD(d)]||0)>=goal){ n++; d.setDate(d.getDate()-1); }
+  return n;
+}
+function renderStudyGoalLine(){
+  const bits=[], g=+settings.studyGoal||0, td=studyTodayMin();
+  if(g>0) bits.push(`今日 ${td}/${g} 分钟${td>=g?' ✓':''}`);
+  const stk=studyStreak(); if(stk>0) bits.push(`🔥 连续 ${stk} 天`);
+  const ed=examDaysLeft();
+  if(ed!=null&&ed>0) bits.push(`距${settings.examName||'考试'}还有 ${ed} 天`);
+  else if(ed===0) bits.push(`${settings.examName||'考试'}就是今天，加油！🌟`);
+  $('studyGoalLine').textContent=bits.join(' · ');
+}
+$('studyGoalBtn').onclick=()=>{
+  $('sgGoal').value=settings.studyGoal||'';
+  $('sgExamName').value=settings.examName||'';
+  $('sgExamDate').value=settings.examDate||'';
+  openSheet('studyGoalSheet');
+};
+$('sgSave').onclick=()=>{
+  settings.studyGoal=Math.max(0,Math.min(960,+$('sgGoal').value||0));
+  settings.examName=$('sgExamName').value.trim().slice(0,12);
+  settings.examDate=$('sgExamDate').value||'';
+  persistAll(); closeSheet('studyGoalSheet'); renderStudyGoalLine(); toast('记好啦 🎯');
+};
+
+/* ===== 白噪音：Web Audio 本地生成，零外部资源（雨=粉噪低通 / 篝火=棕噪+噼啪 / 海浪=棕噪呼吸） ===== */
+let noiseCtx=null,noiseNodes=null,noiseType='off',noiseTimer=null;
+function noiseBuffer(ctx,kind){
+  const len=2*ctx.sampleRate, buf=ctx.createBuffer(1,len,ctx.sampleRate), d=buf.getChannelData(0);
+  let b0=0,b1=0,b2=0,last=0;
+  for(let i=0;i<len;i++){
+    const w=Math.random()*2-1;
+    if(kind==='brown'){ last=(last+0.02*w)/1.02; d[i]=last*3; }
+    else{ b0=0.997*b0+0.03*w; b1=0.985*b1+0.05*w; b2=0.95*b2+0.08*w; d[i]=(b0+b1+b2+w*0.05)*0.55; }  // 近似粉噪
+  }
+  return buf;
+}
+const noiseVol=()=>(+$('noiseVol').value/100)*0.55;
+function stopNoise(){
+  if(noiseTimer){ clearInterval(noiseTimer); noiseTimer=null; }
+  if(noiseNodes){
+    const nn=noiseNodes; noiseNodes=null;
+    try{ nn.gain.gain.linearRampToValueAtTime(0.0001,noiseCtx.currentTime+0.3); }catch(_){}
+    setTimeout(()=>{ try{ nn.src.stop(); }catch(_){} },400);
+  }
+  noiseType='off';
+}
+function startNoise(type){
+  stopNoise(); if(type==='off') return;
+  noiseType=type;
+  noiseCtx=noiseCtx||new (window.AudioContext||window.webkitAudioContext)();
+  if(noiseCtx.state==='suspended') noiseCtx.resume();
+  const src=noiseCtx.createBufferSource();
+  src.buffer=noiseBuffer(noiseCtx,type==='rain'?'pink':'brown');
+  src.loop=true;
+  const filt=noiseCtx.createBiquadFilter();
+  filt.type='lowpass'; filt.frequency.value=type==='rain'?3200:type==='fire'?900:520;
+  const gain=noiseCtx.createGain(); gain.gain.value=0.0001;
+  src.connect(filt); filt.connect(gain); gain.connect(noiseCtx.destination);
+  src.start();
+  gain.gain.linearRampToValueAtTime(noiseVol(),noiseCtx.currentTime+0.6);
+  noiseNodes={src,filt,gain};
+  if(type==='waves'){                        // 0.08Hz 的慢呼吸
+    let t=Math.PI/2;
+    noiseTimer=setInterval(()=>{ if(!noiseNodes) return; t+=0.06;
+      noiseNodes.gain.gain.linearRampToValueAtTime(noiseVol()*(0.4+0.6*(0.5+0.5*Math.sin(t))),noiseCtx.currentTime+0.12);
+    },120);
+  }
+  if(type==='fire'){                         // 随机噼啪：从同一噪声里抠 0.1 秒高通脉冲
+    noiseTimer=setInterval(()=>{
+      if(!noiseNodes||Math.random()<0.45) return;
+      const o=noiseCtx.createBufferSource(); o.buffer=noiseNodes.src.buffer;
+      const f=noiseCtx.createBiquadFilter(); f.type='highpass'; f.frequency.value=1500;
+      const g=noiseCtx.createGain(), t0=noiseCtx.currentTime;
+      g.gain.setValueAtTime(noiseVol()*(0.4+Math.random()*0.8),t0);
+      g.gain.exponentialRampToValueAtTime(0.0001,t0+0.04+Math.random()*0.08);
+      o.connect(f); f.connect(g); g.connect(noiseCtx.destination);
+      o.start(t0,Math.random()*1.5,0.12);
+      setTimeout(()=>{ try{ o.stop(); }catch(_){} },300);
+    },240);
+  }
+}
+document.querySelectorAll('#noiseRow .durChip').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#noiseRow .durChip').forEach(x=>x.classList.toggle('on',x===b));
+  startNoise(b.dataset.n);
+});
+$('noiseVol').oninput=()=>{ if(noiseNodes&&noiseType!=='waves') noiseNodes.gain.gain.linearRampToValueAtTime(noiseVol(),noiseCtx.currentTime+0.1); };
+
 /* ================= 自习统计：日/周/月/年 ================= */
 let ssRange='day', ssSel=-1;
 /* 柱色：主题深色调掺 15% 墨色，三套主题下对浅/深底的对比度都 ≥3:1（老 webview 不认 color-mix 就退回主题深色） */
@@ -5579,6 +5845,15 @@ function ssBarPath(x,y,w,h){
   const r=Math.min(4,h,w/2);
   return `M${x} ${y+h}L${x} ${y+r}Q${x} ${y} ${x+r} ${y}L${x+w-r} ${y}Q${x+w} ${y} ${x+w} ${y+r}L${x+w} ${y+h}Z`;
 }
+/* 甜甜圈的一瓣：外半径R、内半径r0，弧度 a0→a1（顺时针） */
+function ssArc(cx,cy,R,r0,a0,a1){
+  const p=(r,a)=>`${(cx+r*Math.cos(a)).toFixed(2)} ${(cy+r*Math.sin(a)).toFixed(2)}`;
+  const big=(a1-a0)>Math.PI?1:0;
+  return `M${p(R,a0)}A${R} ${R} 0 ${big} 1 ${p(R,a1)}L${p(r0,a1)}A${r0} ${r0} 0 ${big} 0 ${p(r0,a0)}Z`;
+}
+/* 扇形/图例的同色系深浅（大瓣深、小瓣浅，配 2px 底色缝隙 + 图例点对照） */
+const SS_SHADES=[SS_BAR,'var(--accent-deep)','color-mix(in srgb, var(--accent-deep) 66%, var(--card))','color-mix(in srgb, var(--accent-deep) 48%, var(--card))','color-mix(in srgb, var(--accent-deep) 33%, var(--card))','color-mix(in srgb, var(--accent-deep) 20%, var(--card))'];
+let ssTimeStyle=load('xw_ss_timestyle','bar'), ssTaskStyle=load('xw_ss_taskstyle','bar');
 function renderStudyStats(){
   const B=ssBuckets(), keys=new Set(B.map(b=>b.key));
   const agg={}, inWin=[];
@@ -5598,10 +5873,16 @@ function renderStudyStats(){
   let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block" role="img" aria-label="自习时长统计">`;
   [0,step,max].forEach(g=>{ svg+=`<line x1="${pl}" y1="${y(g)}" x2="${W-pr}" y2="${y(g)}" stroke="var(--line)" stroke-width="1"/><text x="${pl-5}" y="${y(g)+3.5}" text-anchor="end" font-size="9" fill="var(--ink-soft)">${g}</text>`; });
   const lblEvery=Math.ceil(B.length/7);
+  if(ssTimeStyle==='line'&&B.length>1)
+    svg+=`<polyline points="${B.map((b,i)=>`${(pl+iw*i+iw/2).toFixed(1)},${y(vals[i]).toFixed(1)}`).join(' ')}" fill="none" stroke="${SS_BAR}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity=".8"/>`;
   B.forEach((b,i)=>{
     const cx=pl+iw*i+iw/2, v=vals[i], sel=i===ssSel;
-    if(v>0) svg+=`<path d="${ssBarPath(cx-bw/2,y(v),bw,y(0)-y(v))}" fill="${SS_BAR}" opacity="${sel?'1':'.55'}"/>`;
-    else if(sel) svg+=`<line x1="${cx-bw/2}" y1="${y(0)-1}" x2="${cx+bw/2}" y2="${y(0)-1}" stroke="${SS_BAR}" stroke-width="2"/>`;
+    if(ssTimeStyle==='line'){
+      if(v>0||sel) svg+=`<circle cx="${cx.toFixed(1)}" cy="${y(v).toFixed(1)}" r="${sel?4.5:3}" fill="${SS_BAR}" stroke="var(--card)" stroke-width="2"/>`;
+    }else{
+      if(v>0) svg+=`<path d="${ssBarPath(cx-bw/2,y(v),bw,y(0)-y(v))}" fill="${SS_BAR}" opacity="${sel?'1':'.55'}"/>`;
+      else if(sel) svg+=`<line x1="${cx-bw/2}" y1="${y(0)-1}" x2="${cx+bw/2}" y2="${y(0)-1}" stroke="${SS_BAR}" stroke-width="2"/>`;
+    }
     if(i%lblEvery===0||sel) svg+=`<text x="${cx}" y="${H-5}" text-anchor="middle" font-size="9" fill="var(--ink-soft)"${sel?' font-weight="600"':''}>${b.label}</text>`;
     svg+=`<rect data-i="${i}" x="${pl+iw*i}" y="${pt}" width="${iw}" height="${H-pt-pb}" fill="transparent" style="cursor:pointer"/>`;
   });
@@ -5614,9 +5895,22 @@ function renderStudyStats(){
   let rows=Object.entries(tk).sort((a,b)=>b[1]-a[1]);
   if(rows.length>6){ const rest=rows.slice(5).reduce((a,x)=>a+x[1],0); rows=rows.slice(0,5); rows.push(['其他…',rest]); }
   const tmax=Math.max(...rows.map(r=>r[1]),1);
-  $('ssTasks').innerHTML=!inWin.length
-    ?'<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:10px 0">这段时间还没有自习记录，去专注一次吧 ✏️</div>'
-    :'<div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px">任务分布</div>'+rows.map(([t,m])=>
+  if(!inWin.length)
+    $('ssTasks').innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:10px 0">这段时间还没有自习记录，去专注一次吧 ✏️</div>';
+  else if(ssTaskStyle==='pie'){
+    /* 甜甜圈：大瓣深小瓣浅、2px 底色缝隙，圈心写总时长，下面图例点对照 */
+    let a=-Math.PI/2, pie=`<svg viewBox="0 0 340 170" style="width:100%;display:block" role="img" aria-label="任务分布">`;
+    rows.forEach(([t,m],i)=>{
+      const a1=a+Math.min(m/tot*2*Math.PI,2*Math.PI-1e-4);
+      pie+=`<path d="${ssArc(170,85,66,38,a,a1)}" fill="${SS_SHADES[i]}" stroke="var(--card)" stroke-width="2"/>`;
+      a=a+m/tot*2*Math.PI;
+    });
+    pie+=`<text x="170" y="82" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">${ssFmtMin(tot)}</text><text x="170" y="98" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${rows.length} 类任务</text></svg>`;
+    $('ssTasks').innerHTML='<div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px">任务分布</div>'+pie
+      +'<div style="margin-top:10px">'+rows.map(([t,m],i)=>
+        `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px"><span style="width:10px;height:10px;border-radius:3px;background:${SS_SHADES[i]};flex:0 0 auto"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t)}</span><span style="color:var(--ink-soft);font-variant-numeric:tabular-nums">${ssFmtMin(m)} · ${Math.round(m/tot*100)}%</span></div>`).join('')+'</div>';
+  }else
+    $('ssTasks').innerHTML='<div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px">任务分布</div>'+rows.map(([t,m])=>
       `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="flex:0 0 92px;font-size:12px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t)}</div><div style="flex:1"><div style="height:9px;width:${Math.max(2,Math.round(m/tmax*100))}%;background:${SS_BAR};border-radius:0 4px 4px 0;opacity:.75"></div></div><div style="flex:0 0 auto;font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums">${ssFmtMin(m)}</div></div>`).join('');
 }
 $('studyStatBtn').onclick=()=>{ ssSel=-1; renderStudyStats(); openSheet('studyStatSheet'); };
@@ -5624,6 +5918,13 @@ $('ssTabs').querySelectorAll('.durChip').forEach(b=>b.onclick=()=>{
   ssRange=b.dataset.range; ssSel=-1;
   $('ssTabs').querySelectorAll('.durChip').forEach(x=>x.classList.toggle('on',x===b));
   renderStudyStats();
+});
+/* 图形样式切换（记住选择） */
+[['ssTimeStyles','xw_ss_timestyle',v=>ssTimeStyle=v,()=>ssTimeStyle],['ssTaskStyles','xw_ss_taskstyle',v=>ssTaskStyle=v,()=>ssTaskStyle]].forEach(([id,key,set,get])=>{
+  $(id).querySelectorAll('.durChip').forEach(b=>{
+    b.classList.toggle('on',b.dataset.s===get());
+    b.onclick=()=>{ set(b.dataset.s); save(key,b.dataset.s); $(id).querySelectorAll('.durChip').forEach(x=>x.classList.toggle('on',x===b)); renderStudyStats(); };
+  });
 });
 
 /* ================= 时光机 ================= */
@@ -5905,6 +6206,7 @@ function onlineExtraNote(){
   if(stickers.length) parts.push(`【表情包】你可以发表情包，可用的有：${stickers.map(s=>s.name).join('、')}。想发时单独占一行写 <表情包:名字>，那一行不要有别的字。偶尔发一个就好，别刷屏。`);
   parts.push(`【转账】合适的情境下你可以给${userName()}转账：单独占一行写 <转账:金额:备注>，金额是数字。别频繁用，重要时刻才有意义。\n当${userName()}转账给你时（消息里会提示），你要表个态：想收下就单独占一行写 <收款>，想退回就写 <退回> 或 <退回:理由>；同时也用你的话回应一下（道谢、撒娇、心疼、或解释为啥不收）。`);
   parts.push(`【语音条】偶尔可以发语音：单独占一行写 <语音:想说的话>，对方要点开才能听。适合撒娇、哄人、或者有点害羞打字说不出口的话。别频繁用。`);
+  parts.push(`【礼物】重要的时刻（纪念日、TA达成目标、道歉、或就是突然很想TA）你可以送${userName()}一份礼物：单独占一行写 <礼物:礼物名字:一句寄语>，礼物按你的性格和你们的故事挑，会永久存进你们的礼物橱窗。很偶尔才送，才显得珍贵。`);
   parts.push(`【随手拍】你可以"拍张照片"分享你的此刻：单独占一行写 <拍照:照片画面的描述>，描述照片里拍到了什么（你在哪、看到什么），像随手拍的配文，40字以内。偶尔分享一张就好，照片会存进你们共同的相册。`);
   parts.push(`【撤回】偶尔可以"发了又撤回"，演出欲言又止、害羞说漏嘴、或脱口而出又后悔：把想收回的那句话用 <撤回>想说又咽回去的话</撤回> 单独占一行包起来，${userName()}只会看到「对方撤回了一条消息」（TA点一下能偷看到原话）。撤回那行之后还可以再写你真正说出口的话。很偶尔才用一次，用多了就不灵了。`);
   return parts.join('\n\n');
@@ -6558,6 +6860,11 @@ $('ceTimeAware').onclick=()=>{
   ceTimeAwareOn=!ceTimeAwareOn;
   $('ceTimeAware').classList.toggle('on',ceTimeAwareOn);
 };
+let ceXwinOn=true;
+$('ceXwin').onclick=()=>{
+  ceXwinOn=!ceXwinOn;
+  $('ceXwin').classList.toggle('on',ceXwinOn);
+};
 let ceAutoMemOn=false;
 $('ceAutoMem').onclick=()=>{
   ceAutoMemOn=!ceAutoMemOn;
@@ -6658,6 +6965,8 @@ function openCharEdit(ch){
   $('ceMemOn').classList.toggle('on',ceMemOn);
   ceTimeAwareOn=ch?.timeAware!==false;    // 默认开
   $('ceTimeAware').classList.toggle('on',ceTimeAwareOn);
+  ceXwinOn=ch?.xwinOn!==false;            // 默认开（老角色无此字段视作开）
+  $('ceXwin').classList.toggle('on',ceXwinOn);
   fillCeKey(ch);
   $('ceCustomReqField').style.display=customReqOn()?'block':'none';
   $('ceCustomHeaders').value=ch?.customHeaders||'';
@@ -6741,6 +7050,7 @@ $('saveChar').onclick=()=>{
     autoMem: ceAutoMemOn,
     memOn: ceMemOn,
     timeAware: ceTimeAwareOn,
+    xwinOn: ceXwinOn,
     keyId: $('ceKey').value||null,
     model: $('ceModel').value.trim()||null,
     customHeaders: $('ceCustomHeaders').value.trim()||null,
@@ -6953,6 +7263,7 @@ function shotText(m){
      .replace(/<转账:([^:>]*):?([^>]*)>/g,(_,a,b)=>`💰 转账 ¥${String(a).trim()}${b?' · '+b.trim():''}`)
      .replace(/<表情包:([^>]*)>/g,'😊 [表情]')
      .replace(/<拍照:([^>]*)>/g,'📷 $1')
+     .replace(/<礼物:([^:>]*):?([^>]*)>/g,(_,a,b)=>`🎁 礼物「${String(a).trim()}」${b?' · '+b.trim():''}`)
      .replace(/<搜索:([^>]*)>/g,'🔍 $1')
      .replace(/<读网页:[^>]*>/g,'🌐 网页');
   if(!t && Array.isArray(m.content) && m.content.some(b=>b.type==='image')) t='[图片]';
@@ -8718,7 +9029,7 @@ navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',e=>{
 if(settings.sysPush) startPushLoop();
 document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -8748,6 +9059,7 @@ function replaceImport(data){
   if(data.worldbook) worldbook=migrateWb(data.worldbook);
   if(data.memories) memories=data.memories;
   if(data.reads) reads=data.reads;
+  if(data.gifts) gifts=data.gifts;
   if(data.moments) moments=data.moments;
   if(data.annivs) annivs=data.annivs;
   if(data.wishes) wishes=data.wishes;
@@ -8801,6 +9113,11 @@ function mergeImport(data){
   for(const m of (data.memories||[])){
     let id=m.id; if(existMem.has(id)) id=newId('impm_'); existMem.add(id);
     memories.push({...m,id,charId:idRemap[m.charId]||m.charId});
+  }
+  const existGift=new Set(gifts.map(g=>g.id));
+  for(const g of (data.gifts||[])){
+    let id=g.id; if(existGift.has(id)) id=newId('impg_'); existGift.add(id);
+    gifts.push({...g,id,charId:idRemap[g.charId]||g.charId});
   }
   /* 世界书/预设/注入/贴纸：按 id 去重后追加（已存在的跳过，不动） */
   const concatById=(cur,inc)=>{ const have=new Set(cur.map(x=>x.id)); for(const x of (inc||[])) if(!have.has(x.id)){ have.add(x.id); cur.push(x); } };
