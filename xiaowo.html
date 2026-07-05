@@ -1340,6 +1340,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div class="field"><label>模型名 / PixAI 的 modelId</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页的数字 ID"></div>
     <div class="field"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x768</option><option>768x512</option><option>512x512</option></select></div>
     <div class="field"><label>风格附加词（拼在每次提示词最前面，可空）</label><input id="igStyle" placeholder="比如：anime style, masterpiece, soft lighting"></div>
+    <div class="boxRow"><span class="ic">🪄</span><span class="grow">提示词扩写（TA的短描述先扩成详细英文prompt再生图，每张多一次小额文本调用，效果好很多）</span><button class="wbToggle on" id="igExpand"></button></div>
     <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
     <button class="ghostBtn" id="igTest">🖼 试画一张（会花一次生图钱）</button>
     <div id="igPreview" style="text-align:center"></div>
@@ -5078,16 +5079,16 @@ async function runReply(c,api,body,ch){
       const ph={id:'p'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,text:pm[1].slice(0,100),ts:Date.now()};
       photos.push(ph);
       if(imgGenOn()) (async()=>{
-        const img=await genImageQuiet('随手拍的生活照片，第一人称视角：'+pm[1].slice(0,300));
+        const img=await genImageQuiet(await expandImgPrompt(pm[1].slice(0,300),ch,'photo'));
         if(img){ ph.img=img; persistPhotos(); if(c.id===currentId) renderChat(); }
       })();
     }
-    /* TA现场画画（<画图:描述>）→ 提示词原样交给生图，画好替换卡片，也进相册 */
+    /* TA现场画画（<画图:描述>）→ 隐形翻译官扩成详细提示词再生图，画好替换卡片，也进相册 */
     for(const pm of out.acc.matchAll(/<画图[:：]\s*([\s\S]+?)\s*>/g)){
       const ph={id:'p'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,text:pm[1].slice(0,100),kind:'draw',ts:Date.now()};
       photos.push(ph);
       if(imgGenOn()) (async()=>{
-        const img=await genImageQuiet(pm[1].slice(0,400));
+        const img=await genImageQuiet(await expandImgPrompt(pm[1].slice(0,400),ch,'draw'));
         if(img){ ph.img=img; persistPhotos(); if(c.id===currentId) renderChat(); }
       })();
       else toast('还没配生图——去 百宝箱→🎨生图 填好，TA 才能真的画出来');
@@ -5389,11 +5390,27 @@ async function genImageQuiet(prompt){
   try{ return await genImage(prompt); }
   catch(e){ toast('生图失败：'+(e.message||'').slice(0,60)); return null; }
 }
+/* 隐形翻译官：TA 的简短中文描述 → 详细英文 image prompt（带上 TA 的人设外观）。
+   失败就退回原描述，绝不挡生图的路 */
+async function expandImgPrompt(desc,ch,mode){
+  const g=imgGen();
+  if(g.expand===false) return desc;                // 设置里可关
+  try{
+    const api=getApi(); if(!api) return desc;
+    const sys='你是图像提示词工程师。把用户给的简短画面描述，扩写成一段高质量英文 image prompt：具体写出主体外观、动作姿态、环境细节、光线氛围、构图视角、画面风格，60~100 个英文单词，只输出提示词本身，不要引号不要解释。'
+      +(mode==='photo'?'\n这是一张随手拍的真实生活照片：写实摄影风格（candid photo, natural light, phone camera aesthetic）。':'')
+      +(mode==='of'?'\n这是一张私房写真：氛围感、暧昧光影、构图大胆。':'')
+      +(ch&&ch.prompt&&ch.prompt.trim()?`\n若画面涉及「${ch.name}」本人，按这个设定描述TA的外观：\n${ch.prompt.trim().slice(0,600)}`:'');
+    const out=await quickGen(api,sys,desc,300);
+    return (out||desc).replace(/^["'\s]+|["'\s]+$/g,'').slice(0,800)||desc;
+  }catch(_){ return desc; }
+}
 /* 设置面板 */
 function saveImgGen(){
-  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),model:$('igModel').value.trim(),size:$('igSize').value,style:$('igStyle').value.trim(),neg:$('igNeg').value.trim()};
+  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),model:$('igModel').value.trim(),size:$('igSize').value,style:$('igStyle').value.trim(),neg:$('igNeg').value.trim(),expand:$('igExpand').classList.contains('on')};
   persistAll();
 }
+$('igExpand').onclick=()=>{ $('igExpand').classList.toggle('on'); saveImgGen(); };
 function igFmtUI(){
   const pix=$('igFmt').value==='pixai';
   $('igUrlField').style.display=pix?'none':'block';
@@ -5405,6 +5422,7 @@ $('imgGenBtn').onclick=()=>{
   $('igFmt').value=g.fmt||'openai';
   $('igUrl').value=g.url||''; $('igKey').value=g.key||''; $('igModel').value=g.model||'';
   $('igSize').value=g.size||'1024x1024'; $('igStyle').value=g.style||''; $('igNeg').value=g.neg||'';
+  $('igExpand').classList.toggle('on',g.expand!==false);
   $('igPreview').innerHTML=''; igFmtUI();
   openSheet('imgGenSheet');
 };
@@ -8854,7 +8872,7 @@ $('privGenPost').onclick=async()=>{
   genFanComments(np,4);   // 一群粉丝来评论起哄
   /* 开了生图 → 后台把[图]描述画成真图，画好自动刷新（锁定的照样打码模糊） */
   if(imgGenOn()&&np.photo) (async()=>{
-    const img=await genImageQuiet(np.photo.slice(0,300));
+    const img=await genImageQuiet(await expandImgPrompt(np.photo.slice(0,300),ch,'of'));
     if(img){ np.img=img; persistAll(); if($('privPage').classList.contains('show')) renderPrivFeed(); }
   })();
 };
