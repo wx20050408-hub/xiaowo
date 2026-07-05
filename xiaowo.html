@@ -2598,9 +2598,9 @@ function specialHtml(line,msg){
   m=line.match(/^<礼物[:：]\s*([^:：>]+?)\s*(?:[:：]\s*([^>]*?))?\s*>$/);
   if(m) return giftHtml(m[1],m[2]||'',msg);
   m=line.match(/^<备忘[:：]\s*(\d{4}-\d{2}-\d{2})\s*[:：]\s*(.+?)\s*>$/);
-  if(m) return `<span class="searchChip">📅 记到日历 ${+m[1].slice(5,7)}月${+m[1].slice(8)}日：${esc(m[2])}</span>`;
+  if(m) return `<span class="searchChip" style="cursor:pointer" onclick="icsChip(this)" data-d="${esc(m[1])}" data-t="${esc(m[2])}" title="点我导入手机日历">📅 记到日历 ${+m[1].slice(5,7)}月${+m[1].slice(8)}日：${esc(m[2])}　<u style="opacity:.7">导入手机📲</u></span>`;
   m=line.match(/^<纪念日[:：]\s*([^:：>]+?)\s*[:：]\s*(\d{4}-\d{2}-\d{2})\s*>$/);
-  if(m) return `<span class="searchChip">🎂 记下纪念日「${esc(m[1])}」 ${esc(m[2])}</span>`;
+  if(m) return `<span class="searchChip" style="cursor:pointer" onclick="icsChip(this)" data-d="${esc(m[2])}" data-t="🎂 ${esc(m[1])}" data-y="1" title="点我导入手机日历">🎂 记下纪念日「${esc(m[1])}」 ${esc(m[2])}　<u style="opacity:.7">导入手机📲</u></span>`;
   m=line.match(/^<心愿[:：]\s*(.+?)\s*>$/);
   if(m) return `<span class="searchChip">🌈 加进心愿单：${esc(m[1])}</span>`;
   m=line.match(/^<购物[:：]\s*(.+?)\s*>$/);
@@ -5080,9 +5080,11 @@ async function runReply(c,api,body,ch){
       shopping.push({id:'sh'+Date.now()+'_'+agentActs,owner:'user',name:am[1].slice(0,40),price:pm?pm[0].slice(0,10):'',note:'',ts:Date.now(),by:'ta'}); agentActs++;
     }
     if(agentActs) toast(`${ch?.name||'TA'} 帮你记了 ${agentActs} 件事 ✍️`);
-    /* TA 记的日程顺手推给手机日历：自动下载 .ics，点通知栏那个文件就导入（含早9点系统提醒） */
+    /* TA 记的日程推给手机日历：安卓日历不认 .ics，改为点消息里的芯片走 intent 直达（用户手势才放行）；
+       苹果/电脑仍自动下载 .ics */
     if(icsEvents.length){
-      try{ icsDownload(icsEvents,`${ch?.name||'TA'}帮你记的日程.ics`); setTimeout(()=>toast('📲 日程文件已下载，点开它就进手机日历'),1200); }catch(_){}
+      if(/android/i.test(navigator.userAgent)) setTimeout(()=>toast('📅 点消息里的「导入手机📲」放进手机日历'),1200);
+      else try{ icsDownload(icsEvents,`${ch?.name||'TA'}帮你记的日程.ics`); setTimeout(()=>toast('📲 日程文件已下载，点开它就进日历'),1200); }catch(_){}
     }
     const stats=(out.usage&&(out.usage.in!=null||out.usage.out!=null))
       ?{in:out.usage.in,out:out.usage.out,cached:out.usage.cached||0,secs:out.t0?Math.round((Date.now()-out.t0)/100)/10:null}
@@ -5438,6 +5440,23 @@ $('fsTest').onclick=async()=>{
    Web 写不了系统日历（OS 硬墙），.ics 是极限：零按钮、自动下载，用户点文件确认导入。
    VALARM=系统日历的原生提醒，App 被杀也照响（比伪推送可靠） */
 const icsEsc=s=>String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+/* 聊天里的 📅 芯片点一下导入手机日历。
+   安卓走 intent 直达系统日历的「新建日程」（国产日历大多不认 .ics 文件，这条路全都认）；
+   苹果/电脑走 .ics 下载（它们认） */
+function icsChip(el){
+  const d=el.dataset.d, t=el.dataset.t, yearly=!!el.dataset.y;
+  if(/android/i.test(navigator.userAgent)){
+    const t0=new Date(d+'T09:00:00').getTime();
+    location.href='intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.item/event;'
+      +'S.title='+encodeURIComponent(t)+';l.beginTime='+t0+';l.endTime='+(t0+3600e3)
+      +(yearly?';S.rrule=FREQ%3DYEARLY':'')
+      +';end';
+    toast('去日历里点一下「保存」就好 📅');
+    return;
+  }
+  icsDownload([{date:d,title:t,yearly}],'日程.ics');
+  toast('📲 已下载，点通知栏那个文件导入日历');
+}
 function icsDownload(events,fname){
   if(!events.length) return;
   const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+Z/,'Z');
