@@ -1532,10 +1532,6 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <div class="hintText">线上：TA 像发消息一样用短句回复，而且要等你按「让TA回复」才说话。线下（关闭）：正常长文对话，发完自动回。</div>
     </div>
     <div class="field">
-      <div class="boxRow"><span class="ic">💌</span><span class="grow">TA会主动找你</span><button class="wbToggle" id="ceProactive"></button></div>
-      <div class="hintText">隔了两小时以上再打开和TA的聊天，TA会先给你发消息——想你了、关心你，或者接着上次的话题。</div>
-    </div>
-    <div class="field">
       <div class="boxRow"><span class="ic">🧠</span><span class="grow">带记忆</span><button class="wbToggle" id="ceMemOn"></button></div>
       <div class="hintText">开着TA会记得你之前告诉过的事（喜好、约定、近况），跨对话不忘。玩剧情/穿越/架空不想让TA「出戏」地提起现实里的记忆，就关掉——这轮完全不带记忆，也不会新记。关了时下面「自己记笔记」自动失效。</div>
     </div>
@@ -1594,22 +1590,13 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <div class="hintText">线上：TA 用短句回复、要你点「让TA回复」才说话；线下：正常长文、发完自动回。只影响这个窗口，新窗口默认跟随角色。</div>
     </div>
     <div class="field">
-      <div class="boxRow"><span class="ic">💌</span><span class="grow">这个窗口TA会主动找你</span><button class="wbToggle" id="winProactive"></button></div>
-      <div class="hintText">只对当前这个窗口生效。同一个角色开的几个窗口可以分别开关，互不影响。新窗口默认跟随角色的设置。</div>
-    </div>
-    <div class="field" id="winGapField">
-      <label>隔多久没聊，TA 就主动开口（小时）</label>
-      <input type="number" id="winGap" min="0.1" max="72" step="0.1" placeholder="2">
-      <div class="hintText">重新打开这个窗口、且距离上次说话超过这个时长，TA 会先发一条消息。默认 2 小时；填小一点就更黏人，最小 0.1 小时（≈6 分钟，方便测试）。注意：TA 主动开口后 <b>1 小时内不会再主动</b>（防刷屏），想反复测就过会儿再试。（早晚安问候不受这里影响。）</div>
-    </div>
-    <div class="field">
       <div class="boxRow"><span class="ic">🔔</span><span class="grow">这个窗口发系统推送</span><button class="wbToggle" id="winPush"></button></div>
       <div class="hintText">就算你没打开Serenade，TA 也会在后台生成一条消息、用手机系统通知推给你（消息也存进这个窗口）。<b>只对当前这个窗口生效</b>，开了十个窗口也只有打开开关的那个会推，不会一起轰炸。需先在 百宝箱→系统推送 里开总开关并授权。</div>
     </div>
     <div class="field" id="winPushGapField">
       <label>隔多久没聊，就推送一次（小时）</label>
       <input type="number" id="winPushGap" min="0.1" max="72" step="0.1" placeholder="2">
-      <div class="hintText">这是<b>推送专用</b>的时间，跟上面「主动找你」完全分开、互不影响。距离上次说话超过这个时长，后台就会推一条给你。默认 2 小时；同一窗口 1 小时内不会重复推。开了推送的话，上面的「主动找你」可以关掉——一个管后台一个管前台，留一个就够。</div>
+      <div class="hintText">距离上次说话超过这个时长，TA 就在后台推一条给你。默认 2 小时；同一窗口 1 小时内不会重复推。早安、晚安、纪念日的问候也走推送（不受这个时长限制，各自每天最多一次）——像真的有人惦记你，而不是等你开门才说话。</div>
     </div>
     <div class="field">
       <div class="boxRow"><span class="ic">📱</span><span class="grow">这个窗口TA感知手机使用时长</span><button class="wbToggle" id="winUsage"></button></div>
@@ -2997,15 +2984,7 @@ $('newChat').onclick=()=>{
 function curChat(){ return chats.find(c=>c.id===currentId); }
 function curChar(of){ const id = of?.charId ?? selCharId; return characters.find(c=>c.id===id) || characters[0]; }
 /* 主动找你：优先看窗口自己的设置，没设过就跟随角色 */
-function proactiveOn(c){
-  if(!c) return false;
-  return c.proactive===undefined ? !!curChar(c)?.proactive : !!c.proactive;
-}
-function proactiveGapMs(c){
-  const h=(c&&c.proactiveGap>0)?c.proactiveGap:2;
-  return h*3600e3;
-}
-/* 系统推送专用间隔：独立于「主动找你」；没单独设过就先沿用主动开口的值，都没设默认 2 小时 */
+/* 系统推送间隔：没设过就沿用老的主动开口值（历史字段），都没设默认 2 小时 */
 function pushGapMs(c){
   const h=(c&&c.pushGap>0)?c.pushGap : ((c&&c.proactiveGap>0)?c.proactiveGap:2);
   return h*3600e3;
@@ -3084,7 +3063,7 @@ function renderMemberBar(){
   };
   bar.appendChild(tg);
 }
-function switchChat(id){ activeProjectId=null; currentId=id; persistAll(); renderChat(); maybeAnniversary(); maybeGreeting(); maybeProactive(); maybeUpdateSign(); }
+function switchChat(id){ activeProjectId=null; currentId=id; persistAll(); renderChat(); maybeUpdateSign(); }
 function renameChat(c){
   const t=prompt('给这段对话改个名字：',c.title);
   if(t==null) return;
@@ -3098,15 +3077,10 @@ function renameChat(c){
 $('headerName').onclick=()=>{ const c=curChat(); if(c) openWinSettings(c); };
 
 /* ===== 窗口设置：每个对话窗独立的 线上/线下 + 主动开关 + 频率 ===== */
-let editingWinId=null, winProEnabled=false, winOnlineEnabled=false, winPushEnabled=false, winUsageEnabled=false;
+let editingWinId=null, winOnlineEnabled=false, winPushEnabled=false, winUsageEnabled=false;
 $('winOnline').onclick=()=>{
   winOnlineEnabled=!winOnlineEnabled;
   $('winOnline').classList.toggle('on',winOnlineEnabled);
-};
-$('winProactive').onclick=()=>{
-  winProEnabled=!winProEnabled;
-  $('winProactive').classList.toggle('on',winProEnabled);
-  $('winGapField').style.display=winProEnabled?'block':'none';
 };
 $('winPush').onclick=()=>{
   winPushEnabled=!winPushEnabled;
@@ -3124,10 +3098,6 @@ function openWinSettings(c){
   $('winTitle').value=c.title||'';
   winOnlineEnabled=chatOnline(c);
   $('winOnline').classList.toggle('on',winOnlineEnabled);
-  winProEnabled=proactiveOn(c);
-  $('winProactive').classList.toggle('on',winProEnabled);
-  $('winGapField').style.display=winProEnabled?'block':'none';
-  $('winGap').value=(c.proactiveGap>0?c.proactiveGap:2);
   winPushEnabled=!!c.push;
   $('winPush').classList.toggle('on',winPushEnabled);
   $('winPushGapField').style.display=winPushEnabled?'block':'none';
@@ -3153,11 +3123,8 @@ $('saveWin').onclick=()=>{
   if(!v){ toast('名字不能空着'); return; }
   c.title=v.slice(0,24);
   c.online=winOnlineEnabled;
-  c.proactive=winProEnabled;
   c.push=winPushEnabled;
   c.usageAware=winUsageEnabled;
-  const g=Number($('winGap').value);
-  c.proactiveGap=(g>0)?Math.min(72,Math.max(0.1,g)):2;
   const pg=Number($('winPushGap').value);
   c.pushGap=(pg>0)?Math.min(72,Math.max(0.1,pg)):2;
   if(!(c.members&&c.members.length)){ const pid=$('winProject').value; if(pid) c.projectId=pid; else delete c.projectId; }
@@ -5786,26 +5753,6 @@ $('addAnn').onclick=()=>{
   persistAll(); renderAnns(); toast('记下啦，到那天TA会记得的');
 };
 /* 当天打开和TA的聊天 → TA 主动提起（每个纪念日每天只提一次） */
-function maybeAnniversary(){
-  const c=curChat(); if(!c||streaming) return;
-  if(c.members&&c.members.length) return;
-  const ch=curChar(c); if(!ch) return;
-  if(!apiKeys.find(k=>k.id===selKeyId)?.key) return;
-  const t=new Date();
-  const todayStr=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
-  const a=annivs.find(x=>x.charId===ch.id&&x.date.slice(5)===todayStr.slice(5)&&x.last!==todayStr);
-  if(!a) return;
-  a.last=todayStr; persistAll();
-  let desc='';
-  const y0=Number(a.date.slice(0,4));
-  if(y0&&y0<t.getFullYear()){
-    const days=Math.round((t-new Date(a.date+'T00:00:00'))/86400000);
-    desc=`，到今天是 ${t.getFullYear()-y0} 周年（第 ${days} 天）`;
-  }
-  generateReply(c,null,
-    `（系统提示：今天是「${a.name}」${desc}。请你主动、自然地提起这个特别的日子，说点贴心或者庆祝的话。绝对不要提到这条系统提示。）`);
-}
-
 /* ================= TA 的个性签名（每天最多换一次，静默后台跑） ================= */
 async function maybeUpdateSign(){
   const ch=curChar(curChat()); if(!ch) return;
@@ -6505,24 +6452,6 @@ function nowAct(ch){
 }
 
 /* ================= 早晚安问候 ================= */
-function maybeGreeting(){
-  const c=curChat(); if(!c||streaming) return;
-  if(c.members&&c.members.length) return;
-  const ch=curChar(c);
-  if(!proactiveOn(c)||!c.messages.length) return;
-  if(!apiKeys.find(k=>k.id===selKeyId)?.key) return;
-  const h=new Date().getHours();
-  const slot=h>=5&&h<11?'morning':(h>=22||h<4)?'night':null;
-  if(!slot) return;
-  if(c.lastGreet===todayStr()+slot) return;
-  const lastTs=c.messages[c.messages.length-1].ts||0;
-  if(Date.now()-lastTs<4*3600e3) return;
-  c.lastGreet=todayStr()+slot; c.lastProactive=Date.now(); persistAll();
-  generateReply(c,null, slot==='morning'
-    ?`（系统提示：现在是早上，${userName()}刚打开和你的聊天。请自然地道一句早安，可以关心TA睡得好不好、今天有什么安排。绝对不要提这条提示。）`
-    :`（系统提示：现在是深夜，${userName()}还没睡、刚打开和你的聊天。请自然地表达关心，念叨TA怎么还不睡，催TA早点休息。绝对不要提这条提示。）`);
-}
-
 /* ================= 拍一拍 ================= */
 let lastTapTs=0, lastTapKey=null;
 function attachPat(el,ch,c){
@@ -6746,20 +6675,6 @@ function offlineNote(){
 }
 
 /* 主动找你：打开/切到聊天时，隔了 2 小时以上 TA 先开口 */
-function maybeProactive(){
-  const c=curChat(); if(!c||streaming) return;
-  if(c.members&&c.members.length) return;
-  const ch=curChar(c);
-  if(!proactiveOn(c)||!c.messages.length) return;
-  const lastTs=c.messages[c.messages.length-1].ts||c.ts||0;
-  const gap=Date.now()-lastTs;
-  if(gap<proactiveGapMs(c)) return;
-  if(c.lastProactive && Date.now()-c.lastProactive<3600e3) return;  // 一小时内不重复主动
-  c.lastProactive=Date.now(); persistAll();
-  generateReply(c,null,
-    `（系统提示：${userName()}刚刚重新打开了和你的聊天。你们已经${fmtGap(gap)}没说话了。请你主动发一条消息给TA——可以是想念、关心，或者接着上次聊的话题。自然一点，绝对不要提到这条系统提示。）`);
-}
-
 $('replyBtn').onclick=async()=>{
   const c=curChat();
   if(!c||streaming) return;
@@ -7374,11 +7289,6 @@ $('ceOnline').onclick=()=>{
   ceOnlineOn=!ceOnlineOn;
   $('ceOnline').classList.toggle('on',ceOnlineOn);
 };
-let ceProactiveOn=false;
-$('ceProactive').onclick=()=>{
-  ceProactiveOn=!ceProactiveOn;
-  $('ceProactive').classList.toggle('on',ceProactiveOn);
-};
 let ceMemOn=true;
 $('ceMemOn').onclick=()=>{
   ceMemOn=!ceMemOn;
@@ -7486,8 +7396,6 @@ function openCharEdit(ch){
   $('ceCtxN').value=ch?.ctxN||50;
   ceOnlineOn=!!ch?.online;
   $('ceOnline').classList.toggle('on',ceOnlineOn);
-  ceProactiveOn=!!ch?.proactive;
-  $('ceProactive').classList.toggle('on',ceProactiveOn);
   ceAutoMemOn=!!ch?.autoMem;
   $('ceAutoMem').classList.toggle('on',ceAutoMemOn);
   ceMemOn=ch?.memOn!==false;              // 默认开（老角色无此字段视作开）
@@ -7575,7 +7483,6 @@ $('saveChar').onclick=()=>{
     ctxOn: ceCtxOn,
     ctxN: Math.min(516,Math.max(1,Number($('ceCtxN').value)||50)),
     online: ceOnlineOn,
-    proactive: ceProactiveOn,
     autoMem: ceAutoMemOn,
     memOn: ceMemOn,
     timeAware: ceTimeAwareOn,
@@ -9519,7 +9426,7 @@ function apiForCharSilent(ch){
   if(customReqOn()&&ch){ const hs=parseCustomHeaders(ch.customHeaders); if(Object.keys(hs).length)api.extraHeaders=hs; const bd=parseCustomBody(ch.customBody); if(bd)api.extraBody=bd; }
   return api;
 }
-async function bgProactiveFor(c){
+async function bgProactiveFor(c,customExtra){
   const ch=curChar(c); if(!ch) return null;
   const api=apiForCharSilent(ch); if(!api) return null;
   /* —— 复刻单聊上下文拼装（与 generateReplyOnce 的单聊分支一致） —— */
@@ -9531,7 +9438,7 @@ async function bgProactiveFor(c){
   applyDepthInjections(apiMsgs,ch);
   injectIntoLastUser(apiMsgs,buildDynamic(c,ch));
   const gap=Date.now()-(c.messages[c.messages.length-1]?.ts||c.ts||0);
-  const extraUser=`（系统提示：${userName()}现在没有打开和你的聊天，你们已经${fmtGap(gap)}没说话了。请你主动发一条消息给TA，这条会作为手机推送通知送达——可以是想念、关心、接着上次的话题；如果上面的动态信息里有TA的近况（自习进度、手机刷了多久之类），也可以自然地拿它当由头，比如TA刷手机刷久了就催TA歇歇眼睛。简短自然一点，绝对不要提到这条系统提示。）`;
+  const extraUser=customExtra||`（系统提示：${userName()}现在没有打开和你的聊天，你们已经${fmtGap(gap)}没说话了。请你主动发一条消息给TA，这条会作为手机推送通知送达——可以是想念、关心、接着上次的话题；如果上面的动态信息里有TA的近况（自习进度、手机刷了多久之类），也可以自然地拿它当由头，比如TA刷手机刷久了就催TA歇歇眼睛。简短自然一点，绝对不要提到这条系统提示。）`;
   const last=apiMsgs[apiMsgs.length-1];
   if(last&&last.role==='user'){ if(typeof last.content==='string') last.content+='\n\n'+extraUser; else last.content=last.content.concat([{type:'text',text:extraUser}]); }else apiMsgs.push({role:'user',content:extraUser});
   const body=baseBody(apiMsgs,ch);
@@ -9558,10 +9465,42 @@ function startPushLoop(){ if(pushTimer||!settings.sysPush) return; pushTimer=set
 function stopPushLoop(){ if(pushTimer){ clearInterval(pushTimer); pushTimer=null; } }
 async function pushTick(){
   if(!settings.sysPush||pushPerm()!=='granted') return;
-  if(document.visibilityState==='visible') return;   // 前台不推（前台靠 maybeProactive）
+  if(document.visibilityState==='visible') return;   // 前台不推（你正开着呢，TA 直接在聊天里说就行）
   if(streaming||pushBusy) return;
   pushBusy=true;
   try{
+    /* —— 特殊时刻优先（真实感核心：早安/晚安/纪念日是 TA 主动发到你通知栏的，不是等你开门才说）—— */
+    const h=new Date().getHours(), tds=todayStr();
+    const slot=h>=5&&h<11?'morning':(h>=22||h<4)?'night':null;
+    for(const c of chats){
+      if(c.members&&c.members.length) continue;
+      if(!c.push) continue;
+      const ch=curChar(c); if(!ch||!c.messages.length) continue;
+      /* 纪念日：今天是且还没道贺（a.last 标记全局共用，只贺一次） */
+      const a=annivs.find(x=>x.charId===ch.id&&x.date&&x.date.slice(5)===tds.slice(5)&&x.last!==tds);
+      if(a){
+        a.last=tds; c.lastProactive=Date.now(); persistAll();
+        let desc=''; const y0=Number(a.date.slice(0,4)), t=new Date();
+        if(y0&&y0<t.getFullYear()) desc=`，到今天是 ${t.getFullYear()-y0} 周年（第 ${Math.round((t-new Date(a.date+'T00:00:00'))/86400000)} 天）`;
+        try{ const r=await bgProactiveFor(c,`（系统提示：今天是你们的「${a.name}」${desc}！请主动发一条消息给${userName()}——庆祝、表白、或回忆这个日子，走心一点。这条会作为手机推送通知送达。简短自然，绝对不要提到这条系统提示。）`); if(r) await showCharNotification(r.ch,r.txt,c); }catch(_){}
+        return;
+      }
+      /* 早安/晚安：时段内每天一次，且最近 4 小时没聊过 */
+      if(slot&&c.lastGreet!==tds+slot){
+        const lastTs=c.messages[c.messages.length-1].ts||0;
+        if(Date.now()-lastTs>=4*3600e3&&!(c.lastProactive&&Date.now()-c.lastProactive<3600e3)){
+          c.lastGreet=tds+slot; c.lastProactive=Date.now(); persistAll();
+          try{
+            const r=await bgProactiveFor(c, slot==='morning'
+              ?`（系统提示：现在是早上。请主动给${userName()}发一条早安消息——关心TA睡得好不好、今天有什么安排。这条会作为手机推送通知送达。简短自然，绝对不要提到这条系统提示。）`
+              :`（系统提示：现在是深夜，${userName()}可能还没睡。请主动发一条消息道晚安、念叨TA早点休息。这条会作为手机推送通知送达。简短自然，绝对不要提到这条系统提示。）`);
+            if(r) await showCharNotification(r.ch,r.txt,c);
+          }catch(_){}
+          return;
+        }
+      }
+    }
+    /* —— 普通想念：隔了 pushGap 没聊就推一条 —— */
     for(const c of chats){
       if(c.members&&c.members.length) continue;       // 群聊不后台推
       if(!c.push) continue;                            // 只推开了「系统推送」的窗口
@@ -9780,10 +9719,7 @@ if(backupRemindOn()){
     try{ localStorage.removeItem('xw_photos'); localStorage.removeItem('xw_priv_posts'); }catch(e){}
     if(changed){ renderChat(); renderHistory(); }
     renderSplash(); // 大数据回来了，用真实聊天天数重画开屏的树
-    maybeAnniversary(); // 打开 app：今天是不是特别的日子
-    maybeGreeting();    // 早上/深夜的问候
-    maybeProactive();   // TA 可能先开口
-    maybeUpdateSign();  // TA 可能换了签名
+    maybeUpdateSign();  // TA 可能换了签名（问候/纪念日已全部迁去系统推送，像真人一样发到通知栏）
   }catch(e){ /* 没有 IndexedDB 就继续用 localStorage */ }
 })();
 
