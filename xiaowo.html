@@ -2589,11 +2589,13 @@ function photoHtml(text,msg){
   let h=0; for(const ch of text) h=(h*31+ch.codePointAt(0))%997;
   const d=msg&&msg.ts?new Date(msg.ts):new Date();
   /* 开了生图且这张已经画出来 → 真照片；否则还是渐变底文字宝丽来 */
-  const ph=photos.find(p=>p.img&&p.text===text.slice(0,100));
+  const entry=photos.find(p=>p.text===text.slice(0,100));
+  const ph=entry&&entry.img?entry:null;
   const inner=ph
     ?`<div class="pImg" style="padding:0;overflow:hidden;min-height:0"><img src="${safeUrl(ph.img)}" style="width:100%;display:block;border-radius:4px" alt=""></div>`
     :`<div class="pImg" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]}">${fmt(text)}</div>`;
-  return `<div class="polaroid">${inner}<div class="pCap"><span>📷 随手拍</span><span>${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}</span></div></div>`;
+  const cap=entry&&entry.kind==='draw'?'🎨 画给你的':'📷 随手拍';
+  return `<div class="polaroid">${inner}<div class="pCap"><span>${cap}</span><span>${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}</span></div></div>`;
 }
 /* 礼物卡片：TA 用 <礼物:名字:寄语> 送的，同时存进礼物橱窗 */
 function giftHtml(name,note,msg){
@@ -2609,6 +2611,8 @@ function specialHtml(line,msg){
   m=line.match(/^<语音[:：]\s*([\s\S]+?)\s*>$/);
   if(m) return voiceHtml(m[1],msg);
   m=line.match(/^<拍照[:：]\s*([\s\S]+?)\s*>$/);
+  if(m) return photoHtml(m[1],msg);
+  m=line.match(/^<画图[:：]\s*([\s\S]+?)\s*>$/);
   if(m) return photoHtml(m[1],msg);
   m=line.match(/^<礼物[:：]\s*([^:：>]+?)\s*(?:[:：]\s*([^>]*?))?\s*>$/);
   if(m) return giftHtml(m[1],m[2]||'',msg);
@@ -5078,6 +5082,16 @@ async function runReply(c,api,body,ch){
         if(img){ ph.img=img; persistPhotos(); if(c.id===currentId) renderChat(); }
       })();
     }
+    /* TA现场画画（<画图:描述>）→ 提示词原样交给生图，画好替换卡片，也进相册 */
+    for(const pm of out.acc.matchAll(/<画图[:：]\s*([\s\S]+?)\s*>/g)){
+      const ph={id:'p'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,text:pm[1].slice(0,100),kind:'draw',ts:Date.now()};
+      photos.push(ph);
+      if(imgGenOn()) (async()=>{
+        const img=await genImageQuiet(pm[1].slice(0,400));
+        if(img){ ph.img=img; persistPhotos(); if(c.id===currentId) renderChat(); }
+      })();
+      else toast('还没配生图——去 百宝箱→🎨生图 填好，TA 才能真的画出来');
+    }
     /* TA送的礼物 → 存进礼物橱窗 */
     for(const gm of out.acc.matchAll(/<礼物[:：]\s*([^:：>]+?)\s*(?:[:：]\s*([^>]*?))?\s*>/g)){
       gifts.push({id:'g'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,name:gm[1].slice(0,20),note:(gm[2]||'').slice(0,80),ts:Date.now()});
@@ -5140,7 +5154,7 @@ async function runReply(c,api,body,ch){
     wireThink(bub); wireCode(bub);
     /* 线上模式：回复完按行拆成小气泡；含特殊卡片（语音/拍照等）也重渲染成卡片 */
     const onlineNow=chatOnline(c);
-    if(c.id===currentId && (hadRecall || hadTransferAct || agentActs || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|礼物|搜索|查自习|查日历)[:：>]/.test(out.acc)))
+    if(c.id===currentId && (hadRecall || hadTransferAct || agentActs || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|画图|礼物|搜索|查自习|查日历)[:：>]/.test(out.acc)))
       renderChat();
     else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
   };
@@ -5625,7 +5639,7 @@ function agentNote(){
 · 记购物清单：<购物:东西:价格>（价格不知道可省略）
 · 查TA的自习情况：单独写一行 <查自习> 然后结束本条回复，系统会把真实数据发给你，你再接着说。聊到学习进度、想夸TA或催TA时用它，绝不凭空编数据。
 · 查TA的日历：<查日历>，会拿到接下来一个月的备忘和最近的纪念日。
-${(()=>{ const na=nativeApp(); if(!na) return '';
+${imgGenOn()?`· 画画：${userName()}让你画点什么时，单独占一行写 <画图:画面描述>——会真的生成一张图发出去。描述写具体些（主体、风格、氛围），中英文都行；画完自然说一句就好。\n`:''}${(()=>{ const na=nativeApp(); if(!na) return '';
   let ex='';
   if(typeof na.setAlarm==='function') ex+='· 定闹钟：<闹钟:HH:MM:备注>——会真的在TA手机的系统时钟里定上（比如TA让你明早七点叫TA背单词）。\n';
   if(typeof na.playMusic==='function') ex+='· 放歌：<放歌:歌名或歌手>——会打开TA手机的网易云放这首歌，想给TA点歌、或TA说想听歌时用。\n';
@@ -7849,6 +7863,7 @@ function shotText(m){
      .replace(/<转账:([^:>]*):?([^>]*)>/g,(_,a,b)=>`💰 转账 ¥${String(a).trim()}${b?' · '+b.trim():''}`)
      .replace(/<表情包:([^>]*)>/g,'😊 [表情]')
      .replace(/<拍照:([^>]*)>/g,'📷 $1')
+     .replace(/<画图:([^>]*)>/g,'🎨 $1')
      .replace(/<礼物:([^:>]*):?([^>]*)>/g,(_,a,b)=>`🎁 礼物「${String(a).trim()}」${b?' · '+b.trim():''}`)
      .replace(/<(?:备忘|纪念日|心愿|购物):([^>]*)>/g,'✍️ $1')
      .replace(/<闹钟:([^>]*)>/g,'⏰ $1')
