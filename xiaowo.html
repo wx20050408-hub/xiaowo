@@ -5447,11 +5447,21 @@ function icsChip(el){
   const d=el.dataset.d, t=el.dataset.t, yearly=!!el.dataset.y;
   if(/android/i.test(navigator.userAgent)){
     const t0=new Date(d+'T09:00:00').getTime();
-    location.href='intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.item/event;'
-      +'S.title='+encodeURIComponent(t)+';l.beginTime='+t0+';l.endTime='+(t0+3600e3)
-      +(yearly?';S.rrule=FREQ%3DYEARLY':'')
-      +';end';
-    toast('去日历里点一下「保存」就好 📅');
+    toast('正在跳到系统日历… 📅');
+    try{
+      location.href='intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.item/event;'
+        +'S.title='+encodeURIComponent(t)+';l.beginTime='+t0+';l.endTime='+(t0+3600e3)
+        +(yearly?';S.rrule=FREQ%3DYEARLY':'')
+        +';S.browser_fallback_url='+encodeURIComponent(location.href.split('#')[0])
+        +';end';
+    }catch(_){}
+    /* 真跳走了页面会隐身；1.2秒后还看得见 = 被拦了 → 降级发 .ics 文件 */
+    setTimeout(()=>{
+      if(document.visibilityState==='visible'){
+        icsDownload([{date:d,title:t,yearly}],'日程.ics');
+        toast('这台手机拦了直达通道，改发了日程文件：点通知栏那个 .ics 试试');
+      }
+    },1200);
     return;
   }
   icsDownload([{date:d,title:t,yearly}],'日程.ics');
