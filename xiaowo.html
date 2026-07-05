@@ -1327,14 +1327,16 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div class="sheet">
     <div class="sheetTitle">生图<button class="close" data-close="imgGenSheet">✕</button></div>
     <div class="boxRow"><span class="ic">🎨</span><span class="grow">开启生图</span><button class="wbToggle" id="igOn"></button></div>
-    <div class="field"><label>接口地址（OpenAI 兼容，/v1/images/generations 自动补）</label><input id="igUrl" placeholder="https://api.某站.com"></div>
-    <div class="field"><label>API Key</label><input id="igKey" type="password" placeholder="sk-…"></div>
-    <div class="field"><label>模型名（问你的站子有哪些生图模型）</label><input id="igModel" placeholder="比如：gpt-image-1 / dall-e-3 / flux-schnell"></div>
-    <div class="field"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x512</option></select></div>
-    <div class="field"><label>风格附加词（拼在每次提示词最前面，可空）</label><input id="igStyle" placeholder="比如：动漫风格，柔和光线，胶片质感"></div>
+    <div class="field"><label>接口格式</label><select id="igFmt"><option value="openai">OpenAI 兼容（中转站生图）</option><option value="pixai">PixAI（走小桥转发）</option></select></div>
+    <div class="field" id="igUrlField"><label>接口地址（OpenAI 兼容，/v1/images/generations 自动补）</label><input id="igUrl" placeholder="https://api.某站.com"></div>
+    <div class="field"><label>API Key</label><input id="igKey" type="password" placeholder="sk-… / PixAI 的 API Key"></div>
+    <div class="field"><label>模型名 / PixAI 的 modelId</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页的数字 ID"></div>
+    <div class="field"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x768</option><option>768x512</option><option>512x512</option></select></div>
+    <div class="field"><label>风格附加词（拼在每次提示词最前面，可空）</label><input id="igStyle" placeholder="比如：anime style, masterpiece, soft lighting"></div>
+    <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
     <button class="ghostBtn" id="igTest">🖼 试画一张（会花一次生图钱）</button>
     <div id="igPreview" style="text-align:center"></div>
-    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。⚠️ 生图按张计费，留意余额；图会压缩后存进本地（IndexedDB）。相机没生成出来时还是原来的文字宝丽来，不影响用。Key 不进备份。</div>
+    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。⚠️ 生图按张/按积分计费，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。</div>
   </div>
 </div>
 
@@ -5237,7 +5239,10 @@ async function consumeFetch(c){
 }
 /* ===== 生图：OpenAI 兼容 images/generations——TA 的〈随手拍〉和 OF 更新变成真图 ===== */
 const imgGen=()=>settings.imgGen||{};
-const imgGenOn=()=>{ const g=imgGen(); return !!(g.on&&(g.url||'').trim()&&(g.model||'').trim()); };
+const imgGenOn=()=>{
+  const g=imgGen(); if(!g.on||!(g.model||'').trim()) return false;
+  return g.fmt==='pixai' ? !!(g.key||'').trim() : !!(g.url||'').trim();
+};
 /* 把生成的图压一遍再存（1024/0.8 ≈ 一两百KB），省 IndexedDB 也省备份体积 */
 async function shrinkImg(src){
   try{
@@ -5246,9 +5251,56 @@ async function shrinkImg(src){
     return 'data:'+r.media_type+';base64,'+r.data;
   }catch(_){ return typeof src==='string'?src:null; }
 }
+/* PixAI：GraphQL 建任务 → 轮询 → 取图。浏览器直连被 CORS 拦，全程经小桥转发（复用文件桥的网址+密码） */
+async function genImagePixai(g,prompt){
+  const f=fsBridge();
+  if(!((f.url||'').trim()&&(f.token||'').trim())) throw new Error('PixAI 要经小桥转发：先去「电脑文件桥」填小桥网址和密码');
+  const base=f.url.trim().replace(/\/+$/,'');
+  const gql=async(query,variables)=>{
+    const r=await fetch(base+'/pixai/graphql',{
+      method:'POST',
+      headers:{'content-type':'application/json',authorization:'Bearer '+f.token.trim(),'x-pixai-key':g.key.trim()},
+      body:JSON.stringify({query,variables}),
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status+'（小桥开着吗？）');
+    const j=await r.json();
+    if(j.errors&&j.errors.length) throw new Error(String(j.errors[0].message||'GraphQL出错').slice(0,100));
+    return j.data;
+  };
+  const [w,h]=(g.size||'1024x1024').split('x').map(n=>parseInt(n,10));
+  const style=(g.style||'').trim();
+  const parameters={prompts:(style?style+', ':'')+prompt,width:w||1024,height:h||1024,modelId:g.model.trim()};
+  if((g.neg||'').trim()) parameters.negativePrompts=g.neg.trim();
+  const cd=await gql('mutation createGenerationTask($parameters: JSONObject!){ createGenerationTask(parameters: $parameters){ id status } }',{parameters});
+  const tid=cd&&cd.createGenerationTask&&cd.createGenerationTask.id;
+  if(!tid) throw new Error('PixAI 没接活（没返回任务ID）');
+  let task=null;
+  for(let i=0;i<45;i++){                       // 轮询最多 90 秒
+    await new Promise(r=>setTimeout(r,2000));
+    const td=await gql('query getTaskById($id: ID!){ task(id: $id){ id status outputs } }',{id:tid});
+    task=td&&td.task; const st=String(task&&task.status||'').toLowerCase();
+    if(st==='completed') break;
+    if(/error|fail|cancel/.test(st)) throw new Error('PixAI 任务失败：'+task.status);
+  }
+  if(String(task&&task.status||'').toLowerCase()!=='completed') throw new Error('生成超时（90秒）——排队太久，稍后再试');
+  const findMediaId=o=>{ if(!o||typeof o!=='object') return null; if(o.mediaId) return String(o.mediaId);
+    for(const k in o){ const v=findMediaId(o[k]); if(v) return v; } return null; };
+  const mid=findMediaId(task.outputs);
+  if(!mid) throw new Error('任务完成但没找到图');
+  let md;   // media(id) 的参数类型各版本不一，两种都试
+  try{ md=await gql('query getMediaById($id: String!){ media(id: $id){ urls { variant url } } }',{id:mid}); }
+  catch(_){ md=await gql('query getMediaById($id: ID!){ media(id: $id){ urls { variant url } } }',{id:mid}); }
+  const urls=(md&&md.media&&md.media.urls)||[];
+  const u=((urls.find(x=>x.variant==='PUBLIC')||urls[0])||{}).url;
+  if(!u) throw new Error('没拿到图片链接');
+  const ir=await fetch(base+'/pixai/img?url='+encodeURIComponent(u),{headers:{authorization:'Bearer '+f.token.trim()}});
+  if(!ir.ok) return u;                          // 代理拉图失败就存远程链接（可能过期）
+  return await shrinkImg(await ir.blob());
+}
 async function genImage(prompt){
   if(!imgGenOn()) return null;
   const g=imgGen();
+  if(g.fmt==='pixai') return genImagePixai(g,prompt);
   const base=g.url.trim().replace(/\/+$/,'').replace(/\/v1$/,'');
   const style=(g.style||'').trim();
   const body={model:g.model.trim(),prompt:(style?style+'，':'')+prompt,n:1,size:g.size||'1024x1024',response_format:'b64_json'};
@@ -5273,23 +5325,30 @@ async function genImageQuiet(prompt){
 }
 /* 设置面板 */
 function saveImgGen(){
-  settings.imgGen={on:$('igOn').classList.contains('on'),url:$('igUrl').value.trim(),key:$('igKey').value.trim(),model:$('igModel').value.trim(),size:$('igSize').value,style:$('igStyle').value.trim()};
+  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),model:$('igModel').value.trim(),size:$('igSize').value,style:$('igStyle').value.trim(),neg:$('igNeg').value.trim()};
   persistAll();
+}
+function igFmtUI(){
+  const pix=$('igFmt').value==='pixai';
+  $('igUrlField').style.display=pix?'none':'block';
+  $('igNegField').style.display=pix?'block':'none';
 }
 $('imgGenBtn').onclick=()=>{
   const g=imgGen();
   $('igOn').classList.toggle('on',!!g.on);
+  $('igFmt').value=g.fmt||'openai';
   $('igUrl').value=g.url||''; $('igKey').value=g.key||''; $('igModel').value=g.model||'';
-  $('igSize').value=g.size||'1024x1024'; $('igStyle').value=g.style||'';
-  $('igPreview').innerHTML='';
+  $('igSize').value=g.size||'1024x1024'; $('igStyle').value=g.style||''; $('igNeg').value=g.neg||'';
+  $('igPreview').innerHTML=''; igFmtUI();
   openSheet('imgGenSheet');
 };
 $('igOn').onclick=()=>{ $('igOn').classList.toggle('on'); saveImgGen(); };
-['igUrl','igKey','igModel','igSize','igStyle'].forEach(id=>$(id).onchange=saveImgGen);
+['igUrl','igKey','igModel','igSize','igStyle','igNeg'].forEach(id=>$(id).onchange=saveImgGen);
+$('igFmt').onchange=()=>{ igFmtUI(); saveImgGen(); };
 $('igTest').onclick=async()=>{
   saveImgGen();
   const g=imgGen();
-  if(!g.url||!g.model){ toast('先填接口地址和模型名'); return; }
+  if(!g.model||(g.fmt!=='pixai'&&!g.url)||(g.fmt==='pixai'&&!g.key)){ toast(g.fmt==='pixai'?'先填 PixAI 的 Key 和 modelId':'先填接口地址和模型名'); return; }
   const btn=$('igTest'); btn.disabled=true; btn.textContent='画画中…（可能要十几秒）';
   try{
     const t0=Date.now();
