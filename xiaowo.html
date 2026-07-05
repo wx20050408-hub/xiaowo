@@ -6,11 +6,11 @@
 <meta name="theme-color" content="#FBF6EE">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="小窝">
+<meta name="apple-mobile-web-app-title" content="Serenade">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" id="favicon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" id="appleIcon" href="icon.svg">
-<title>小窝 ⸝⸝</title>
+<title>Serenade ⸝⸝</title>
 <style>
 :root{
   --bg:#FBF6EE;
@@ -782,7 +782,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 .mbChip .n{font-size:10px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;max-width:48px;text-overflow:ellipsis}
 .mbChip.mbMode .n{color:var(--accent-deep);font-weight:600}
 
-/* TA的日记 & 小窝档案 */
+/* TA的日记 & Serenade档案 */
 #statGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
 .statCard{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:10px 6px;text-align:center}
 .statNum{font-size:17px;font-weight:600;color:var(--accent-deep)}
@@ -1002,14 +1002,14 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div id="splashTreeWrap"></div>
   <div id="splashInfo"></div>
   <div id="splashPick"></div>
-  <div class="splashHint"><span class="arr">↑</span>点一下，回到小窝</div>
+  <div class="splashHint"><span class="arr">↑</span>点一下，回到Serenade</div>
 </div>
 <div id="app">
   <!-- 顶栏 -->
   <header id="chatHeader">
     <button class="iconBtn" id="menuBtn" aria-label="菜单">☰</button>
     <div id="headerTitle">
-      <div id="headerName">小窝</div>
+      <div id="headerName">Serenade</div>
       <div id="headerSub">在线</div>
     </div>
     <button class="iconBtn" id="gearBtn" aria-label="设置">⚙</button>
@@ -1287,7 +1287,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div id="dayNotes"></div>
     <div class="field"><label>添加备忘 / 提醒</label><textarea id="dayText" style="min-height:60px" placeholder="比如：交作业、取快递、和TA的约定…"></textarea></div>
     <button class="primaryBtn" id="addDayNote">记下</button>
-    <div class="hintText">当天打开小窝会提醒你；TA 也看得到当天的备忘，会自然地帮你记着。</div>
+    <div class="hintText">当天打开Serenade会提醒你；TA 也看得到当天的备忘，会自然地帮你记着。</div>
   </div>
 </div>
 
@@ -1561,7 +1561,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     </div>
     <div class="field" id="ceCustomReqField" style="display:none">
       <label>自定义 Header（每行一条，<code>键: 值</code>）</label>
-      <textarea id="ceCustomHeaders" style="min-height:60px;font-family:monospace;font-size:12px" placeholder="比如：&#10;X-Title: 小窝&#10;HTTP-Referer: https://example.com"></textarea>
+      <textarea id="ceCustomHeaders" style="min-height:60px;font-family:monospace;font-size:12px" placeholder="比如：&#10;X-Title: Serenade&#10;HTTP-Referer: https://example.com"></textarea>
       <label style="margin-top:10px">自定义 Body（一段 JSON，会并进请求体）</label>
       <textarea id="ceCustomBody" style="min-height:60px;font-family:monospace;font-size:12px" placeholder='比如：&#10;{ "top_p": 0.9, "provider": { "sort": "throughput" } }'></textarea>
       <div class="hintText">只对这个角色的对话回复生效。Header 会加到请求头里；Body 里的字段会并进请求 JSON（同名字段会覆盖默认）。填错 JSON 会被忽略、不影响发送。给中转站/反代用的进阶功能，不懂可以留空。</div>
@@ -1604,7 +1604,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     </div>
     <div class="field">
       <div class="boxRow"><span class="ic">🔔</span><span class="grow">这个窗口发系统推送</span><button class="wbToggle" id="winPush"></button></div>
-      <div class="hintText">就算你没打开小窝，TA 也会在后台生成一条消息、用手机系统通知推给你（消息也存进这个窗口）。<b>只对当前这个窗口生效</b>，开了十个窗口也只有打开开关的那个会推，不会一起轰炸。需先在 百宝箱→系统推送 里开总开关并授权。</div>
+      <div class="hintText">就算你没打开Serenade，TA 也会在后台生成一条消息、用手机系统通知推给你（消息也存进这个窗口）。<b>只对当前这个窗口生效</b>，开了十个窗口也只有打开开关的那个会推，不会一起轰炸。需先在 百宝箱→系统推送 里开总开关并授权。</div>
     </div>
     <div class="field" id="winPushGapField">
       <label>隔多久没聊，就推送一次（小时）</label>
@@ -1773,7 +1773,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <button class="boxRow" id="wbBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">世界书</span></button>
     <button class="boxRow" id="presetBtn" style="width:100%"><span class="ic">🎛️</span><span class="grow" style="text-align:left">预设</span></button>
     <button class="boxRow" id="injBtn" style="width:100%"><span class="ic">💉</span><span class="grow" style="text-align:left">注入</span></button>
-    <button class="boxRow" id="diaryBtn" style="width:100%"><span class="ic">📔</span><span class="grow" style="text-align:left">TA的日记 · 小窝档案</span></button>
+    <button class="boxRow" id="diaryBtn" style="width:100%"><span class="ic">📔</span><span class="grow" style="text-align:left">TA的日记 · Serenade档案</span></button>
     <button class="boxRow" id="annBtn" style="width:100%"><span class="ic">🗓</span><span class="grow" style="text-align:left">纪念日</span></button>
     <button class="boxRow" id="readBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">一起读 · 共读批注</span></button>
     <button class="boxRow" id="sleepBtn" style="width:100%"><span class="ic">😴</span><span class="grow" style="text-align:left">睡眠记录</span></button>
@@ -1804,7 +1804,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <div class="boxRow"><span class="ic" style="opacity:0">🔔</span><span class="grow" style="font-size:13px">发一条测试通知</span><button class="ghostBtn" id="pushTestBtn" style="flex:0 0 auto;margin:0;font-size:13px;padding:6px 14px">发送测试</button></div>
       <div class="boxRow"><span class="ic" style="opacity:0">🔔</span><span class="grow" style="font-size:13px">检测间隔（秒，越小越灵但越耗电）</span><input type="number" id="pushInterval" min="30" max="3600" step="10" style="flex:0 0 84px;text-align:center"></div>
       <div class="boxRow"><span class="ic" style="opacity:0">🔔</span><span class="grow" style="font-size:13px">后台保活 <span id="kaStatus" style="font-size:12px"></span></span><button class="ghostBtn" id="kaBtn" style="flex:0 0 auto;margin:0;font-size:13px;padding:6px 14px">⚡ 激活</button></div>
-      <div class="hintText" style="margin:0 2px 10px">开了之后，去「角色卡」里给想收到推送的 TA 单独打开「系统推送」。手机要把小窝<b>添加到主屏幕</b>（iOS 必须），再点上面「激活后台保活」（会播一小段静音让它后台不被冻结）。<b>把小窝从后台划掉、或系统内存回收了，推送就会停</b>——这是网页应用的限制，不是服务器推送。</div>
+      <div class="hintText" style="margin:0 2px 10px">开了之后，去「角色卡」里给想收到推送的 TA 单独打开「系统推送」。手机要把Serenade<b>添加到主屏幕</b>（iOS 必须），再点上面「激活后台保活」（会播一小段静音让它后台不被冻结）。<b>把Serenade从后台划掉、或系统内存回收了，推送就会停</b>——这是网页应用的限制，不是服务器推送。</div>
     </div>
 
     <div class="boxSec"><span class="ic">🧰</span> 进阶 / 数据</div>
@@ -2145,7 +2145,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <button class="gameCard" data-game="truth"><span class="gIc">🎲</span><span><span class="gName">真心话大冒险</span><div class="gDesc">一人一轮，真心话要诚实答，大冒险要敢做</div></span></button>
     <button class="gameCard" data-game="tacit"><span class="gIc">💞</span><span><span class="gName">默契问答</span><div class="gDesc">TA出关于你们俩的题，看看你们多有默契</div></span></button>
     <button class="gameCard" data-game="emoji"><span class="gIc">🧩</span><span><span class="gName">emoji你画我猜</span><div class="gDesc">用一串emoji猜词，猜对了换你出题</div></span></button>
-    <div class="hintText">点一个就开局，TA 会陪你玩。玩过的局数会记进小窝档案。</div>
+    <div class="hintText">点一个就开局，TA 会陪你玩。玩过的局数会记进Serenade档案。</div>
   </div>
 </div>
 
@@ -2500,7 +2500,7 @@ function wireCode(root){
     if(pv) pv.onclick=ev=>{ ev.stopPropagation(); codePrevCode=code; $('codePrevFrame').srcdoc=code; openSheet('codePrevSheet'); };
   });
 }
-$('codePrevSave').onclick=()=>{ if(codePrevCode){ dlFile('小窝网页.html',codePrevCode,'text/html;charset=utf-8'); toast('网页保存好啦'); } };
+$('codePrevSave').onclick=()=>{ if(codePrevCode){ dlFile('Serenade网页.html',codePrevCode,'text/html;charset=utf-8'); toast('网页保存好啦'); } };
 /* 关掉预览时清空 iframe，省得后台还在跑 */
 document.querySelector('#codePrevSheet .close').addEventListener('click',()=>{ $('codePrevFrame').srcdoc=''; });
 
@@ -2558,7 +2558,7 @@ function transferHtml(amt,note,msg){
     else foot='等待对方收款';
   }else{                                  // TA→你：你点一下收
     if(msg&&msg.received){ cls=' done'; foot='✓ 已收款'; }
-    else foot='小窝转账 · 点我收款';
+    else foot='Serenade转账 · 点我收款';
   }
   return `<div class="transferCard${cls}"><div class="tAmt">¥${amt.toFixed(2)}</div><div class="tNote">${esc(note||'转账')}</div><div class="tFoot">${foot}</div></div>`;
 }
@@ -2583,7 +2583,7 @@ function photoHtml(text,msg){
 /* 礼物卡片：TA 用 <礼物:名字:寄语> 送的，同时存进礼物橱窗 */
 function giftHtml(name,note,msg){
   const d=msg&&msg.ts?new Date(msg.ts):new Date();
-  return `<div style="background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border-radius:14px;padding:12px 14px;min-width:180px;max-width:240px"><div style="font-size:26px;line-height:1">🎁</div><div style="font-weight:600;font-size:15px;margin-top:5px">${esc(name)}</div>${note?`<div style="font-size:12px;opacity:.92;margin-top:3px;line-height:1.5">${esc(note)}</div>`:''}<div style="font-size:10px;opacity:.75;margin-top:8px;border-top:1px solid rgba(255,255,255,.35);padding-top:5px">小窝礼物 · 已放进礼物橱窗 · ${d.getMonth()+1}.${d.getDate()}</div></div>`;
+  return `<div style="background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border-radius:14px;padding:12px 14px;min-width:180px;max-width:240px"><div style="font-size:26px;line-height:1">🎁</div><div style="font-weight:600;font-size:15px;margin-top:5px">${esc(name)}</div>${note?`<div style="font-size:12px;opacity:.92;margin-top:3px;line-height:1.5">${esc(note)}</div>`:''}<div style="font-size:10px;opacity:.75;margin-top:8px;border-top:1px solid rgba(255,255,255,.35);padding-top:5px">Serenade礼物 · 已放进礼物橱窗 · ${d.getMonth()+1}.${d.getDate()}</div></div>`;
 }
 /* 整行是特殊消息 → 返回特殊气泡的 html，否则 null */
 function specialHtml(line,msg){
@@ -2838,7 +2838,7 @@ $('skinExport').onclick=()=>{
     meText:settings.bubbleMeText||'',taText:settings.bubbleTaText||'',
     radius:settings.bubbleRadius!=null?settings.bubbleRadius:18,
     tail:settings.bubbleTail!=null?settings.bubbleTail:8};
-  dlFile('小窝气泡皮肤.json',JSON.stringify(skin,null,2),'application/json');
+  dlFile('Serenade气泡皮肤.json',JSON.stringify(skin,null,2),'application/json');
   toast('皮肤导出好啦，可以发给朋友～');
 };
 $('skinImport').onclick=()=>$('skinFile').click();
@@ -3035,7 +3035,7 @@ function renderHeader(){
   const ch=curChar(c);
   const projId=c?c.projectId:(activeProjectId||null);
   const proj=projId?projects.find(p=>p.id===projId):null;
-  $('headerName').textContent = c ? c.title : (ch ? ch.name : '小窝');
+  $('headerName').textContent = c ? c.title : (ch ? ch.name : 'Serenade');
   setHeaderSub(ch?[
     `${ch.name} · ${chatOnline(c)?'📱':''}${nowAct(ch)}`,
     ch.sign,
@@ -3759,7 +3759,7 @@ function renderSplash(){
   const ch=splashCurrentChar();
   if(!ch){
     wrap.innerHTML=buildTreeSVG(0,0,'xiaowo');
-    info.innerHTML='<div class="splashHead">这里是你们的小窝</div><div class="splashSub">进去和TA说说话，树会慢慢长起来 🌱</div>';
+    info.innerHTML='<div class="splashHead">这里是你们的Serenade</div><div class="splashSub">进去和TA说说话，树会慢慢长起来 🌱</div>';
     pick.innerHTML='';
   }else{
     const st=charStats(ch.id);
@@ -4092,7 +4092,7 @@ function applyCustomCss(){
   if(!el){ el=document.createElement('style'); el.id='userCss'; document.head.appendChild(el); }
   el.textContent=settings.customCss||'';
 }
-const CSS_DEMO=`/* 小窝 · iMessage 蓝（示范主题，随便改）by 小克 */
+const CSS_DEMO=`/* Serenade · iMessage 蓝（示范主题，随便改）by 小克 */
 #msgArea{background:#ffffff !important}
 .bubble{border-radius:18px !important;box-shadow:none !important;font-size:15px !important}
 .msg.me .bubble{background:linear-gradient(#1f9bff,#0a84ff) !important;color:#fff !important;border-bottom-right-radius:18px !important}
@@ -4106,7 +4106,7 @@ const CSS_DEMO=`/* 小窝 · iMessage 蓝（示范主题，随便改）by 小克
 #inputBar{background:#f6f6f6 !important;border-top:1px solid #d6d6d8 !important}
 #input{background:#fff !important;border:1px solid #c8c8cc !important;border-radius:18px !important;color:#000 !important}
 #sendBtn{background:#0a84ff !important;color:#fff !important}`;
-const CSS_WECHAT=`/* 小窝 · 仿微信（绿气泡白底，随便改）by 小克 */
+const CSS_WECHAT=`/* Serenade · 仿微信（绿气泡白底，随便改）by 小克 */
 #msgArea{background:#ededed !important}
 .bubble{position:relative !important;border-radius:6px !important;box-shadow:none !important;font-size:16px !important;line-height:1.55 !important;padding:9px 13px !important}
 .msg.me .bubble{background:#95ec69 !important;color:#111 !important;border-radius:6px !important}
@@ -4154,7 +4154,7 @@ $('cssWechat').onclick=()=>{ $('cssInput').value=CSS_WECHAT; settings.customCss=
 $('cssApply').onclick=()=>{ settings.customCss=$('cssInput').value; persistAll(); applyCustomCss(); toast('美化应用好啦 ✨'); };
 $('cssClear').onclick=()=>{ $('cssInput').value=''; settings.customCss=''; persistAll(); applyCustomCss(); toast('回到默认外观'); };
 $('cssDemo').onclick=()=>{ $('cssInput').value=CSS_DEMO; settings.customCss=CSS_DEMO; persistAll(); applyCustomCss(); toast('示范主题套上啦，可继续改'); };
-$('cssExport').onclick=()=>{ const css=$('cssInput').value||settings.customCss||''; if(!css.trim()){ toast('还没有内容可导出'); return; } dlFile('小窝主题.css',css,'text/css;charset=utf-8'); toast('主题导出好啦，可发给朋友'); };
+$('cssExport').onclick=()=>{ const css=$('cssInput').value||settings.customCss||''; if(!css.trim()){ toast('还没有内容可导出'); return; } dlFile('Serenade主题.css',css,'text/css;charset=utf-8'); toast('主题导出好啦，可发给朋友'); };
 $('cssImport').onclick=()=>$('cssFile').click();
 $('cssFile').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const t=await f.text(); $('cssInput').value=t; settings.customCss=t; persistAll(); applyCustomCss(); toast('主题导入并应用啦 ✓'); }catch(err){ toast('文件读不了'); } e.target.value=''; };
 
@@ -5446,7 +5446,7 @@ $('fsTest').onclick=async()=>{
    Web 写不了系统日历（OS 硬墙），.ics 是极限：零按钮、自动下载，用户点文件确认导入。
    VALARM=系统日历的原生提醒，App 被杀也照响（比伪推送可靠） */
 const icsEsc=s=>String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
-/* 住在小窝 App 壳里吗？壳会往 window 挂 XiaowoNative（原生日历/通知/存文件三件套） */
+/* 住在Serenade App 壳里吗？壳会往 window 挂 XiaowoNative（原生日历/通知/存文件三件套） */
 const nativeApp=()=>{ try{ return (window.XiaowoNative&&typeof XiaowoNative.addCalendarEvent==='function')?window.XiaowoNative:null; }catch(_){ return null; } };
 const b64utf8=s=>btoa(unescape(encodeURIComponent(s)));
 /* 聊天里的 📅 芯片点一下导入手机日历。
@@ -5457,7 +5457,7 @@ function icsChip(el){
   /* App 壳里：原生接口零点击直写系统日历 */
   const na=nativeApp();
   if(na){
-    try{ toast(na.addCalendarEvent(t,d,yearly)?'📅 已直接写进手机日历 ✓':'写入失败——去系统设置给小窝日历权限'); }
+    try{ toast(na.addCalendarEvent(t,d,yearly)?'📅 已直接写进手机日历 ✓':'写入失败——去系统设置给Serenade日历权限'); }
     catch(_){ toast('写入失败，稍后再试'); }
     return;
   }
@@ -5493,7 +5493,7 @@ function icsDownload(events,fname){
 
 /* ===== TA 的小助手（agent 工具）：写=记日历/纪念日/心愿/购物（saveMsg 里执行）；查=自习/日历（接力循环喂真数据） ===== */
 function agentNote(){
-  return `【小助手】${userName()}让你帮忙记东西、或问到相关的事时，你可以直接操作TA的小窝（每个标记单独占一行）：
+  return `【小助手】${userName()}让你帮忙记东西、或问到相关的事时，你可以直接操作TA的Serenade（每个标记单独占一行）：
 · 记日历备忘：<备忘:YYYY-MM-DD:内容>——"周五提醒我交作业"这类，把日期换算成具体年月日再写。
 · 记纪念日：<纪念日:名字:YYYY-MM-DD>
 · 加心愿单：<心愿:想一起做的事>
@@ -5759,7 +5759,7 @@ async function maybeUpdateSign(){
   }
 }
 
-/* ================= TA的日记 & 小窝档案 ================= */
+/* ================= TA的日记 & Serenade档案 ================= */
 const todayStr=()=>{ const t=new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; };
 let diaryWriting=false;
 $('diaryBtn').onclick=()=>{
@@ -6998,7 +6998,7 @@ function pngCharaJson(buf){
   if(!raw) throw new Error('这张 PNG 里没有角色卡数据');
   return JSON.parse(b64ToUtf8(raw));
 }
-/* 角色卡 → 小窝角色草稿（兼容 V1 平铺 / V2、V3 的 data 嵌套） */
+/* 角色卡 → Serenade角色草稿（兼容 V1 平铺 / V2、V3 的 data 嵌套） */
 function cardToChar(j){
   const d=(j&&j.data&&typeof j.data==='object')?j.data:j;
   const name=String(d.name||d.char_name||'').trim()||'导入的角色';
@@ -7025,7 +7025,7 @@ $('cardFile').onchange=async e=>{
     }
     const draft=cardToChar(card);
     const nc={ id:'c'+Date.now(), name:draft.name, emoji:'☺', prompt:draft.prompt, avatar };
-    // 小窝自己导出的卡：把扩展字段（头像/「我」的人设/各种开关）原样还原回来
+    // Serenade自己导出的卡：把扩展字段（头像/「我」的人设/各种开关）原样还原回来
     const ext=(card&&card.data&&card.data.extensions&&card.data.extensions.xiaowo)||card.xiaowo||null;
     if(ext&&typeof ext==='object'){
       ['emoji','bg','myPersona','extra','extraMode','temp','ctxOn','ctxN','online','proactive','autoMem','memOn','timeAware','model','treeStyle','treeColor'].forEach(k=>{ if(ext[k]!==undefined) nc[k]=ext[k]; });
@@ -7039,7 +7039,7 @@ $('cardFile').onchange=async e=>{
     toast('读不了这张卡：'+(err.message||'格式不对'));
   }
 };
-/* 导出角色卡：V2 通用格式（别的酒馆 app 也能读），小窝专属字段塞进 extensions.xiaowo */
+/* 导出角色卡：V2 通用格式（别的酒馆 app 也能读），Serenade专属字段塞进 extensions.xiaowo */
 function charToCardJson(ch){
   const x={};
   ['emoji','avatar','bg','myPersona','extra','extraMode','temp','ctxOn','ctxN','online','proactive','autoMem','memOn','timeAware','model','treeStyle','treeColor']
@@ -7049,7 +7049,7 @@ function charToCardJson(ch){
     data:{
       name:ch.name||'', description:ch.prompt||'',
       personality:'', scenario:'', first_mes:'', mes_example:'',
-      creator_notes:'由小窝导出', tags:['小窝'],
+      creator_notes:'由Serenade导出', tags:['Serenade'],
       extensions:{ xiaowo:x }
     }
   };
@@ -7832,7 +7832,7 @@ async function buildShotImage(){
   }
   /* 水印 */
   ctx.fillStyle=inkSoft; ctx.font='12px -apple-system,system-ui,sans-serif'; ctx.textAlign='center'; ctx.globalAlpha=.7;
-  ctx.fillText('小窝 ✦ 记录我们的日常',W/2,H-22); ctx.globalAlpha=1; ctx.textAlign='left';
+  ctx.fillText('Serenade ✦ 记录我们的日常',W/2,H-22); ctx.globalAlpha=1; ctx.textAlign='left';
   return cv.toDataURL('image/png');
 }
 async function refreshShot(){
@@ -7852,7 +7852,7 @@ $('shotMore').onclick=()=>{ if(shotCount<shotEnd+1){ shotCount++; refreshShot();
 $('shotSave').onclick=()=>{
   if(!shotDataUrl){ toast('还没生成图片'); return; }
   const a=document.createElement('a');
-  a.href=shotDataUrl; a.download=`小窝聊天-${Date.now()}.png`; a.click();
+  a.href=shotDataUrl; a.download=`Serenade聊天-${Date.now()}.png`; a.click();
   toast('图片保存好啦，可以发给朋友～');
 };
 
@@ -8827,10 +8827,10 @@ $('addWb').onclick=()=>{
   const bk={id:'wb'+Date.now(),name:'新世界书',on:true,entries:[]};
   worldbook.push(bk); persistAll(); renderWb(); openWbBook(bk);
 };
-/* 导入世界书 json：支持酒馆 World Info（entries 对象/数组）和小窝自己的格式 */
+/* 导入世界书 json：支持酒馆 World Info（entries 对象/数组）和Serenade自己的格式 */
 const rid=p=>p+Date.now()+Math.random().toString(36).slice(2,6);
 function mapWiEntry(e){
-  /* 关键词：Rikka 用 keywords(数组)，酒馆用 key/keys(数组或逗号串)，小窝自己存逗号串 */
+  /* 关键词：Rikka 用 keywords(数组)，酒馆用 key/keys(数组或逗号串)，Serenade自己存逗号串 */
   const rawKeys=Array.isArray(e.keywords)?e.keywords
     :Array.isArray(e.key)?e.key
     :Array.isArray(e.keys)?e.keys
@@ -8838,7 +8838,7 @@ function mapWiEntry(e){
     :typeof e.key==='string'?e.key.split(',')
     :[];
   const keywords=rawKeys.map(s=>String(s).trim()).filter(Boolean).join(', ');
-  /* 常驻：Rikka=constantActive，酒馆=constant，小窝=mode:'always' */
+  /* 常驻：Rikka=constantActive，酒馆=constant，Serenade=mode:'always' */
   const always=e.constant===true||e.constantActive===true||e.mode==='always';
   return {
     id:rid('w'),
@@ -8853,7 +8853,7 @@ function importWbJson(data,fname){
   /* Rikka 格式：{version,type:'lorebook',data:{name,entries}} → 拆出里面的 data */
   if(data&&!Array.isArray(data)&&data.data&&(data.type==='lorebook'||Array.isArray(data.data.entries)))
     data=data.data;
-  /* 小窝备份里的整组世界书 */
+  /* Serenade备份里的整组世界书 */
   if(Array.isArray(data)&&data.length&&data[0]&&Array.isArray(data[0].entries)){
     for(const bk of data)
       worldbook.push({id:rid('wb'),name:bk.name||fname,on:bk.on!==false,entries:(bk.entries||[]).map(mapWiEntry)});
@@ -8969,7 +8969,7 @@ function renderPresets(){
   });
 }
 $('addPreset').onclick=()=>openPresetEdit(null);
-/* 导入预设 json：支持小窝格式和酒馆预设（合并启用的 prompts） */
+/* 导入预设 json：支持Serenade格式和酒馆预设（合并启用的 prompts） */
 function importPresetJson(data,fname){
   const arr=Array.isArray(data)?data:[data];
   let n=0;
@@ -9217,7 +9217,7 @@ h1{font-size:18px;text-align:center;margin:0 0 4px}
 .b img{max-width:200px;border-radius:12px;display:block;margin:4px 0}
 .s{text-align:center;font-size:11px;color:#9A8E80;margin:10px 0}
 code{background:#F3EBDD;border-radius:6px;padding:1px 6px;font-size:13px}
-</style></head><body><h1>${esc(c.title)}</h1><div class="sub">小窝 · ${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 导出</div>
+</style></head><body><h1>${esc(c.title)}</h1><div class="sub">Serenade · ${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 导出</div>
 ${rows}</body></html>`;
   dlFile(`${c.title}.html`,doc,'text/html;charset=utf-8');
   closeSheet('boxSheet'); toast('导出好啦，用浏览器打开就能看');
@@ -9337,13 +9337,13 @@ $('pushPermBtn').onclick=async()=>{
   try{
     const p=await Notification.requestPermission();
     syncPushUI();
-    toast(p==='granted'?'授权成功！🔔':p==='denied'?'被拒了，要去手机系统设置里手动允许小窝通知':'还没授权');
+    toast(p==='granted'?'授权成功！🔔':p==='denied'?'被拒了，要去手机系统设置里手动允许Serenade通知':'还没授权');
   }catch(e){ toast('授权失败：'+(e.message||'').slice(0,40)); }
 };
 $('pushTestBtn').onclick=async()=>{
   if(pushPerm()!=='granted'){ toast('先点上面「点击授权」'); return; }
   const ch=curChar(curChat())||characters[0];
-  await showCharNotification(ch||{name:'小窝'}, '这是一条测试通知，能看到就说明推送通了～', curChat());
+  await showCharNotification(ch||{name:'Serenade'}, '这是一条测试通知，能看到就说明推送通了～', curChat());
   toast('已发送，去通知栏看看 👀');
 };
 $('pushInterval').onchange=e=>{
@@ -9503,7 +9503,7 @@ document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ se
 $('exportBtn').onclick=()=>{
   const json=JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined,fsBridge:settings.fsBridge?{...settings.fsBridge,token:''}:undefined,imgGen:settings.imgGen?{...settings.imgGen,key:''}:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2);
   const d=new Date();
-  const fname=`小窝备份-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+  const fname=`Serenade备份-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
   /* App 壳里 blob 下载不管用，走原生 saveFile 存进「下载」文件夹 */
   const na=nativeApp();
   if(na&&typeof na.saveFile==='function'){
@@ -9613,7 +9613,7 @@ function mergeImport(data){
 const APP_ICON_SVGS={
   star:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#18162A"/><radialGradient id="mg" cx="42" cy="48" r="30" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#D0C4E0" stop-opacity="0.07"/><stop offset="100%" stop-color="#D0C4E0" stop-opacity="0"/></radialGradient><circle cx="42" cy="48" r="30" fill="url(#mg)"/><defs><mask id="cr"><rect width="100" height="100" fill="black"/><circle cx="44" cy="46" r="18" fill="white"/><circle cx="54" cy="42" r="16.5" fill="black"/></mask></defs><circle cx="44" cy="46" r="18" fill="#DDD4E8" mask="url(#cr)" opacity="0.9"/><circle cx="65" cy="35" r="2.5" fill="#EAE0D0" opacity="0.85"/><radialGradient id="sg" cx="65" cy="35" r="8" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#EAE0D0" stop-opacity="0.15"/><stop offset="100%" stop-color="#EAE0D0" stop-opacity="0"/></radialGradient><circle cx="65" cy="35" r="8" fill="url(#sg)"/><circle cx="72" cy="24" r="0.6" fill="#DDD4E8" opacity="0.2"/><circle cx="24" cy="32" r="0.5" fill="#DDD4E8" opacity="0.15"/><circle cx="76" cy="62" r="0.4" fill="#DDD4E8" opacity="0.12"/><circle cx="30" cy="70" r="0.5" fill="#DDD4E8" opacity="0.1"/></svg>`,
   spiral:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#161220"/><radialGradient id="tg" cx="50" cy="50" r="18" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#E0D4C4" stop-opacity="0.18"/><stop offset="100%" stop-color="#E0D4C4" stop-opacity="0"/></radialGradient><circle cx="50" cy="50" r="18" fill="url(#tg)"/><path d="M16 50 Q20 30, 38 28 Q56 26, 50 50" fill="none" stroke="#D8C4AA" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/><path d="M16 50 Q20 30, 38 28 Q56 26, 50 50" fill="none" stroke="#D8C4AA" stroke-width="4.5" stroke-linecap="round" opacity="0.06"/><circle cx="17" cy="50" r="2" fill="#D8C4AA" opacity="0.6"/><path d="M84 50 Q80 70, 62 72 Q44 74, 50 50" fill="none" stroke="#AAB8D0" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/><path d="M84 50 Q80 70, 62 72 Q44 74, 50 50" fill="none" stroke="#AAB8D0" stroke-width="4.5" stroke-linecap="round" opacity="0.06"/><circle cx="83" cy="50" r="2" fill="#AAB8D0" opacity="0.6"/><circle cx="50" cy="50" r="3" fill="#F2EAE0" opacity="0.9"/><radialGradient id="ig" cx="50" cy="50" r="10" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#F2EAE0" stop-opacity="0.25"/><stop offset="100%" stop-color="#F2EAE0" stop-opacity="0"/></radialGradient><circle cx="50" cy="50" r="10" fill="url(#ig)"/><circle cx="30" cy="34" r="0.5" fill="#D8C4AA" opacity="0.25"/><circle cx="70" cy="66" r="0.5" fill="#AAB8D0" opacity="0.25"/></svg>`,
-  heart:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#E2DDE4"/><circle cx="40" cy="50" r="20" fill="#C0B0BC" opacity="0.6"/><circle cx="60" cy="50" r="20" fill="#B0AAB8" opacity="0.6"/><path d="M50 46 C50 42, 46 40.5, 46 43.5 C46 40.5, 42 42, 42 46 C42 50, 46 53, 46 53 C46 53, 50 50, 50 46Z" fill="#A898A4" opacity="0.5" transform="translate(4, 0) scale(0.8)"/><text x="50" y="72" text-anchor="middle" fill="#A898A4" font-size="7" font-family="serif" opacity="0.4">小窝</text></svg>`
+  heart:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#E2DDE4"/><circle cx="40" cy="50" r="20" fill="#C0B0BC" opacity="0.6"/><circle cx="60" cy="50" r="20" fill="#B0AAB8" opacity="0.6"/><path d="M50 46 C50 42, 46 40.5, 46 43.5 C46 40.5, 42 42, 42 46 C42 50, 46 53, 46 53 C46 53, 50 50, 50 46Z" fill="#A898A4" opacity="0.5" transform="translate(4, 0) scale(0.8)"/><text x="50" y="72" text-anchor="middle" fill="#A898A4" font-size="7" font-family="serif" opacity="0.4">Serenade</text></svg>`
 };
 const APP_ICONS=[
   {id:'default',name:'默认'},

@@ -1,5 +1,5 @@
-/* 小窝 Service Worker：同源资源网络优先、断网走缓存；API 请求不拦截 */
-const CACHE = 'xiaowo-v28';
+/* Serenade Service Worker：同源资源网络优先、断网走缓存；API 请求不拦截 */
+const CACHE = 'xiaowo-v29';
 const ASSETS = ['./xiaowo.html', './manifest.json', './icon.svg', './app-icon.svg'];
 
 self.addEventListener('install', e => {
@@ -39,7 +39,7 @@ self.addEventListener('fetch', e => {
   );
 });
 
-/* 点系统通知 → 聚焦已开的小窝（并切到对应聊天）；没开就打开 */
+/* 点系统通知 → 聚焦已开的Serenade（并切到对应聊天）；没开就打开 */
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const chatId = e.notification.data && e.notification.data.chatId;

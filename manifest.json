@@ -1,6 +1,6 @@
 {
-  "name": "小窝",
-  "short_name": "小窝",
+  "name": "Serenade",
+  "short_name": "Serenade",
   "start_url": "./xiaowo.html",
   "scope": "./",
   "display": "standalone",
