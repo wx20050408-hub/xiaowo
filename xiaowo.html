@@ -5061,12 +5061,16 @@ async function runReply(c,api,body,ch){
       toast(`${ch?.name||'TA'} 送了你一份礼物 🎁`);
     }
     /* TA 的小助手动作：记日历备忘 / 纪念日 / 心愿 / 购物清单 */
-    let agentActs=0;
+    let agentActs=0; const icsEvents=[];
     for(const am of out.acc.matchAll(/<备忘[:：]\s*(\d{4}-\d{2}-\d{2})\s*[:：]\s*([^>]+?)\s*>/g)){
-      calNotes.push({id:rid('n'),date:am[1],text:am[2].slice(0,200)}); agentActs++;
+      const note={id:rid('n'),date:am[1],text:am[2].slice(0,200)};
+      calNotes.push(note); agentActs++;
+      icsEvents.push({id:note.id,date:note.date,title:note.text});
     }
     for(const am of out.acc.matchAll(/<纪念日[:：]\s*([^:：>]+?)\s*[:：]\s*(\d{4}-\d{2}-\d{2})\s*>/g)){
-      annivs.push({id:'a'+Date.now()+'_'+agentActs,charId:ch?.id,name:am[1].slice(0,20),date:am[2]}); agentActs++;
+      const an={id:'a'+Date.now()+'_'+agentActs,charId:ch?.id,name:am[1].slice(0,20),date:am[2]};
+      annivs.push(an); agentActs++;
+      icsEvents.push({id:an.id,date:an.date,title:'🎂 '+an.name,yearly:true});
     }
     for(const am of out.acc.matchAll(/<心愿[:：]\s*([^>]+?)\s*>/g)){
       wishes.push({id:'wish'+Date.now()+'_'+agentActs,charId:ch?.id,text:am[1].slice(0,60),done:false,ts:Date.now()}); agentActs++;
@@ -5076,6 +5080,10 @@ async function runReply(c,api,body,ch){
       shopping.push({id:'sh'+Date.now()+'_'+agentActs,owner:'user',name:am[1].slice(0,40),price:pm?pm[0].slice(0,10):'',note:'',ts:Date.now(),by:'ta'}); agentActs++;
     }
     if(agentActs) toast(`${ch?.name||'TA'} 帮你记了 ${agentActs} 件事 ✍️`);
+    /* TA 记的日程顺手推给手机日历：自动下载 .ics，点通知栏那个文件就导入（含早9点系统提醒） */
+    if(icsEvents.length){
+      try{ icsDownload(icsEvents,`${ch?.name||'TA'}帮你记的日程.ics`); setTimeout(()=>toast('📲 日程文件已下载，点开它就进手机日历'),1200); }catch(_){}
+    }
     const stats=(out.usage&&(out.usage.in!=null||out.usage.out!=null))
       ?{in:out.usage.in,out:out.usage.out,cached:out.usage.cached||0,secs:out.t0?Math.round((Date.now()-out.t0)/100)/10:null}
       :null;
@@ -5425,6 +5433,32 @@ $('fsTest').onclick=async()=>{
   }catch(e){ toast('连不上：'+(e.message||'').slice(0,40)+'（小桥开着吗？）'); }
   btn.disabled=false; btn.textContent='🔌 测试连接';
 };
+
+/* ===== 手机日历联动：TA 记的日程自动生成 .ics 触发下载，点一下就进系统日历 =====
+   Web 写不了系统日历（OS 硬墙），.ics 是极限：零按钮、自动下载，用户点文件确认导入。
+   VALARM=系统日历的原生提醒，App 被杀也照响（比伪推送可靠） */
+const icsEsc=s=>String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+function icsDownload(events,fname){
+  if(!events.length) return;
+  const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+Z/,'Z');
+  const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//xiaowo//CN'];
+  for(const e of events){
+    L.push('BEGIN:VEVENT',
+      'UID:'+(e.id||'xw'+Date.now()+Math.random().toString(36).slice(2,6))+'@xiaowo',
+      'DTSTAMP:'+stamp,
+      'DTSTART;VALUE=DATE:'+e.date.replace(/-/g,''),
+      'SUMMARY:'+icsEsc(e.title),
+      ...(e.yearly?['RRULE:FREQ=YEARLY']:[]),
+      'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc(e.title),'TRIGGER:PT9H','END:VALARM',   // 当天早上9点提醒
+      'END:VEVENT');
+  }
+  L.push('END:VCALENDAR');
+  const blob=new Blob([L.join('\r\n')],{type:'text/calendar;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=fname||'日程.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+}
 
 /* ===== TA 的小助手（agent 工具）：写=记日历/纪念日/心愿/购物（saveMsg 里执行）；查=自习/日历（接力循环喂真数据） ===== */
 function agentNote(){
