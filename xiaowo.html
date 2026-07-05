@@ -1337,7 +1337,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div class="sheet">
     <div class="sheetTitle">生图<button class="close" data-close="imgGenSheet">✕</button></div>
     <div class="boxRow"><span class="ic">🎨</span><span class="grow">开启生图</span><button class="wbToggle" id="igOn"></button></div>
-    <div class="field"><label>接口格式</label><select id="igFmt"><option value="openai">OpenAI 兼容（中转站生图）</option><option value="pixai">PixAI（走小桥转发）</option></select></div>
+    <div class="field"><label>接口格式</label><select id="igFmt"><option value="openai">OpenAI 兼容（中转站生图）</option><option value="novelai">NovelAI（二次元，浏览器直连）</option><option value="pixai">PixAI（走小桥转发）</option></select></div>
     <div class="field" id="igUrlField"><label>接口地址（OpenAI 兼容，/v1/images/generations 自动补）</label><input id="igUrl" placeholder="https://api.某站.com"></div>
     <div class="field"><label>API Key</label><input id="igKey" type="password" placeholder="sk-… / PixAI 的 API Key"></div>
     <div class="field"><label>模型名 / PixAI 的 modelId</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页的数字 ID"></div>
@@ -1347,7 +1347,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
     <button class="ghostBtn" id="igTest">🖼 试画一张（会花一次生图钱）</button>
     <div id="igPreview" style="text-align:center"></div>
-    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。⚠️ 生图按张/按积分计费，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。</div>
+    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。⚠️ 生图按张/按积分计费，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
   </div>
 </div>
 
@@ -5326,9 +5326,63 @@ async function consumeFetch(c){
 /* ===== 生图：OpenAI 兼容 images/generations——TA 的〈随手拍〉和 OF 更新变成真图 ===== */
 const imgGen=()=>settings.imgGen||{};
 const imgGenOn=()=>{
-  const g=imgGen(); if(!g.on||!(g.model||'').trim()) return false;
+  const g=imgGen(); if(!g.on) return false;
+  if(g.fmt==='novelai') return !!(g.key||'').trim();                    // 模型可空，默认 nai-diffusion-3
+  if(!(g.model||'').trim()) return false;
   return g.fmt==='pixai' ? !!(g.key||'').trim() : !!(g.url||'').trim();
 };
+/* 浏览器原生解 zip：取第一个文件（NAI 返回的 zip 里就一张 png）。
+   method 0=原样存放直接切片；8=deflate 用 DecompressionStream 解 */
+async function unzipFirst(u8){
+  if(!(u8[0]===0x50&&u8[1]===0x4B)) return null;
+  const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+  let off=0;
+  while(off+30<=u8.length){
+    if(dv.getUint32(off,true)!==0x04034b50) break;
+    const flags=dv.getUint16(off+6,true), method=dv.getUint16(off+8,true);
+    let csize=dv.getUint32(off+18,true);
+    const nameLen=dv.getUint16(off+26,true), extraLen=dv.getUint16(off+28,true);
+    const dataStart=off+30+nameLen+extraLen;
+    if(flags&8){   // 长度写在数据后面 → 扫描描述符签名找边界
+      for(let i=dataStart;i<u8.length-3;i++){
+        if(u8[i]===0x50&&u8[i+1]===0x4B&&u8[i+2]===0x07&&u8[i+3]===0x08){ csize=i-dataStart; break; }
+      }
+    }
+    const data=u8.subarray(dataStart,dataStart+csize);
+    if(method===0) return data;
+    if(method===8&&typeof DecompressionStream!=='undefined'){
+      const out=await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer();
+      return new Uint8Array(out);
+    }
+    off=dataStart+csize;
+  }
+  return null;
+}
+/* NovelAI：官方 CORS 全开可直连；免费档甜点位=尺寸≤1216x832、steps≤28（Opus 订阅这档无限出图） */
+async function genImageNovelai(g,prompt){
+  const [w0,h0]=(g.size||'1024x1024').split('x').map(n=>parseInt(n,10));
+  const size=w0>h0?{width:1216,height:832}:h0>w0?{width:832,height:1216}:{width:1024,height:1024};
+  const style=(g.style||'').trim();
+  const p=(style?style+', ':'')+prompt;
+  const neg=(g.neg||'').trim()||'lowres, bad anatomy, bad hands, worst quality, low quality';
+  const model=(g.model||'').trim()||'nai-diffusion-3';
+  const params={width:size.width,height:size.height,scale:5.5,sampler:'k_euler_ancestral',steps:28,n_samples:1,ucPreset:0,qualityToggle:true,negative_prompt:neg};
+  if(/diffusion-[45]/.test(model)){   // v4/v4.5 系用新的提示词结构（老字段留着无害）
+    params.params_version=3;
+    params.v4_prompt={caption:{base_caption:p,char_captions:[]},use_coords:false,use_order:true};
+    params.v4_negative_prompt={caption:{base_caption:neg,char_captions:[]}};
+  }
+  const r=await fetch('https://image.novelai.net/ai/generate-image',{
+    method:'POST',
+    headers:{'content-type':'application/json',authorization:'Bearer '+g.key.trim()},
+    body:JSON.stringify({input:p,model,action:'generate',parameters:params}),
+    ...(typeof AbortSignal!=='undefined'&&AbortSignal.timeout?{signal:AbortSignal.timeout(120000)}:{}),
+  });
+  if(!r.ok){ let m=''; try{ m=(await r.json()).message||''; }catch(_){} throw new Error('HTTP '+r.status+(m?'：'+String(m).slice(0,80):'')); }
+  const png=await unzipFirst(new Uint8Array(await r.arrayBuffer()));
+  if(!png) throw new Error('返回的包里没找到图');
+  return await shrinkImg(new Blob([png],{type:'image/png'}));
+}
 /* 把生成的图压一遍再存（1024/0.8 ≈ 一两百KB），省 IndexedDB 也省备份体积 */
 async function shrinkImg(src){
   try{
@@ -5386,6 +5440,7 @@ async function genImagePixai(g,prompt){
 async function genImage(prompt){
   if(!imgGenOn()) return null;
   const g=imgGen();
+  if(g.fmt==='novelai') return genImageNovelai(g,prompt);
   if(g.fmt==='pixai') return genImagePixai(g,prompt);
   const base=g.url.trim().replace(/\/+$/,'').replace(/\/v1$/,'');
   const style=(g.style||'').trim();
@@ -5463,9 +5518,9 @@ function saveImgGen(){
 }
 $('igExpand').onclick=()=>{ $('igExpand').classList.toggle('on'); saveImgGen(); };
 function igFmtUI(){
-  const pix=$('igFmt').value==='pixai';
-  $('igUrlField').style.display=pix?'none':'block';
-  $('igNegField').style.display=pix?'block':'none';
+  const f=$('igFmt').value;
+  $('igUrlField').style.display=f==='openai'?'block':'none';       // NAI/PixAI 端点固定，不用填地址
+  $('igNegField').style.display=f==='openai'?'none':'block';       // 负面词：NAI/PixAI 都吃
 }
 $('imgGenBtn').onclick=()=>{
   const g=imgGen();
@@ -5483,7 +5538,7 @@ $('igFmt').onchange=()=>{ igFmtUI(); saveImgGen(); };
 $('igTest').onclick=async()=>{
   saveImgGen();
   const g=imgGen();
-  if(!g.model||(g.fmt!=='pixai'&&!g.url)||(g.fmt==='pixai'&&!g.key)){ toast(g.fmt==='pixai'?'先填 PixAI 的 Key 和 modelId':'先填接口地址和模型名'); return; }
+  if(g.fmt==='novelai'?!g.key:(!g.model||(g.fmt!=='pixai'&&!g.url)||(g.fmt==='pixai'&&!g.key))){ toast(g.fmt==='novelai'?'先填 NovelAI 的 Token':g.fmt==='pixai'?'先填 PixAI 的 Key 和 modelId':'先填接口地址和模型名'); return; }
   const btn=$('igTest'); btn.disabled=true; btn.textContent='画画中…（可能要十几秒）';
   try{
     const t0=Date.now();
