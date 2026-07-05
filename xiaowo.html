@@ -5446,10 +5446,11 @@ const icsEsc=s=>String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g
 function icsChip(el){
   const d=el.dataset.d, t=el.dataset.t, yearly=!!el.dataset.y;
   /* intent 直达已验证被 Chrome 封死（content:// 一律拦），统一走 .ics。
-     安卓的关键是「打开方式」要选日历（WPS 之类会抢这个文件类型） */
-  icsDownload([{date:d,title:t,yearly}],'日程.ics');
+     文件名按内容起（去掉文件系统不认的字符）——同名才会触发"是否重新下载"的追问 */
+  const fname=(t.replace(/[\\/:*?"<>|]/g,'').slice(0,20)||'日程')+'-'+(+d.slice(5,7))+'月'+(+d.slice(8))+'日.ics';
+  icsDownload([{date:d,title:t,yearly}],fname);
   toast(/android/i.test(navigator.userAgent)
-    ?'📲 已下载！点通知栏的文件 → 打开方式选「日历」（千万别选WPS）'
+    ?'📲 已下载！点通知栏的文件 → 打开方式选「日历」'
     :'📲 已下载，点开那个文件就进日历');
 }
 function icsDownload(events,fname){
