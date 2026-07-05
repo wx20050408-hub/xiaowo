@@ -1340,6 +1340,22 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   </div>
 </div>
 
+<!-- 云同步设置 -->
+<div class="sheetScrim" id="cloudSheet">
+  <div class="sheet">
+    <div class="sheetTitle">☁️ 云同步<button class="close" data-close="cloudSheet">✕</button></div>
+    <div class="field"><label>私有仓库（账号名/仓库名）</label><input id="csRepo" placeholder="比如：wx20050408-hub/serenade-cloud"></div>
+    <div class="field"><label>GitHub 细粒度令牌（只授权上面这一个仓库）</label><input id="csToken" type="password" placeholder="github_pat_…"></div>
+    <div class="field"><label>加密密码（上传前本地加密，云上只有密文）</label><input id="csPass" type="password" placeholder="自己定一个，各设备要填一样的"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="primaryBtn" id="csPush" style="flex:1;margin:0">⬆️ 推上云</button>
+      <button class="ghostBtn" id="csPull" style="flex:1;margin:0">⬇️ 从云拉</button>
+    </div>
+    <div id="csStatus" class="hintText" style="text-align:center;min-height:16px"></div>
+    <div class="hintText"><b>令牌怎么弄</b>：GitHub → Settings → Developer settings → Fine-grained tokens → Generate：Repository access 选 <b>Only select repositories</b>（先建一个空的私有仓库专门放备份）→ Permissions 里 Contents 给 <b>Read and write</b> → 生成后复制过来。<br><b>用法纪律</b>：这是快照接力不是实时同步——<b>换设备聊之前先「拉」，聊完记得「推」</b>；别两台同时聊，互推会以后推的为准。密码忘了云端备份就谁也解不开了，记牢。令牌和密码不进备份文件。</div>
+  </div>
+</div>
+
 <!-- 电脑文件桥设置 -->
 <div class="sheetScrim" id="fsBridgeSheet">
   <div class="sheet">
@@ -1804,6 +1820,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <button class="wbToggle" id="customReqToggle"></button>
     </div>
     <div class="hintText" style="margin:0 2px 10px">给中转站/反代用的。开了之后，每个角色卡最下面会多出「自定义 Header / Body」两栏，单独填、互不影响；关掉就完全隐藏，不影响正常使用。</div>
+    <button class="boxRow" id="cloudBtn" style="width:100%"><span class="ic">☁️</span><span class="grow" style="text-align:left">云同步（GitHub 私有仓库当云盘，多端互通）</span></button>
     <button class="boxRow" id="exportBtn" style="width:100%"><span class="ic">📦</span><span class="grow" style="text-align:left">备份所有数据（导出 JSON）</span></button>
     <button class="boxRow" id="importBtn" style="width:100%"><span class="ic">📥</span><span class="grow" style="text-align:left">从备份恢复</span></button>
     <input type="file" id="importFile" accept=".json" style="display:none">
@@ -5502,6 +5519,95 @@ function icsDownload(events,fname){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),3000);
 }
+
+/* ===== ☁️ 云同步：GitHub 私有仓库当云盘（零服务器）。本地 AES-GCM 加密后上传，云上只有密文 ===== */
+const cloudCfg=()=>settings.cloudSync||{};
+const cloudOn=()=>{ const c=cloudCfg(); return !!((c.repo||'').trim()&&(c.token||'').trim()&&(c.pass||'').trim()); };
+const b64bytes=u8=>{ let s=''; for(let i=0;i<u8.length;i+=0x8000) s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000)); return btoa(s); };
+const bytesB64=b=>{ const s=atob(b),u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; };
+async function cloudAesKey(pass,salt){
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function cloudEncrypt(text,pass){
+  const salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
+  const k=await cloudAesKey(pass,salt);
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},k,new TextEncoder().encode(text)));
+  return JSON.stringify({v:1,salt:b64bytes(salt),iv:b64bytes(iv),data:b64bytes(ct)});
+}
+async function cloudDecrypt(json,pass){
+  const o=JSON.parse(json);
+  const k=await cloudAesKey(pass,bytesB64(o.salt));
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytesB64(o.iv)},k,bytesB64(o.data));
+  return new TextDecoder().decode(pt);
+}
+async function ghApi(path,opt){
+  opt=opt||{};
+  const c=cloudCfg();
+  return fetch('https://api.github.com/repos/'+c.repo.trim()+path,{
+    method:opt.method||'GET',
+    headers:{authorization:'Bearer '+c.token.trim(),accept:opt.raw?'application/vnd.github.raw':'application/vnd.github+json','content-type':'application/json'},
+    body:opt.body,
+  });
+}
+/* 拿文件 sha 走目录列表（contents 详情接口对>1MB的文件会摆烂，列表不会） */
+async function ghSha(name){
+  const r=await ghApi('/contents/');
+  if(!r.ok) return null;
+  const f=((await r.json())||[]).find?.(x=>x.name===name);
+  return f?f.sha:null;
+}
+async function ghPut(name,b64content,msg){
+  const sha=await ghSha(name);
+  const body={message:msg,content:b64content}; if(sha) body.sha=sha;
+  const r=await ghApi('/contents/'+name,{method:'PUT',body:JSON.stringify(body)});
+  if(!r.ok){ let m=''; try{ m=(await r.json()).message||''; }catch(_){} throw new Error('HTTP '+r.status+(m?'：'+String(m).slice(0,80):'')); }
+}
+async function cloudPush(){
+  const enc=await cloudEncrypt(buildBackupJson(),cloudCfg().pass);
+  await ghPut('serenade-backup.enc',b64utf8(enc),'backup '+new Date().toISOString());
+  const ts=Date.now();
+  await ghPut('meta.json',b64utf8(JSON.stringify({ts})),'meta');
+  settings.cloudTs=ts; settings.lastBackup=ts; persistAll();
+}
+async function cloudPull(){
+  const r=await ghApi('/contents/serenade-backup.enc',{raw:true});
+  if(r.status===404) throw new Error('云端还没有备份——先在另一台设备上「推上云」');
+  if(!r.ok) throw new Error('HTTP '+r.status+'（令牌/仓库名对吗？）');
+  let json;
+  try{ json=await cloudDecrypt(await r.text(),cloudCfg().pass); }
+  catch(_){ throw new Error('解不开——加密密码和推的时候不一样？'); }
+  const data=JSON.parse(json);
+  const hasExisting=chats.length>0||memories.length>0||characters.length>1;
+  const merge=hasExisting && confirm('云端备份怎么进来？\n\n【确定】＝追加合并：保留本机现有的，云端的加进来（同名各自保留）。\n\n【取消】＝覆盖恢复：本机清空，整盘换成云端（多端接力日常用这个）。');
+  if(merge) mergeImport(data); else replaceImport(data);
+  settings.cloudTs=Date.now(); persistAll();
+}
+/* 面板 */
+function saveCloudCfg(){ settings.cloudSync={...cloudCfg(),repo:$('csRepo').value.trim(),token:$('csToken').value.trim(),pass:$('csPass').value}; persistAll(); }
+$('cloudBtn').onclick=()=>{
+  const c=cloudCfg();
+  $('csRepo').value=c.repo||''; $('csToken').value=c.token||''; $('csPass').value=c.pass||'';
+  $('csStatus').textContent=settings.cloudTs?('上次同步：'+fmtGap(Date.now()-settings.cloudTs)+'前'):'还没同步过';
+  openSheet('cloudSheet');
+};
+['csRepo','csToken','csPass'].forEach(id=>$(id).onchange=saveCloudCfg);
+$('csPush').onclick=async()=>{
+  saveCloudCfg();
+  if(!cloudOn()){ toast('仓库、令牌、密码三样都要填'); return; }
+  const b=$('csPush'); b.disabled=true; b.textContent='加密上传中…';
+  try{ await cloudPush(); $('csStatus').textContent='刚刚推上去了 ✓'; toast('☁️ 推好了，其它设备可以拉了'); }
+  catch(e){ toast('推失败：'+(e.message||'').slice(0,70)); }
+  b.disabled=false; b.textContent='⬆️ 推上云';
+};
+$('csPull').onclick=async()=>{
+  saveCloudCfg();
+  if(!cloudOn()){ toast('仓库、令牌、密码三样都要填'); return; }
+  const b=$('csPull'); b.disabled=true; b.textContent='下载解密中…';
+  try{ await cloudPull(); toast('拉好了，马上刷新 ✓'); setTimeout(()=>location.reload(),900); return; }
+  catch(e){ toast('拉失败：'+(e.message||'').slice(0,70)); }
+  b.disabled=false; b.textContent='⬇️ 从云拉';
+};
 
 /* ===== TA 的小助手（agent 工具）：写=记日历/纪念日/心愿/购物（saveMsg 里执行）；查=自习/日历（接力循环喂真数据） ===== */
 function agentNote(){
@@ -9515,9 +9621,24 @@ navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',e=>{
 });
 /* 启动时若推送开着就拉起轮询（保活仍需用户点一次激活） */
 if(settings.sysPush) startPushLoop();
+/* 云同步：开机悄悄看一眼云端是不是更新（只提醒不动手，1分钟容差防自己推的算成新） */
+(async()=>{
+  if(!cloudOn()) return;
+  try{
+    const r=await ghApi('/contents/meta.json',{raw:true});
+    if(!r.ok) return;
+    const m=JSON.parse(await r.text());
+    if(m.ts&&m.ts>(settings.cloudTs||0)+60000)
+      setTimeout(()=>toast(`☁️ 云端有更新的备份（${fmtGap(Date.now()-m.ts)}前推的）——去 百宝箱→云同步 拉一下再聊`),2500);
+  }catch(_){}
+})();
 document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
+/* 备份 JSON 统一在这拼（导出文件和云同步共用）；密钥/令牌/密码一律不进备份 */
+function buildBackupJson(){
+  return JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined,fsBridge:settings.fsBridge?{...settings.fsBridge,token:''}:undefined,imgGen:settings.imgGen?{...settings.imgGen,key:''}:undefined,cloudSync:settings.cloudSync?{...settings.cloudSync,token:'',pass:''}:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2);
+}
 $('exportBtn').onclick=()=>{
-  const json=JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined,fsBridge:settings.fsBridge?{...settings.fsBridge,token:''}:undefined,imgGen:settings.imgGen?{...settings.imgGen,key:''}:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2);
+  const json=buildBackupJson();
   const d=new Date();
   const fname=`Serenade备份-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
   /* App 壳里 blob 下载不管用，走原生 saveFile 存进「下载」文件夹 */
