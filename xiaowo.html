@@ -9336,8 +9336,9 @@ $('backupRemindToggle').onclick=()=>{
 };
 
 /* ================= 系统推送 · 后台找你 ================= */
-const hasNotif=()=> 'Notification' in window;
-const pushPerm=()=> hasNotif()?Notification.permission:'unsupported';
+/* App 壳里 WebView 没有 Notification API，通知走原生桥——视作永远已授权 */
+const hasNotif=()=> !!nativeApp() || 'Notification' in window;
+const pushPerm=()=> nativeApp()?'granted':(('Notification' in window)?Notification.permission:'unsupported');
 const pushIntervalSec=()=> Math.min(3600,Math.max(30,Number(settings.pushInterval)||60));
 let kaActive=false;   // 后台保活是否已激活（播静音）
 /* 刷新百宝箱里推送区的小字/状态 */
@@ -9353,9 +9354,14 @@ $('sysPushToggle').onclick=()=>{
   $('sysPushBox').style.display=settings.sysPush?'block':'none';
   syncPushUI();
   if(settings.sysPush){ startPushLoop(); toast('开啦，去角色卡里给想推送的 TA 单独打开「系统推送」🔔'); }
-  else{ stopPushLoop(); toast('系统推送关掉了'); }
+  else{
+    stopPushLoop();
+    const na=nativeApp(); if(na&&typeof na.stopKeepAlive==='function'){ try{ na.stopKeepAlive(); kaActive=false; }catch(_){} }
+    toast('系统推送关掉了');
+  }
 };
 $('pushPermBtn').onclick=async()=>{
+  if(nativeApp()){ syncPushUI(); toast('App 里通知走原生通道，装 App 时授权过就行 ✓'); return; }
   if(!hasNotif()){ toast('这个浏览器不支持通知'); return; }
   try{
     const p=await Notification.requestPermission();
@@ -9391,6 +9397,16 @@ function makeSilentWavUrl(){
   return URL.createObjectURL(new Blob([b],{type:'audio/wav'}));
 }
 function activateKeepAlive(userGesture){
+  /* App 壳：原生前台服务保活（比静音音频硬得多），顺手引导加电池白名单 */
+  const na=nativeApp();
+  if(na&&typeof na.startKeepAlive==='function'){
+    try{
+      na.startKeepAlive(); kaActive=true; syncPushUI();
+      if(!settings.kaBatteryAsked&&typeof na.requestIgnoreBattery==='function'){ settings.kaBatteryAsked=true; persistAll(); na.requestIgnoreBattery(); }
+      if(userGesture) toast('原生后台保活已开启 ⚡ 通知栏会有一枚常驻小牌子');
+      return;
+    }catch(_){}
+  }
   if(!silentAudio){
     silentAudio=document.createElement('audio');
     silentAudio.loop=true; silentAudio.volume=0; silentAudio.setAttribute('playsinline','');
@@ -9424,6 +9440,9 @@ async function showCharNotification(ch,txt,c){
   if(pushPerm()!=='granted') return;
   const title=(ch&&ch.name)||'TA';
   const body=stripThink(String(txt||'')).replace(/\s+/g,' ').trim().slice(0,120);
+  /* App 壳：原生通知（WebView 里网页通知根本发不出去） */
+  const na=nativeApp();
+  if(na&&typeof na.showNotification==='function'){ try{ na.showNotification(title,body); return; }catch(_){} }
   const icon=(ch&&ch.avatar)||'icon.svg';
   const opts={body,icon,badge:'icon.svg',tag:'xw_'+(c?c.id:'test'),renotify:true,data:{chatId:c?c.id:null}};
   try{
