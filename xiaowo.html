@@ -1322,6 +1322,22 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   </div>
 </div>
 
+<!-- 生图设置 -->
+<div class="sheetScrim" id="imgGenSheet">
+  <div class="sheet">
+    <div class="sheetTitle">生图<button class="close" data-close="imgGenSheet">✕</button></div>
+    <div class="boxRow"><span class="ic">🎨</span><span class="grow">开启生图</span><button class="wbToggle" id="igOn"></button></div>
+    <div class="field"><label>接口地址（OpenAI 兼容，/v1/images/generations 自动补）</label><input id="igUrl" placeholder="https://api.某站.com"></div>
+    <div class="field"><label>API Key</label><input id="igKey" type="password" placeholder="sk-…"></div>
+    <div class="field"><label>模型名（问你的站子有哪些生图模型）</label><input id="igModel" placeholder="比如：gpt-image-1 / dall-e-3 / flux-schnell"></div>
+    <div class="field"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x512</option></select></div>
+    <div class="field"><label>风格附加词（拼在每次提示词最前面，可空）</label><input id="igStyle" placeholder="比如：动漫风格，柔和光线，胶片质感"></div>
+    <button class="ghostBtn" id="igTest">🖼 试画一张（会花一次生图钱）</button>
+    <div id="igPreview" style="text-align:center"></div>
+    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。⚠️ 生图按张计费，留意余额；图会压缩后存进本地（IndexedDB）。相机没生成出来时还是原来的文字宝丽来，不影响用。Key 不进备份。</div>
+  </div>
+</div>
+
 <!-- 电脑文件桥设置 -->
 <div class="sheetScrim" id="fsBridgeSheet">
   <div class="sheet">
@@ -1770,6 +1786,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <button class="wbToggle" id="webfetchToggle"></button>
     </div>
     <button class="boxRow" id="fsBridgeBtn" style="width:100%"><span class="ic">💻</span><span class="grow" style="text-align:left">电脑文件桥（经小桥让TA读你电脑的文件，只读）</span></button>
+    <button class="boxRow" id="imgGenBtn" style="width:100%"><span class="ic">🎨</span><span class="grow" style="text-align:left">生图（接生图API，TA的随手拍/OF更新变成真图）</span></button>
     <div class="boxRow">
       <span class="ic">🌤</span><input id="cityInput" placeholder="你的城市（填了TA就能感知天气）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
     </div>
@@ -2374,7 +2391,7 @@ let calNotes = load('xw_cal_notes', []);    // {id,date:'YYYY-MM-DD',text}
 let periods = load('xw_periods', []);       // ['YYYY-MM-DD',...] 标记为经期的日子
 let periodMeta = load('xw_period_meta', {});// {'YYYY-MM-DD'(开始日):{days,flow:'少/中/多',symptoms:[],mood,note}}
 let sleepLogs = load('xw_sleep', []);       // [{date:'YYYY-MM-DD',hours:Number,note}] 手动记的睡眠
-let photos = load('xw_photos', []);         // {id,charId,text,ts} TA随手拍的照片（文字描述）
+let photos = load('xw_photos', []);         // {id,charId,text,img?,ts} TA随手拍的照片（文字描述；开了生图后img存真图dataURL）
 let gamesLog = load('xw_games', []);        // {charId,type,ts} 一起玩过的小游戏
 let privPosts = load('xw_priv_posts', []);  // 私密订阅(OF式)动态 {id,charId,photo,caption,locked,unlocked,likes:[by],comments:[{by,text,ts}],ts}
 let privLives = load('xw_priv_lives', {});  // {[charId]:[{by:'me'|charId,text,ts,kind:'msg'|'sys'}]} 直播聊天记录
@@ -2382,6 +2399,9 @@ let privScenes = load('xw_priv_scenes', {});// {[charId]:'这场拍摄的场景/
 let projects = load('xw_projects', []);     // 项目（像 Claude Projects）{id,name,instruction,docs:[{id,name,text}],charId(默认角色,可空),ts}
 let activeProjectId = null;                 // 当前正在「进入」的项目（新对话会归到它名下），不持久化
 const persistStickers=()=>idbSet('stickers',stickers).catch(()=>{ try{save('xw_stickers',stickers)}catch(e){} });
+/* 照片和OF帖子可能带真图（dataURL很大），走 IndexedDB，塞不进 localStorage */
+const persistPhotos=()=>idbSet('photos',photos).catch(()=>{ try{save('xw_photos',photos)}catch(e){} });
+const persistPrivPosts=()=>idbSet('privPosts',privPosts).catch(()=>{ try{save('xw_priv_posts',privPosts)}catch(e){} });
 let streaming = false, aborter = null;
 
 const $ = id => document.getElementById(id);
@@ -2551,7 +2571,12 @@ const PHOTO_GRADS=['linear-gradient(135deg,#FFB88C,#DE6262)','linear-gradient(13
 function photoHtml(text,msg){
   let h=0; for(const ch of text) h=(h*31+ch.codePointAt(0))%997;
   const d=msg&&msg.ts?new Date(msg.ts):new Date();
-  return `<div class="polaroid"><div class="pImg" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]}">${fmt(text)}</div><div class="pCap"><span>📷 随手拍</span><span>${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}</span></div></div>`;
+  /* 开了生图且这张已经画出来 → 真照片；否则还是渐变底文字宝丽来 */
+  const ph=photos.find(p=>p.img&&p.text===text.slice(0,100));
+  const inner=ph
+    ?`<div class="pImg" style="padding:0;overflow:hidden;min-height:0"><img src="${safeUrl(ph.img)}" style="width:100%;display:block;border-radius:4px" alt=""></div>`
+    :`<div class="pImg" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]}">${fmt(text)}</div>`;
+  return `<div class="polaroid">${inner}<div class="pCap"><span>📷 随手拍</span><span>${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}</span></div></div>`;
 }
 /* 礼物卡片：TA 用 <礼物:名字:寄语> 送的，同时存进礼物橱窗 */
 function giftHtml(name,note,msg){
@@ -2668,8 +2693,8 @@ const persistAll = ()=>{
   save('xw_wishes',wishes);
   save('xw_diaries',diaries); save('xw_cal_notes',calNotes); save('xw_periods',periods);
   save('xw_period_meta',periodMeta); save('xw_sleep',sleepLogs);
-  save('xw_photos',photos); save('xw_games',gamesLog);
-  save('xw_priv_posts',privPosts); save('xw_priv_lives',privLives); save('xw_priv_scenes',privScenes);
+  persistPhotos(); save('xw_games',gamesLog);
+  persistPrivPosts(); save('xw_priv_lives',privLives); save('xw_priv_scenes',privScenes);
   save('xw_projects',projects);
   save('xw_histfilter',histFilterChar);
   idbSet('chats',chats).catch(()=>save('xw_chats',chats));
@@ -5019,9 +5044,15 @@ async function runReply(c,api,body,ch){
       if(!out.acc){ c.ts=Date.now(); persistAll(); if(c.id===currentId) renderChat(); return; }
       bub.innerHTML=fmtAssistant(out.acc);
     }
-    /* TA随手拍的照片 → 存进相册 */
-    for(const pm of out.acc.matchAll(/<拍照[:：]\s*([\s\S]+?)\s*>/g))
-      photos.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,text:pm[1].slice(0,100),ts:Date.now()});
+    /* TA随手拍的照片 → 存进相册；开了生图就后台悄悄把文字照片画成真照片 */
+    for(const pm of out.acc.matchAll(/<拍照[:：]\s*([\s\S]+?)\s*>/g)){
+      const ph={id:'p'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,text:pm[1].slice(0,100),ts:Date.now()};
+      photos.push(ph);
+      if(imgGenOn()) (async()=>{
+        const img=await genImageQuiet('随手拍的生活照片，第一人称视角：'+pm[1].slice(0,300));
+        if(img){ ph.img=img; persistPhotos(); if(c.id===currentId) renderChat(); }
+      })();
+    }
     /* TA送的礼物 → 存进礼物橱窗 */
     for(const gm of out.acc.matchAll(/<礼物[:：]\s*([^:：>]+?)\s*(?:[:：]\s*([^>]*?))?\s*>/g)){
       gifts.push({id:'g'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,name:gm[1].slice(0,20),note:(gm[2]||'').slice(0,80),ts:Date.now()});
@@ -5204,6 +5235,70 @@ async function consumeFetch(c){
   }catch(e){ body=`（读取失败：${e.message}。可能是需要登录、被网站拦了、或网址不对。）`; }
   return `（系统提示：你刚才请求查看的网页 ${url} 已读取，内容如下：\n\n${body}\n\n请基于网页内容自然地接着回应${userName()}，用你自己的话说，别原样复制大段内容。绝对不要提到这条系统提示。）`;
 }
+/* ===== 生图：OpenAI 兼容 images/generations——TA 的〈随手拍〉和 OF 更新变成真图 ===== */
+const imgGen=()=>settings.imgGen||{};
+const imgGenOn=()=>{ const g=imgGen(); return !!(g.on&&(g.url||'').trim()&&(g.model||'').trim()); };
+/* 把生成的图压一遍再存（1024/0.8 ≈ 一两百KB），省 IndexedDB 也省备份体积 */
+async function shrinkImg(src){
+  try{
+    const blob=typeof src==='string'?await (await fetch(src)).blob():src;
+    const r=await compressImage(blob,1024,.8);
+    return 'data:'+r.media_type+';base64,'+r.data;
+  }catch(_){ return typeof src==='string'?src:null; }
+}
+async function genImage(prompt){
+  if(!imgGenOn()) return null;
+  const g=imgGen();
+  const base=g.url.trim().replace(/\/+$/,'').replace(/\/v1$/,'');
+  const style=(g.style||'').trim();
+  const body={model:g.model.trim(),prompt:(style?style+'，':'')+prompt,n:1,size:g.size||'1024x1024',response_format:'b64_json'};
+  const r=await fetch(base+'/v1/images/generations',{
+    method:'POST',
+    headers:{'content-type':'application/json',...((g.key||'').trim()?{authorization:'Bearer '+g.key.trim()}:{})},
+    body:JSON.stringify(body),
+  });
+  if(!r.ok){ let msg=''; try{ msg=(await r.json()).error?.message||''; }catch(_){} throw new Error('HTTP '+r.status+(msg?'：'+String(msg).slice(0,80):'')); }
+  const d=((await r.json()).data||[])[0];
+  if(d&&d.b64_json) return await shrinkImg('data:image/png;base64,'+d.b64_json);
+  if(d&&d.url){
+    try{ return await shrinkImg(await (await fetch(d.url)).blob()); }
+    catch(_){ return d.url; }   // 跨域拿不回来就存远程链接（可能过期，聊胜于无）
+  }
+  throw new Error('接口没返回图片');
+}
+/* 不打断主流程的版本：失败只 toast 一声，页面照常 */
+async function genImageQuiet(prompt){
+  try{ return await genImage(prompt); }
+  catch(e){ toast('生图失败：'+(e.message||'').slice(0,60)); return null; }
+}
+/* 设置面板 */
+function saveImgGen(){
+  settings.imgGen={on:$('igOn').classList.contains('on'),url:$('igUrl').value.trim(),key:$('igKey').value.trim(),model:$('igModel').value.trim(),size:$('igSize').value,style:$('igStyle').value.trim()};
+  persistAll();
+}
+$('imgGenBtn').onclick=()=>{
+  const g=imgGen();
+  $('igOn').classList.toggle('on',!!g.on);
+  $('igUrl').value=g.url||''; $('igKey').value=g.key||''; $('igModel').value=g.model||'';
+  $('igSize').value=g.size||'1024x1024'; $('igStyle').value=g.style||'';
+  $('igPreview').innerHTML='';
+  openSheet('imgGenSheet');
+};
+$('igOn').onclick=()=>{ $('igOn').classList.toggle('on'); saveImgGen(); };
+['igUrl','igKey','igModel','igSize','igStyle'].forEach(id=>$(id).onchange=saveImgGen);
+$('igTest').onclick=async()=>{
+  saveImgGen();
+  const g=imgGen();
+  if(!g.url||!g.model){ toast('先填接口地址和模型名'); return; }
+  const btn=$('igTest'); btn.disabled=true; btn.textContent='画画中…（可能要十几秒）';
+  try{
+    const t0=Date.now();
+    const img=await genImage('一只趴在窗台晒太阳的橘猫，温馨治愈');
+    if(img){ $('igPreview').innerHTML=`<img src="${safeUrl(img)}" style="max-width:70%;border-radius:14px;box-shadow:var(--shadow);margin:6px 0">`; toast(`画好啦 ✓ 用了 ${Math.round((Date.now()-t0)/1000)} 秒`); }
+  }catch(e){ toast('生图失败：'+(e.message||'').slice(0,60)); }
+  btn.disabled=false; btn.textContent='🖼 试画一张（会花一次生图钱）';
+};
+
 /* ===== 电脑文件桥：TA 经小桥读你电脑白名单文件夹（只读，/fs 接口，不吃任何订阅额度） ===== */
 const fsBridge=()=>settings.fsBridge||{};
 const fsBridgeOn=()=>{ const f=fsBridge(); return !!(f.on&&(f.url||'').trim()&&(f.token||'').trim()); };
@@ -8494,6 +8589,11 @@ $('privGenPost').onclick=async()=>{
   privPosts.push(np);
   persistAll(); renderPrivFeed(); toast(`${ch.name}更新了一条💗`);
   genFanComments(np,4);   // 一群粉丝来评论起哄
+  /* 开了生图 → 后台把[图]描述画成真图，画好自动刷新（锁定的照样打码模糊） */
+  if(imgGenOn()&&np.photo) (async()=>{
+    const img=await genImageQuiet(np.photo.slice(0,300));
+    if(img){ np.img=img; persistAll(); if($('privPage').classList.contains('show')) renderPrivFeed(); }
+  })();
 };
 async function ofDM(p,text){
   p.comments=p.comments||[]; p.comments.push({by:'me',text,ts:Date.now()}); persistAll(); renderPrivFeed();
@@ -9277,7 +9377,7 @@ navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',e=>{
 if(settings.sysPush) startPushLoop();
 document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined,fsBridge:settings.fsBridge?{...settings.fsBridge,token:''}:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined,fsBridge:settings.fsBridge?{...settings.fsBridge,token:''}:undefined,imgGen:settings.imgGen?{...settings.imgGen,key:''}:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   const d=new Date();
@@ -9443,7 +9543,7 @@ if(backupRemindOn()){
 /* 从 IndexedDB 加载大数据；首次运行把 localStorage 旧数据迁移过去并腾出空间 */
 (async()=>{
   try{
-    const [ic,ich,ist]=await Promise.all([idbGet('chats'),idbGet('characters'),idbGet('stickers')]);
+    const [ic,ich,ist,iph,ipp]=await Promise.all([idbGet('chats'),idbGet('characters'),idbGet('stickers'),idbGet('photos'),idbGet('privPosts')]);
     let changed=false;
     if(ic){ chats=ic; changed=true; }
     else if(chats.length) await idbSet('chats',chats);
@@ -9451,8 +9551,13 @@ if(backupRemindOn()){
     else await idbSet('characters',characters);
     if(ist&&ist.length) stickers=ist;
     else if(stickers.length) persistStickers();
+    if(iph&&iph.length) photos=iph;
+    else if(photos.length) persistPhotos();
+    if(ipp&&ipp.length) privPosts=ipp;
+    else if(privPosts.length) persistPrivPosts();
     try{ localStorage.removeItem('xw_stickers'); }catch(e){}
     try{ localStorage.removeItem('xw_chats'); localStorage.removeItem('xw_characters'); }catch(e){}
+    try{ localStorage.removeItem('xw_photos'); localStorage.removeItem('xw_priv_posts'); }catch(e){}
     if(changed){ renderChat(); renderHistory(); }
     renderSplash(); // 大数据回来了，用真实聊天天数重画开屏的树
     maybeAnniversary(); // 打开 app：今天是不是特别的日子
