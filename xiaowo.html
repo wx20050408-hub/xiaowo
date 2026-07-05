@@ -5445,28 +5445,12 @@ const icsEsc=s=>String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g
    苹果/电脑走 .ics 下载（它们认） */
 function icsChip(el){
   const d=el.dataset.d, t=el.dataset.t, yearly=!!el.dataset.y;
-  if(/android/i.test(navigator.userAgent)){
-    const t0=new Date(d+'T09:00:00').getTime();
-    toast('正在跳到系统日历… 📅');
-    try{
-      /* 教科书式日历插入 intent：data=content://com.android.calendar/events（各厂商日历都为兼容保留的老地址）
-         不设 browser_fallback_url——失败就让下面的兜底接手，别伪装成刷新 */
-      location.href='intent://com.android.calendar/events#Intent;scheme=content;action=android.intent.action.INSERT;type=vnd.android.cursor.item/event;'
-        +'S.title='+encodeURIComponent(t)+';l.beginTime='+t0+';l.endTime='+(t0+3600e3)
-        +(yearly?';S.rrule=FREQ%3DYEARLY':'')
-        +';end';
-    }catch(_){}
-    /* 真跳走了页面会隐身；1.2秒后还看得见 = 被拦了 → 降级发 .ics 文件 */
-    setTimeout(()=>{
-      if(document.visibilityState==='visible'){
-        icsDownload([{date:d,title:t,yearly}],'日程.ics');
-        toast('这台手机拦了直达通道，改发了日程文件：点通知栏那个 .ics 试试');
-      }
-    },1200);
-    return;
-  }
+  /* intent 直达已验证被 Chrome 封死（content:// 一律拦），统一走 .ics。
+     安卓的关键是「打开方式」要选日历（WPS 之类会抢这个文件类型） */
   icsDownload([{date:d,title:t,yearly}],'日程.ics');
-  toast('📲 已下载，点通知栏那个文件导入日历');
+  toast(/android/i.test(navigator.userAgent)
+    ?'📲 已下载！点通知栏的文件 → 打开方式选「日历」（千万别选WPS）'
+    :'📲 已下载，点开那个文件就进日历');
 }
 function icsDownload(events,fname){
   if(!events.length) return;
