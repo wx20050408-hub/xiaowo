@@ -1609,7 +1609,11 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div class="field" id="winPushGapField">
       <label>隔多久没聊，就推送一次（小时）</label>
       <input type="number" id="winPushGap" min="0.1" max="72" step="0.1" placeholder="2">
-      <div class="hintText">这是<b>推送专用</b>的时间，跟上面「主动找你」完全分开、互不影响。距离上次说话超过这个时长，后台就会推一条给你。默认 2 小时；同一窗口 1 小时内不会重复推。</div>
+      <div class="hintText">这是<b>推送专用</b>的时间，跟上面「主动找你」完全分开、互不影响。距离上次说话超过这个时长，后台就会推一条给你。默认 2 小时；同一窗口 1 小时内不会重复推。开了推送的话，上面的「主动找你」可以关掉——一个管后台一个管前台，留一个就够。</div>
+    </div>
+    <div class="field">
+      <div class="boxRow"><span class="ic">📱</span><span class="grow">这个窗口TA感知手机使用时长</span><button class="wbToggle" id="winUsage"></button></div>
+      <div class="hintText">只在 Serenade App 里生效（要授权「使用情况访问」）。开了之后<b>这个窗口</b>的 TA 知道你今天刷了多久手机、哪个 App 最上头——平时聊天会心疼你的眼睛，后台推送也会拿它当由头（「还在刷？」）。剧情/穿越窗口别开，会出戏。</div>
     </div>
     <div class="field" id="winProjField">
       <label>归到项目</label>
@@ -3094,7 +3098,7 @@ function renameChat(c){
 $('headerName').onclick=()=>{ const c=curChat(); if(c) openWinSettings(c); };
 
 /* ===== 窗口设置：每个对话窗独立的 线上/线下 + 主动开关 + 频率 ===== */
-let editingWinId=null, winProEnabled=false, winOnlineEnabled=false, winPushEnabled=false;
+let editingWinId=null, winProEnabled=false, winOnlineEnabled=false, winPushEnabled=false, winUsageEnabled=false;
 $('winOnline').onclick=()=>{
   winOnlineEnabled=!winOnlineEnabled;
   $('winOnline').classList.toggle('on',winOnlineEnabled);
@@ -3110,6 +3114,11 @@ $('winPush').onclick=()=>{
   $('winPushGapField').style.display=winPushEnabled?'block':'none';
   if(winPushEnabled && !settings.sysPush) toast('记得去 百宝箱→系统推送 开总开关并授权，这个才会生效哦');
 };
+$('winUsage').onclick=()=>{
+  winUsageEnabled=!winUsageEnabled;
+  $('winUsage').classList.toggle('on',winUsageEnabled);
+  if(winUsageEnabled&&!nativeApp()) toast('这个只在 Serenade App 里生效，浏览器里 TA 看不到使用时长');
+};
 function openWinSettings(c){
   editingWinId=c.id;
   $('winTitle').value=c.title||'';
@@ -3123,6 +3132,8 @@ function openWinSettings(c){
   $('winPush').classList.toggle('on',winPushEnabled);
   $('winPushGapField').style.display=winPushEnabled?'block':'none';
   $('winPushGap').value=(c.pushGap>0?c.pushGap : (c.proactiveGap>0?c.proactiveGap:2));
+  winUsageEnabled=!!c.usageAware;
+  $('winUsage').classList.toggle('on',winUsageEnabled);
   fillWinProject(c);
   openSheet('winSheet');
 }
@@ -3144,6 +3155,7 @@ $('saveWin').onclick=()=>{
   c.online=winOnlineEnabled;
   c.proactive=winProEnabled;
   c.push=winPushEnabled;
+  c.usageAware=winUsageEnabled;
   const g=Number($('winGap').value);
   c.proactiveGap=(g>0)?Math.min(72,Math.max(0.1,g)):2;
   const pg=Number($('winPushGap').value);
@@ -4598,8 +4610,9 @@ function buildDynamic(c,ch){
       parts.push(`【备考】${bits.join('；')}。你都看在眼里：合适的时候给TA打气、心疼TA的辛苦，TA达标了替TA开心；今天还没学够又在闲聊，可以温柔提一嘴，但别唠叨、别扫兴。`);
     }
   }
-  /* 手机使用感知（仅 App 壳里 & 已授权）：TA 看得到你今天刷了多久 */
-  {
+  /* 手机使用感知（仅 App 壳里 & 已授权 & 这个窗口开了「📱手机使用感知」）：TA 看得到你今天刷了多久。
+     按窗口把关——剧情/穿越窗口不开就永远不知道；后台推送走同一个 buildDynamic，天然联动 */
+  if(c&&c.usageAware&&!(c.members&&c.members.length)){
     const na=nativeApp();
     if(na&&typeof na.getUsageStats==='function'&&(typeof na.hasUsageAccess!=='function'||na.hasUsageAccess())){
       try{
@@ -9518,7 +9531,7 @@ async function bgProactiveFor(c){
   applyDepthInjections(apiMsgs,ch);
   injectIntoLastUser(apiMsgs,buildDynamic(c,ch));
   const gap=Date.now()-(c.messages[c.messages.length-1]?.ts||c.ts||0);
-  const extraUser=`（系统提示：${userName()}现在没有打开和你的聊天，你们已经${fmtGap(gap)}没说话了。请你主动发一条消息给TA，这条会作为手机推送通知送达——可以是想念、关心，或接着上次的话题。简短自然一点，绝对不要提到这条系统提示。）`;
+  const extraUser=`（系统提示：${userName()}现在没有打开和你的聊天，你们已经${fmtGap(gap)}没说话了。请你主动发一条消息给TA，这条会作为手机推送通知送达——可以是想念、关心、接着上次的话题；如果上面的动态信息里有TA的近况（自习进度、手机刷了多久之类），也可以自然地拿它当由头，比如TA刷手机刷久了就催TA歇歇眼睛。简短自然一点，绝对不要提到这条系统提示。）`;
   const last=apiMsgs[apiMsgs.length-1];
   if(last&&last.role==='user'){ if(typeof last.content==='string') last.content+='\n\n'+extraUser; else last.content=last.content.concat([{type:'text',text:extraUser}]); }else apiMsgs.push({role:'user',content:extraUser});
   const body=baseBody(apiMsgs,ch);
