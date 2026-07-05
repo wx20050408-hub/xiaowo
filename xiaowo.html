@@ -694,6 +694,9 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   display:flex;justify-content:space-between;align-items:center;
   font-size:10px;color:var(--ink-soft);margin-top:7px;padding:0 2px;
 }
+/* 生图进行中的呼吸提示 */
+.genPulse{animation:genPulse 1.6s ease-in-out infinite}
+@keyframes genPulse{0%,100%{opacity:.55}50%{opacity:1}}
 /* 相册 */
 #albumGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;padding:4px 2px}
 #albumGrid .polaroid{width:auto;transform:rotate(0deg);position:relative}
@@ -2589,14 +2592,22 @@ const PHOTO_GRADS=['linear-gradient(135deg,#FFB88C,#DE6262)','linear-gradient(13
 function photoHtml(text,msg){
   let h=0; for(const ch of text) h=(h*31+ch.codePointAt(0))%997;
   const d=msg&&msg.ts?new Date(msg.ts):new Date();
-  /* 开了生图且这张已经画出来 → 真照片；否则还是渐变底文字宝丽来 */
+  /* 生图三态：画好了→真图；画图中→呼吸提示；失败→点击重试；没开生图→老样子文字宝丽来 */
   const entry=photos.find(p=>p.text===text.slice(0,100));
-  const ph=entry&&entry.img?entry:null;
-  const inner=ph
-    ?`<div class="pImg" style="padding:0;overflow:hidden;min-height:0"><img src="${safeUrl(ph.img)}" style="width:100%;display:block;border-radius:4px" alt=""></div>`
-    :`<div class="pImg" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]}">${fmt(text)}</div>`;
   const cap=entry&&entry.kind==='draw'?'🎨 画给你的':'📷 随手拍';
-  return `<div class="polaroid">${inner}<div class="pCap"><span>${cap}</span><span>${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}</span></div></div>`;
+  let inner, capR=`<span>${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}</span>`;
+  if(entry&&entry.img){
+    inner=`<div class="pImg" style="padding:0;overflow:hidden;min-height:0"><img src="${safeUrl(entry.img)}" style="width:100%;display:block;border-radius:4px" alt=""></div>`;
+  }else if(entry&&entry.gen){
+    inner=`<div class="pImg genPulse" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]}">${fmt(text)}</div>`;
+    capR='<span class="genPulse">🎨 正在画，画好自动换…</span>';
+  }else if(entry&&entry.genFail){
+    inner=`<div class="pImg" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]};cursor:pointer" onclick="retryGen('${esc(entry.id)}')">${fmt(text)}</div>`;
+    capR=`<span style="color:var(--danger);cursor:pointer" onclick="retryGen('${esc(entry.id)}')">⚠️ 没画成 · 点我重试</span>`;
+  }else{
+    inner=`<div class="pImg" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]}">${fmt(text)}</div>`;
+  }
+  return `<div class="polaroid">${inner}<div class="pCap"><span>${cap}</span>${capR}</div></div>`;
 }
 /* 礼物卡片：TA 用 <礼物:名字:寄语> 送的，同时存进礼物橱窗 */
 function giftHtml(name,note,msg){
@@ -5078,19 +5089,21 @@ async function runReply(c,api,body,ch){
     for(const pm of out.acc.matchAll(/<拍照[:：]\s*([\s\S]+?)\s*>/g)){
       const ph={id:'p'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,text:pm[1].slice(0,100),ts:Date.now()};
       photos.push(ph);
-      if(imgGenOn()) (async()=>{
+      if(imgGenOn()){ ph.gen=Date.now(); (async()=>{
         const img=await genImageQuiet(await expandImgPrompt(pm[1].slice(0,300),ch,'photo'));
-        if(img){ ph.img=img; persistPhotos(); if(c.id===currentId) renderChat(); }
-      })();
+        delete ph.gen; if(img) ph.img=img; else ph.genFail=1;
+        persistPhotos(); if(c.id===currentId) renderChat();
+      })(); }
     }
     /* TA现场画画（<画图:描述>）→ 隐形翻译官扩成详细提示词再生图，画好替换卡片，也进相册 */
     for(const pm of out.acc.matchAll(/<画图[:：]\s*([\s\S]+?)\s*>/g)){
       const ph={id:'p'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,text:pm[1].slice(0,100),kind:'draw',ts:Date.now()};
       photos.push(ph);
-      if(imgGenOn()) (async()=>{
+      if(imgGenOn()){ ph.gen=Date.now(); (async()=>{
         const img=await genImageQuiet(await expandImgPrompt(pm[1].slice(0,400),ch,'draw'));
-        if(img){ ph.img=img; persistPhotos(); if(c.id===currentId) renderChat(); }
-      })();
+        delete ph.gen; if(img) ph.img=img; else ph.genFail=1;
+        persistPhotos(); if(c.id===currentId) renderChat();
+      })(); }
       else toast('还没配生图——去 百宝箱→🎨生图 填好，TA 才能真的画出来');
     }
     /* TA送的礼物 → 存进礼物橱窗 */
@@ -5375,6 +5388,7 @@ async function genImage(prompt){
     method:'POST',
     headers:{'content-type':'application/json',...((g.key||'').trim()?{authorization:'Bearer '+g.key.trim()}:{})},
     body:JSON.stringify(body),
+    ...(typeof AbortSignal!=='undefined'&&AbortSignal.timeout?{signal:AbortSignal.timeout(120000)}:{}),   // 最多等2分钟，别无限白等
   });
   if(!r.ok){ let msg=''; try{ msg=(await r.json()).error?.message||''; }catch(_){} throw new Error('HTTP '+r.status+(msg?'：'+String(msg).slice(0,80):'')); }
   const d=((await r.json()).data||[])[0];
@@ -5389,6 +5403,18 @@ async function genImage(prompt){
 async function genImageQuiet(prompt){
   try{ return await genImage(prompt); }
   catch(e){ toast('生图失败：'+(e.message||'').slice(0,60)); return null; }
+}
+/* 宝丽来上「点我重试」：失败的那张原地重画 */
+function retryGen(id){
+  const ph=photos.find(p=>p.id===id); if(!ph) return;
+  if(!imgGenOn()){ toast('先去 百宝箱→🎨生图 配好'); return; }
+  delete ph.genFail; ph.gen=Date.now(); persistPhotos(); renderChat();
+  (async()=>{
+    const ch=characters.find(x=>x.id===ph.charId);
+    const img=await genImageQuiet(await expandImgPrompt(ph.text,ch,ph.kind==='draw'?'draw':'photo'));
+    delete ph.gen; if(img) ph.img=img; else ph.genFail=1;
+    persistPhotos(); renderChat();
+  })();
 }
 /* 隐形翻译官：TA 的简短中文描述 → 详细英文 image prompt（带上 TA 的人设外观）。
    失败就退回原描述，绝不挡生图的路 */
