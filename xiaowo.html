@@ -9469,49 +9469,40 @@ async function pushTick(){
   if(streaming||pushBusy) return;
   pushBusy=true;
   try{
-    /* —— 特殊时刻优先（真实感核心：早安/晚安/纪念日是 TA 主动发到你通知栏的，不是等你开门才说）—— */
+    /* —— 男鬼模式：所有开了推送的窗口各推各的，谁到点谁发，通知栏排队闹鬼 ——
+       每个窗口每 tick 只发一条（纪念日＞早晚安＞普通想念），窗口自己 1 小时内不重复 */
     const h=new Date().getHours(), tds=todayStr();
     const slot=h>=5&&h<11?'morning':(h>=22||h<4)?'night':null;
     for(const c of chats){
-      if(c.members&&c.members.length) continue;
-      if(!c.push) continue;
+      if(c.members&&c.members.length) continue;       // 群聊不后台推
+      if(!c.push) continue;                            // 只推开了「系统推送」的窗口
       const ch=curChar(c); if(!ch||!c.messages.length) continue;
-      /* 纪念日：今天是且还没道贺（a.last 标记全局共用，只贺一次） */
+      if(c.lastProactive&&Date.now()-c.lastProactive<3600e3) continue;  // 这个窗口 1 小时内不重复
+      const lastTs=c.messages[c.messages.length-1].ts||c.ts||0;
+      /* ① 纪念日：今天是且还没道贺（a.last 标记全局共用，同一纪念日只贺一次） */
       const a=annivs.find(x=>x.charId===ch.id&&x.date&&x.date.slice(5)===tds.slice(5)&&x.last!==tds);
       if(a){
         a.last=tds; c.lastProactive=Date.now(); persistAll();
         let desc=''; const y0=Number(a.date.slice(0,4)), t=new Date();
         if(y0&&y0<t.getFullYear()) desc=`，到今天是 ${t.getFullYear()-y0} 周年（第 ${Math.round((t-new Date(a.date+'T00:00:00'))/86400000)} 天）`;
         try{ const r=await bgProactiveFor(c,`（系统提示：今天是你们的「${a.name}」${desc}！请主动发一条消息给${userName()}——庆祝、表白、或回忆这个日子，走心一点。这条会作为手机推送通知送达。简短自然，绝对不要提到这条系统提示。）`); if(r) await showCharNotification(r.ch,r.txt,c); }catch(_){}
-        return;
+        continue;
       }
-      /* 早安/晚安：时段内每天一次，且最近 4 小时没聊过 */
-      if(slot&&c.lastGreet!==tds+slot){
-        const lastTs=c.messages[c.messages.length-1].ts||0;
-        if(Date.now()-lastTs>=4*3600e3&&!(c.lastProactive&&Date.now()-c.lastProactive<3600e3)){
-          c.lastGreet=tds+slot; c.lastProactive=Date.now(); persistAll();
-          try{
-            const r=await bgProactiveFor(c, slot==='morning'
-              ?`（系统提示：现在是早上。请主动给${userName()}发一条早安消息——关心TA睡得好不好、今天有什么安排。这条会作为手机推送通知送达。简短自然，绝对不要提到这条系统提示。）`
-              :`（系统提示：现在是深夜，${userName()}可能还没睡。请主动发一条消息道晚安、念叨TA早点休息。这条会作为手机推送通知送达。简短自然，绝对不要提到这条系统提示。）`);
-            if(r) await showCharNotification(r.ch,r.txt,c);
-          }catch(_){}
-          return;
-        }
+      /* ② 早安/晚安：时段内每窗口每天一次，刚聊过（1小时内）就不憨憨问候 */
+      if(slot&&c.lastGreet!==tds+slot&&Date.now()-lastTs>=3600e3){
+        c.lastGreet=tds+slot; c.lastProactive=Date.now(); persistAll();
+        try{
+          const r=await bgProactiveFor(c, slot==='morning'
+            ?`（系统提示：现在是早上。请主动给${userName()}发一条早安消息——关心TA睡得好不好、今天有什么安排。这条会作为手机推送通知送达。简短自然，绝对不要提到这条系统提示。）`
+            :`（系统提示：现在是深夜，${userName()}可能还没睡。请主动发一条消息道晚安、念叨TA早点休息。这条会作为手机推送通知送达。简短自然，绝对不要提到这条系统提示。）`);
+          if(r) await showCharNotification(r.ch,r.txt,c);
+        }catch(_){}
+        continue;
       }
-    }
-    /* —— 普通想念：隔了 pushGap 没聊就推一条 —— */
-    for(const c of chats){
-      if(c.members&&c.members.length) continue;       // 群聊不后台推
-      if(!c.push) continue;                            // 只推开了「系统推送」的窗口
-      const ch=curChar(c); if(!ch) continue;
-      if(!c.messages.length) continue;
-      const lastTs=c.messages[c.messages.length-1].ts||c.ts||0;
+      /* ③ 普通想念：隔了 pushGap 没聊就推 */
       if(Date.now()-lastTs<pushGapMs(c)) continue;
-      if(c.lastProactive&&Date.now()-c.lastProactive<3600e3) continue;  // 1 小时内不重复
       c.lastProactive=Date.now(); persistAll();        // 先占位，防止下一 tick 重复
       try{ const r=await bgProactiveFor(c); if(r) await showCharNotification(r.ch,r.txt,c); }catch(_){}
-      break;   // 一次只推一个，避免到点全员轰炸 + 省 token
     }
   }finally{ pushBusy=false; }
 }
