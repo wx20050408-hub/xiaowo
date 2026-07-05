@@ -5080,10 +5080,16 @@ async function runReply(c,api,body,ch){
       shopping.push({id:'sh'+Date.now()+'_'+agentActs,owner:'user',name:am[1].slice(0,40),price:pm?pm[0].slice(0,10):'',note:'',ts:Date.now(),by:'ta'}); agentActs++;
     }
     if(agentActs) toast(`${ch?.name||'TA'} 帮你记了 ${agentActs} 件事 ✍️`);
-    /* TA 记的日程推给手机日历：安卓日历不认 .ics，改为点消息里的芯片走 intent 直达（用户手势才放行）；
-       苹果/电脑仍自动下载 .ics */
+    /* TA 记的日程推给手机日历：App 壳里原生静默写入（零点击）；
+       浏览器安卓提示点芯片下载 .ics；苹果/电脑自动下载 .ics */
     if(icsEvents.length){
-      if(/android/i.test(navigator.userAgent)) setTimeout(()=>toast('📅 点消息里的「导入手机📲」放进手机日历'),1200);
+      const na=nativeApp();
+      if(na){
+        let okN=0;
+        icsEvents.forEach(e=>{ try{ if(na.addCalendarEvent(e.title,e.date,!!e.yearly)) okN++; }catch(_){} });
+        if(okN) setTimeout(()=>toast(`📅 ${okN} 条日程已悄悄写进手机日历 ✓`),1200);
+      }
+      else if(/android/i.test(navigator.userAgent)) setTimeout(()=>toast('📅 点消息里的「导入手机📲」放进手机日历'),1200);
       else try{ icsDownload(icsEvents,`${ch?.name||'TA'}帮你记的日程.ics`); setTimeout(()=>toast('📲 日程文件已下载，点开它就进日历'),1200); }catch(_){}
     }
     const stats=(out.usage&&(out.usage.in!=null||out.usage.out!=null))
@@ -5440,12 +5446,22 @@ $('fsTest').onclick=async()=>{
    Web 写不了系统日历（OS 硬墙），.ics 是极限：零按钮、自动下载，用户点文件确认导入。
    VALARM=系统日历的原生提醒，App 被杀也照响（比伪推送可靠） */
 const icsEsc=s=>String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+/* 住在小窝 App 壳里吗？壳会往 window 挂 XiaowoNative（原生日历/通知/存文件三件套） */
+const nativeApp=()=>{ try{ return (window.XiaowoNative&&typeof XiaowoNative.addCalendarEvent==='function')?window.XiaowoNative:null; }catch(_){ return null; } };
+const b64utf8=s=>btoa(unescape(encodeURIComponent(s)));
 /* 聊天里的 📅 芯片点一下导入手机日历。
    安卓走 intent 直达系统日历的「新建日程」（国产日历大多不认 .ics 文件，这条路全都认）；
    苹果/电脑走 .ics 下载（它们认） */
 function icsChip(el){
   const d=el.dataset.d, t=el.dataset.t, yearly=!!el.dataset.y;
-  /* intent 直达已验证被 Chrome 封死（content:// 一律拦），统一走 .ics。
+  /* App 壳里：原生接口零点击直写系统日历 */
+  const na=nativeApp();
+  if(na){
+    try{ toast(na.addCalendarEvent(t,d,yearly)?'📅 已直接写进手机日历 ✓':'写入失败——去系统设置给小窝日历权限'); }
+    catch(_){ toast('写入失败，稍后再试'); }
+    return;
+  }
+  /* 浏览器里：intent 直达已验证被 Chrome 封死（content:// 一律拦），统一走 .ics。
      文件名按内容起（去掉文件系统不认的字符）——同名才会触发"是否重新下载"的追问 */
   const fname=(t.replace(/[\\/:*?"<>|]/g,'').slice(0,20)||'日程')+'-'+(+d.slice(5,7))+'月'+(+d.slice(8))+'日.ics';
   icsDownload([{date:d,title:t,yearly}],fname);
@@ -9485,11 +9501,21 @@ navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',e=>{
 if(settings.sysPush) startPushLoop();
 document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 $('exportBtn').onclick=()=>{
-  const blob=new Blob([JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined,fsBridge:settings.fsBridge?{...settings.fsBridge,token:''}:undefined,imgGen:settings.imgGen?{...settings.imgGen,key:''}:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2)],{type:'application/json'});
+  const json=JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined,fsBridge:settings.fsBridge?{...settings.fsBridge,token:''}:undefined,imgGen:settings.imgGen?{...settings.imgGen,key:''}:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2);
+  const d=new Date();
+  const fname=`小窝备份-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+  /* App 壳里 blob 下载不管用，走原生 saveFile 存进「下载」文件夹 */
+  const na=nativeApp();
+  if(na&&typeof na.saveFile==='function'){
+    try{
+      if(na.saveFile(fname,b64utf8(json))){ settings.lastBackup=Date.now(); persistAll(); toast('备份已存进手机「下载」文件夹 ✓（不含 API Key）'); return; }
+    }catch(_){}
+    toast('存文件失败了，稍后再试'); return;
+  }
+  const blob=new Blob([json],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  const d=new Date();
-  a.download=`小窝备份-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+  a.download=fname;
   a.click(); URL.revokeObjectURL(a.href);
   settings.lastBackup=Date.now(); persistAll();   // 记下备份时间，用来提醒
   toast('备份不含 API Key，放心传');

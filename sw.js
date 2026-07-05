@@ -1,5 +1,5 @@
 /* 小窝 Service Worker：同源资源网络优先、断网走缓存；API 请求不拦截 */
-const CACHE = 'xiaowo-v27';
+const CACHE = 'xiaowo-v28';
 const ASSETS = ['./xiaowo.html', './manifest.json', './icon.svg', './app-icon.svg'];
 
 self.addEventListener('install', e => {
