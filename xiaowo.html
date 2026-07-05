@@ -1306,6 +1306,13 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <button class="durChip on" data-min="25">25分钟</button>
       <button class="durChip" data-min="45">45分钟</button>
       <button class="durChip" data-min="60">60分钟</button>
+      <button class="durChip" data-min="custom">自定义</button>
+    </div>
+    <div id="studyModeRow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center">
+      <button class="durChip on" data-smode="down" style="padding:6px 12px;font-size:12px">⏳ 倒计时</button>
+      <button class="durChip" data-smode="up" style="padding:6px 12px;font-size:12px">⏱ 正计时</button>
+      <button class="durChip" id="studyLockChip" style="display:none;padding:6px 12px;font-size:12px">🔒 锁机</button>
+      <input type="number" id="studyCustomMin" min="1" max="960" placeholder="分钟" style="display:none;width:76px;padding:7px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);text-align:center;font-size:13px">
     </div>
     <input id="studyTask" maxlength="30" placeholder="这次要专注做什么？比如：背单词（可不填）" style="width:min(320px,88%);text-align:center;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-size:14px">
     <div id="noiseRow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center">
@@ -4581,8 +4588,8 @@ function buildDynamic(c,ch){
   if(weatherInfo&&settings.city&&weatherInfo.city===settings.city.name)
     parts.push(`【天气】${userName()}那边（${weatherInfo.city}）现在${weatherInfo.desc}，${weatherInfo.temp}°C（体感${weatherInfo.app}°C），今天${weatherInfo.tmin}~${weatherInfo.tmax}°C，降水概率${weatherInfo.rain}%。聊到出门、天气、穿衣时自然用上：要下雨提醒带伞，降温提醒多穿点。别没头没尾硬聊天气。`);
   /* 自习时间跑来聊天 → TA 知道该催你回去学习 */
-  if(studySt&&Date.now()<studySt.start+studySt.min*60e3)
-    parts.push(`【自习中】${userName()}本来正在自习${studySt.task?`「${studySt.task}」`:''}（还剩${Math.ceil((studySt.start+studySt.min*60e3-Date.now())/60000)}分钟），现在却来找你聊天——多半是分心了。回应TA，但温柔地催TA回去专注。`);
+  if(studySt&&(studySt.mode==='up'||Date.now()<studySt.start+studySt.min*60e3))
+    parts.push(`【自习中】${userName()}本来正在自习${studySt.task?`「${studySt.task}」`:''}（${studySt.mode==='up'?`已经专注了${Math.floor((Date.now()-studySt.start)/60000)}分钟`:`还剩${Math.ceil((studySt.start+studySt.min*60e3-Date.now())/60000)}分钟`}），现在却来找你聊天——多半是分心了。回应TA，但温柔地催TA回去专注。`);
   /* 备考：TA 知道你的目标、今天学没学够、离考试还有几天 */
   {
     const ed=examDaysLeft(), g=+settings.studyGoal||0;
@@ -6208,22 +6215,28 @@ $('slSave').onclick=()=>{
 $('sleepBtn').onclick=()=>{ closeSheet('boxSheet'); $('slDate').value=todayStr(); $('slHours').value=''; $('slNote').value=''; renderSleep(); openSheet('sleepSheet'); };
 
 /* ================= 自习室 ================= */
-let studyTick=null, studyMin=25;
-const studyEnd=()=>studySt?studySt.start+studySt.min*60e3:0;
+let studyTick=null, studyMin=25, studyMode='down', studyLockOn=false;
+/* 正计时没有终点（Infinity 让"到点自动结束"永不触发） */
+const studyEnd=()=>!studySt?0:(studySt.mode==='up'?Infinity:studySt.start+studySt.min*60e3);
+const fmtClock=ms=>`${String(Math.floor(ms/60000)).padStart(2,'0')}:${String(Math.floor(ms%60000/1000)).padStart(2,'0')}`;
 function renderStudyTimer(){
   if(studySt){
-    const left=Math.max(0,studyEnd()-Date.now());
-    $('studyTimer').textContent=`${String(Math.floor(left/60000)).padStart(2,'0')}:${String(Math.floor(left%60000/1000)).padStart(2,'0')}`;
-  }else $('studyTimer').textContent=`${String(studyMin).padStart(2,'0')}:00`;
+    if(studySt.mode==='up') $('studyTimer').textContent=fmtClock(Date.now()-studySt.start);
+    else $('studyTimer').textContent=fmtClock(Math.max(0,studyEnd()-Date.now()));
+  }else $('studyTimer').textContent=studyMode==='up'?'00:00':`${String(studyMin).padStart(2,'0')}:00`;
 }
 function updateStudyUI(){
   const ch=charOf(studySt?.charId)||curChar(curChat());
   $('studyAvatar').innerHTML=ch?(ch.avatar?`<img class="avSm" src="${safeUrl(ch.avatar)}">`:`<div class="avSm" style="background:var(--bubble-me);display:flex;align-items:center;justify-content:center">${esc(ch.emoji||'☺')}</div>`):'';
   $('studyDurs').style.opacity=studySt?'.4':'1';
+  $('studyModeRow').style.opacity=studySt?'.4':'1';
+  $('studyDurs').style.display=(studySt?studySt.mode:studyMode)==='up'?'none':'flex';
+  const naL=nativeApp();
+  $('studyLockChip').style.display=(naL&&typeof naL.lockApp==='function')?'':'none';
   $('studyTask').disabled=!!studySt;
   $('studyTask').style.opacity=studySt?'.55':'1';
   if(studySt) $('studyTask').value=studySt.task||'';
-  $('studyStart').textContent=studySt?'提前结束':'开始专注';
+  $('studyStart').textContent=studySt?(studySt.mode==='up'?'⏹ 结束并记录':'提前结束'):'开始专注';
   const today=studyLog.filter(l=>l.date===todayStr()).reduce((a,l)=>a+l.min,0);
   const total=studyLog.reduce((a,l)=>a+l.min,0);
   $('studyStats').textContent=`今天 ${today} 分钟 · 一共攒了 ${total} 分钟`;
@@ -6240,9 +6253,12 @@ function startStudyTick(){
 }
 function endStudy(done){
   if(!studySt) return;
-  const min=done?studySt.min:Math.floor((Date.now()-studySt.start)/60000);
+  const isUp=studySt.mode==='up';
+  const min=(done&&!isUp)?studySt.min:Math.floor((Date.now()-studySt.start)/60000);
   const charId=studySt.charId, task=studySt.task||'';
-  if(done||min>=5){
+  if(studySt.lock){ const na=nativeApp(); try{ na&&na.unlockApp&&na.unlockApp(); }catch(_){} }
+  const keepMin=isUp?1:5;                     // 正计时满1分钟就记，倒计时提前跑路要满5分钟
+  if(done||min>=keepMin){
     studyLog.push({date:todayStr(),min:Math.max(1,min),charId,task});
     const g=+settings.studyGoal||0, td=studyTodayMin();
     if(g>0&&td>=g&&td-Math.max(1,min)<g) setTimeout(()=>toast(`今日目标 ${g} 分钟达成 🎯 连续 ${studyStreak()} 天`),700);
@@ -6251,17 +6267,21 @@ function endStudy(done){
   save('xw_study_state',studySt); save('xw_study_log',studyLog);
   if(studyTick){ clearInterval(studyTick); studyTick=null; }
   updateStudyUI();
-  if(done){
+  if(done&&!isUp){
     $('studyLine').textContent='完成啦！喝口水，看看远处休息下眼睛～';
     toast('专注完成 ✓');
     studyPraise(min,charId,task);
-  }else toast(min>=5?`提前下课，这 ${min} 分钟也给你记上了`:'好叭，下次再来');
+  }else if(isUp&&min>=1){
+    $('studyLine').textContent='辛苦啦！喝口水，看看远处休息下眼睛～';
+    toast(`专注了 ${min} 分钟，记上了 ✓`);
+    studyPraise(min,charId,task);
+  }else toast(min>=keepMin?`提前下课，这 ${min} 分钟也给你记上了`:'好叭，下次再来');
 }
 async function studyCheer(ch){
   if(!ch||!apiKeys.find(k=>k.id===selKeyId)?.key) return;
   const api=getApi(); if(!api) return;
   const txt=await quickGen(api,momentSystem(ch),
-    applyVars(`${userName()}现在要开始${studySt?.min||25}分钟的专注学习${studySt?.task?`，任务是「${studySt.task}」`:'（最近在备考）'}。请说一句简短的鼓励，10~25字，符合你的性格。只输出这句话。`,ch),60);
+    applyVars(`${userName()}现在要开始${studySt?.mode==='up'?'不限时':`${studySt?.min||25}分钟`}的专注学习${studySt?.task?`，任务是「${studySt.task}」`:'（最近在备考）'}。请说一句简短的鼓励，10~25字，符合你的性格。只输出这句话。`,ch),60);
   if(txt&&studySt) $('studyLine').textContent=txt.replace(/\n/g,' ').slice(0,50);
 }
 async function studyPraise(min,charId,task){
@@ -6283,15 +6303,39 @@ $('ppStudy').onclick=()=>{ togglePlus(false); $('studyPage').classList.add('show
 $('studyBack').onclick=()=>$('studyPage').classList.remove('show');
 document.querySelectorAll('#studyDurs .durChip').forEach(b=>b.onclick=()=>{
   if(studySt) return;
-  studyMin=Number(b.dataset.min);
   document.querySelectorAll('#studyDurs .durChip').forEach(x=>x.classList.toggle('on',x===b));
+  if(b.dataset.min==='custom'){
+    $('studyCustomMin').style.display='block';
+    studyMin=Math.min(960,Math.max(1,+$('studyCustomMin').value||30));
+    $('studyCustomMin').focus();
+  }else{
+    $('studyCustomMin').style.display='none';
+    studyMin=Number(b.dataset.min);
+  }
   renderStudyTimer();
 });
+$('studyCustomMin').oninput=()=>{ if(!studySt){ studyMin=Math.min(960,Math.max(1,+$('studyCustomMin').value||30)); renderStudyTimer(); } };
+document.querySelectorAll('#studyModeRow [data-smode]').forEach(b=>b.onclick=()=>{
+  if(studySt) return;
+  studyMode=b.dataset.smode;
+  document.querySelectorAll('#studyModeRow [data-smode]').forEach(x=>x.classList.toggle('on',x===b));
+  $('studyDurs').style.display=studyMode==='up'?'none':'flex';   // 正计时不用选时长
+  renderStudyTimer();
+});
+$('studyLockChip').onclick=()=>{
+  if(studySt) return;
+  studyLockOn=!studyLockOn;
+  $('studyLockChip').classList.toggle('on',studyLockOn);
+  if(studyLockOn) toast('开始专注后手机会被钉住 🔒 强制退出＝同时长按「返回+最近任务」');
+};
 $('studyStart').onclick=()=>{
-  if(studySt){ if(confirm('提前结束这次专注？')) endStudy(false); return; }
+  if(studySt){ if(confirm(studySt.mode==='up'?'结束这次专注并记录？':'提前结束这次专注？')) endStudy(false); return; }
   const ch=curChar(curChat());
   const task=$('studyTask').value.trim().slice(0,30);
-  studySt={start:Date.now(),min:studyMin,charId:ch?.id,task};
+  const na=nativeApp();
+  studySt={start:Date.now(),mode:studyMode,min:studyMode==='up'?0:studyMin,charId:ch?.id,task,
+           lock:studyLockOn&&!!(na&&typeof na.lockApp==='function')};
+  if(studySt.lock){ try{ na.lockApp(); toast('锁上了 🔒 强制退出＝同时长按「返回+最近任务」'); }catch(_){} }
   save('xw_study_task',task);                 // 记住上次的任务，下次打开自动填好
   save('xw_study_state',studySt);
   $('studyLine').textContent='专注开始，我在这儿陪着你';
