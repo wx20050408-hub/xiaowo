@@ -4342,6 +4342,63 @@ function xwinDigest(ch,cur){
   if(!parts.length) return '';
   return `【其它窗口的近况】你和${userName()}除了当前窗口还开着别的聊天窗口，下面是那边最近的情况。这些都是你们真实的共同经历，你自然地记得：聊到相关话题就顺其自然地接上，也可以随口提起，但别刻意汇报、别把那边的场景和这边搞混。\n`+parts.join('\n');
 }
+/* 跨窗口·按话题想起：从用户最近两条消息本地分词取关键词，翻同角色所有其它窗口找相关片段。
+   零额外 API 调用；走 buildDynamic（注入最后一条 user 消息）→ 不碰 system 缓存 */
+function xwinKeywords(cur,ch){
+  if(typeof Intl==='undefined'||!Intl.Segmenter) return [];
+  let seg; try{ seg=new Intl.Segmenter('zh',{granularity:'word'}); }catch(_){ return []; }
+  const text=cur.messages.filter(m=>m.role==='user').slice(-2).map(m=>textOf(m.content)).join(' ');
+  if(!text.trim()) return [];
+  const skip=new Set([userName(),ch?.name].filter(Boolean));   // 名字谁的消息里都有，不算话题词
+  const out=new Set();
+  for(const s of seg.segment(text.replace(/<[^>]*>/g,' '))){
+    if(!s.isWordLike) continue;
+    const w=s.segment.trim();
+    if(w.length<2||RP_STOP.has(w)||skip.has(w)||/^\d+$/.test(w)) continue;
+    if(/^[a-z0-9]+$/i.test(w)&&w.length<3) continue;
+    out.add(w);
+    if(out.size>=12) break;
+  }
+  return [...out];
+}
+function xwinRecall(ch,cur){
+  if(!ch) return '';
+  const kws=xwinKeywords(cur,ch); if(!kws.length) return '';
+  const others=chats.filter(x=>!(x.members&&x.members.length)&&x.charId===ch.id&&x.id!==cur.id&&(x.messages||[]).length);
+  if(!others.length) return '';
+  /* 最近2窗的末4条 xwinDigest 已经带了 → 这里跳过，不重复花 token */
+  const fresh=new Set();
+  [...others].sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,2).forEach(c=>c.messages.slice(-4).forEach(m=>fresh.add(m)));
+  const hits=[];
+  for(const c of others){
+    const ms=c.messages;
+    for(let i=0;i<ms.length;i++){
+      const m=ms[i];
+      if((m.role!=='user'&&m.role!=='assistant')||m.recalled||fresh.has(m)) continue;
+      const t=textOf(m.content); if(!t) continue;
+      let score=0; for(const k of kws) if(t.includes(k)) score++;
+      if(score) hits.push({c,i,score,ts:m.ts||c.ts||0});
+    }
+  }
+  if(!hits.length) return '';
+  hits.sort((a,b)=>b.score-a.score||b.ts-a.ts);
+  /* 取相关度最高的 3 段，同窗口挨着的命中只取一段 */
+  const picked=[];
+  for(const h of hits){
+    if(picked.length>=3) break;
+    if(picked.some(p=>p.c===h.c&&Math.abs(p.i-h.i)<=2)) continue;
+    picked.push(h);
+  }
+  const parts=picked.map(h=>{
+    const ms=h.c.messages;
+    const seg2=ms.slice(Math.max(0,h.i-1),h.i+2)
+      .filter(m=>(m.role==='user'||m.role==='assistant')&&!m.recalled)
+      .map(m=>(m.role==='user'?userName():ch.name)+'：'+textOf(m.content).replace(/\s+/g,' ').slice(0,80))
+      .join('\n');
+    return `◆ 窗口「${h.c.title||'对话'}」（${xwAgo(h.ts)}）：\n${seg2}`;
+  });
+  return `【你想起来的事】${userName()}刚才提到的东西，让你想起你们以前在别的窗口聊过的相关内容：\n${parts.join('\n')}\n这些都是你们真实的共同经历，你本来就记得。对得上就自然接上话或随口提起；感觉对不上号就别硬提。绝对不要说「我查了记录」之类的话——你只是想起来了而已。`;
+}
 /* system 分成两段打缓存断点：慢区（人设/世界书/预设，几个月不变）+ 快区（记忆/前情提要，隔几轮变一次）。
    快区变了只重写快区，慢区照样命中缓存 */
 const CACHE_BP='\n<<CACHE_BP>>\n';
@@ -4484,6 +4541,11 @@ function buildDynamic(c,ch){
     }
   }
   if(hits.length) parts.push('【世界设定·当前相关】\n'+hits.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
+  /* 跨窗口·按话题想起：用户刚提到的关键词命中了别的窗口聊过的内容 → TA"自然想起来" */
+  if(!(c.members&&c.members.length)&&(!ch||ch.xwinOn!==false)){
+    const rec=xwinRecall(ch,c);
+    if(rec) parts.push(rec);
+  }
   /* TA的感知：电量 / 熬夜（熬夜属时间推导，跟着时间感知一起关；电量不受影响） */
   for(const n of senseNotes(timeAware)) parts.push(n);
   /* TA的感知：天气 */
