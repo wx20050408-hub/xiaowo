@@ -4875,11 +4875,13 @@ const fmtTok=n=>n==null?'?':n>=10000?Math.round(n/1000)+'k':n>=1000?(n/1000).toF
 function statsEl(s){
   const d=document.createElement('div');
   d.className='msgStats';
-  /* 缓存命中一眼可见：绿点＝这站在好好缓存、省着钱；灰杠＝这条没吃到缓存
-     （新对话头一两条没命中是正常的；要是同一个角色连聊好多条都一直灰杠，多半是这个中转站不认缓存） */
+  /* 缓存三色灯：🟢读到了=正在省钱；🟡建档=这条把缓存写进去了（花了建档钱，下一条该变绿）；⚪没沾缓存
+     （头一条🟡正常；老是🟡不变🟢=中转路由飘，每条都在重新建档——参考金瓜瓜之疫；一直⚪=这站不缓存） */
   const cache=s.cached>0
     ? `<b style="color:#3aa76d">🟢缓存省${fmtTok(s.cached)}</b>`
-    : `<span style="color:var(--ink-soft);opacity:.65">⚪缓存—</span>`;
+    : (s.wrote>0
+      ? `<b style="color:#c9962a">🟡建档${fmtTok(s.wrote)}</b>`
+      : `<span style="color:var(--ink-soft);opacity:.65">⚪缓存—</span>`);
   d.innerHTML=`↑${fmtTok(s.in)} ↓${fmtTok(s.out)} · ${cache} · ${s.secs}s`;
   return d;
 }
@@ -4955,6 +4957,7 @@ async function callStream(api,body,bub,area,out){
     }else{
       out.usage.in=(u.input_tokens||0)+(u.cache_read_input_tokens||0)+(u.cache_creation_input_tokens||0);
       out.usage.out=u.output_tokens||0; out.usage.cached=u.cache_read_input_tokens||0;
+      out.usage.wrote=u.cache_creation_input_tokens||0;
     }
     if(out.acc){
       if(out.render) out.render(); else bub.innerHTML=fmtAssistant(out.acc);
@@ -4990,6 +4993,7 @@ async function callStream(api,body,bub,area,out){
           const u=ev.message.usage;
           out.usage.in=(u.input_tokens||0)+(u.cache_read_input_tokens||0)+(u.cache_creation_input_tokens||0);
           out.usage.cached=u.cache_read_input_tokens||0;
+          out.usage.wrote=u.cache_creation_input_tokens||0;
         }
         if(!isOA&&ev.type==='message_delta'&&ev.usage) out.usage.out=ev.usage.output_tokens||0;
         if(isOA&&ev.usage){
@@ -5163,7 +5167,7 @@ async function runReply(c,api,body,ch){
       else try{ icsDownload(icsEvents,`${ch?.name||'TA'}帮你记的日程.ics`); setTimeout(()=>toast('📲 日程文件已下载，点开它就进日历'),1200); }catch(_){}
     }
     const stats=(out.usage&&(out.usage.in!=null||out.usage.out!=null))
-      ?{in:out.usage.in,out:out.usage.out,cached:out.usage.cached||0,secs:out.t0?Math.round((Date.now()-out.t0)/100)/10:null}
+      ?{in:out.usage.in,out:out.usage.out,cached:out.usage.cached||0,wrote:out.usage.wrote||0,secs:out.t0?Math.round((Date.now()-out.t0)/100)/10:null}
       :null;
     const _nm={role:'assistant',charId:ch?.id,content:out.acc,ts:Date.now(),online:isOnline,...(stats?{stats}:{})};
     if(regenInto){ _nm.variants=regenInto.variants.concat([out.acc]); _nm.vi=_nm.variants.length-1; regenInto=null; }   // 重生成：旧版本保留，新版本追加到末尾
