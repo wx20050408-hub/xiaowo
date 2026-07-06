@@ -113,7 +113,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 
 /* ============ 消息区 ============ */
 #msgArea{
-  flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior-x:none;-webkit-overflow-scrolling:touch;
   padding:18px 14px 10px;
   display:flex;flex-direction:column;gap:14px;
 }
@@ -1004,6 +1004,55 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 .tsChip.on,.bgChip.on{border-color:var(--accent);color:var(--accent-deep);font-weight:600}
 .bgChip{width:46px;height:34px;padding:0;border-radius:10px}
 .bgChip.on{box-shadow:0 0 0 2px var(--accent)}
+.wallChip{width:52px;height:38px;border-radius:11px;border:2px solid transparent;cursor:pointer;position:relative;background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05);flex:none;padding:0;overflow:hidden}
+.wallChip.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.wallChip .lbl{position:absolute;left:0;right:0;bottom:0;font-size:9px;text-align:center;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55);background:linear-gradient(transparent,rgba(0,0,0,.28));border-radius:0 0 8px 8px;line-height:1.5}
+.wallChip.wcUpload{display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--bg-soft);color:var(--ink-soft)}
+
+/* ============ 翻页桌面 & 游戏厅 ============ */
+#pager{height:100%;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#pager::-webkit-scrollbar{display:none}
+.pgPage{flex:0 0 100%;width:100%;height:100%;min-width:0;scroll-snap-align:start;overflow:hidden;position:relative}
+#deskPage{display:flex;flex-direction:column;max-width:760px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 54px) 28px calc(env(safe-area-inset-bottom) + 40px);background:radial-gradient(120% 75% at 50% 0%,var(--bg-soft),var(--bg) 72%)}
+.deskClock{text-align:center;color:var(--ink)}
+.deskClock .t{font-size:56px;font-weight:300;letter-spacing:2px;line-height:1}
+.deskClock .d{font-size:13px;color:var(--ink-soft);margin-top:10px}
+.deskHi{text-align:center;color:var(--ink-soft);font-size:13px;margin-top:14px}
+.deskGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px 8px;margin-top:auto}
+.deskApp{display:flex;flex-direction:column;align-items:center;gap:7px;background:none;padding:0;border:none}
+.deskApp .ico{width:60px;height:60px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:30px;background:var(--card);box-shadow:var(--shadow);border:1px solid var(--line);transition:transform .12s}
+.deskApp:active .ico{transform:scale(.9)}
+.deskApp .nm{font-size:11px;color:var(--ink);max-width:66px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.deskApp.arcade .ico{background:linear-gradient(150deg,#EA5148,#C4362B);color:#fff;border:2px solid #A82C22}
+.deskApp.chat .ico{background:linear-gradient(135deg,#86A8E7,#91EAE4);color:#fff;border:none}
+#deskHandle{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:25;width:5px;height:48px;border-radius:0 8px 8px 0;background:var(--accent);opacity:.4;transition:opacity .25s;cursor:pointer}
+/* 游戏厅 = 自成一体的「红白掌机」皮，不跟随app主题（全原创，非任何品牌） */
+#arcadePage{--con-red:#EA5148;--con-red-d:#C4362B;--con-cream:#FBF6EE;--con-card:#FFFFFF;--con-ink:#2C2A2E;--con-soft:#948E97;--con-line:#EBE0D0;--con-blue:#3B79D0;
+  position:fixed;inset:0;z-index:56;display:none;flex-direction:column;max-width:760px;margin:0 auto;
+  background:var(--con-cream);color:var(--con-ink);
+  background-image:radial-gradient(var(--con-line) 1.2px,transparent 1.2px);background-size:16px 16px}
+#arcadeHead{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;background:var(--con-red);border-bottom:4px solid var(--con-red-d);color:#fff}
+#arcadeHead .ttl{flex:1;text-align:center;font-weight:700;font-size:16px;color:#fff;letter-spacing:1px}
+#arcadeHead #arcadeClose{color:#fff;font-size:26px}
+#arcadeHead .abDots{display:flex;gap:6px;align-items:center;width:38px;justify-content:flex-end}
+#arcadeHead .abDots i{width:11px;height:11px;border-radius:50%;display:block;box-shadow:0 1px 0 rgba(0,0,0,.15)}
+#arcadeHead .abDots .a{background:#fff}
+#arcadeHead .abDots .b{background:var(--con-blue)}
+#arcadeBody{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 16px calc(env(safe-area-inset-bottom) + 24px)}
+.gmCard{display:flex;align-items:center;gap:13px;background:var(--con-card);border:2px solid var(--con-ink);border-radius:16px;padding:14px;margin-bottom:16px;box-shadow:5px 5px 0 rgba(44,42,46,.13)}
+.gmCard .gico{width:52px;height:52px;border-radius:13px;flex:none;display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--con-cream);border:2px solid var(--con-ink)}
+.gmCard .ginfo{flex:1;min-width:0}
+.gmCard .gname{font-weight:700;font-size:15px;color:var(--con-ink)}
+.gmCard .gdesc{font-size:12px;color:var(--con-soft);margin-top:3px;line-height:1.4}
+.gmCard .gtag{font-size:11px;font-weight:700;color:#fff;background:var(--con-red);border-radius:8px;padding:4px 9px;white-space:nowrap;flex:none}
+.gmCard.soon .gtag{background:var(--con-soft)}
+.arcHint{text-align:center;color:var(--con-soft);font-size:12px;margin-top:24px}
+#arcadeBody .arcSec{font-weight:700;font-size:13px;color:var(--con-red-d);margin:4px 2px 12px;letter-spacing:1px}
+#arcadeBody .arcSec:not(:first-child){margin-top:22px;padding-top:18px;border-top:2px dashed var(--con-line)}
+#arcadeBody .gmCard .gtag{cursor:pointer}
+.arcBtn{font-size:12px;font-weight:700;color:var(--con-ink);background:#fff;border:2px solid var(--con-ink);border-radius:11px;padding:8px 14px;box-shadow:3px 3px 0 rgba(44,42,46,.12)}
+.arcBtn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 rgba(44,42,46,.12)}
+.arcBtn.off{color:var(--con-soft);border-color:var(--con-soft);box-shadow:none}
 </style>
 </head>
 <body>
@@ -1015,6 +1064,16 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div id="splashPick"></div>
   <div class="splashHint"><span class="arr">↑</span>点一下，回到Serenade</div>
 </div>
+<div id="pager">
+<section class="pgPage" id="deskPage">
+  <div class="deskClock"><div class="t">--:--</div><div class="d"></div></div>
+  <div class="deskHi" id="deskHi"></div>
+  <div class="deskGrid">
+    <button class="deskApp arcade" id="appArcade"><span class="ico">🎮</span><span class="nm">游戏厅</span></button>
+    <button class="deskApp chat" id="appChat"><span class="ico">💬</span><span class="nm">Serenade</span></button>
+  </div>
+</section>
+<section class="pgPage" id="chatPage">
 <div id="app">
   <!-- 顶栏 -->
   <header id="chatHeader">
@@ -1065,6 +1124,27 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <button class="ppItem" id="ppStudy"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10.5 5 8 4.5 4 5v13c4-.5 6.5 0 8 1.5 1.5-1.5 4-2 8-1.5V5c-4-.5-6.5 0-8 1.5z"/><path d="M12 6.5v13"/></svg></span>自习</button>
     <button class="ppItem" id="ppHome"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5S3.5 15.5 3.5 9.5C3.5 6.7 5.6 5 7.8 5c1.7 0 3.2.9 4.2 2.3C13 5.9 14.5 5 16.2 5c2.2 0 4.3 1.7 4.3 4.5 0 6-8.5 11-8.5 11z"/></svg></span>恋爱主页</button>
     <button class="ppItem" id="ppCall"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.8 3.5c.6 0 1.1.4 1.3 1l.9 2.7c.2.5 0 1.1-.4 1.5L7.3 10c1 2 2.7 3.7 4.7 4.7l1.3-1.3c.4-.4 1-.6 1.5-.4l2.7.9c.6.2 1 .7 1 1.3 0 3-2.4 4-4 3.6C9.4 17.7 6.3 14.6 5 9.5 4.5 7.9 3.8 3.5 6.8 3.5z"/></svg></span>通话</button>
+  </div>
+</div>
+</section><!-- /chatPage -->
+</div><!-- /pager -->
+
+<div id="deskHandle" title="桌面"></div>
+
+<!-- 游戏厅 -->
+<div id="arcadePage">
+  <header id="arcadeHead">
+    <button class="iconBtn" id="arcadeClose" aria-label="返回">‹</button>
+    <div class="ttl">🎮 游戏厅</div>
+    <span class="abDots"><i class="a"></i><i class="b"></i></span>
+  </header>
+  <div id="arcadeBody">
+    <div class="gmCard soon">
+      <span class="gico">🎣</span>
+      <div class="ginfo"><div class="gname">文字钓鱼</div><div class="gdesc">抛竿 · 卖鱼 · 集图鉴，黎湛陪你一竿一竿钓上来</div></div>
+      <span class="gtag">装修中</span>
+    </div>
+    <div class="arcHint">更多游戏正在搬进来…… 🚧</div>
   </div>
 </div>
 
@@ -1747,6 +1827,10 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <span id="customThemeDots" style="display:contents"></span>
       <button class="themeDot themeAdd" id="themeImpBtn" title="粘贴色卡导入主题">＋</button>
     </div>
+    <div class="boxRow"><span class="ic">🖼</span><span class="grow">桌面壁纸</span></div>
+    <div id="deskWallChips" style="display:flex;flex-wrap:wrap;gap:8px;margin:2px 2px 8px"></div>
+    <input type="file" id="deskWallFile" accept="image/*" style="display:none">
+    <div class="hintText" style="margin:0 2px 10px">右滑那个桌面的背景。选「跟随主题」会随主题变色；也能挑个渐变，或自己传张图。</div>
     <div class="boxRow"><span class="ic">📱</span><span class="grow">应用图标</span><span id="appIconDots" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"></span></div>
     <div class="hintText" style="margin:0 2px 10px">换浏览器标签页 / 添加到桌面时的图标。<b>已经添加到主屏幕的</b>，要重新添加一次才会更新成新图标。</div>
     <div class="boxRow"><span class="ic">🎈</span><span class="grow">气泡皮肤</span></div>
@@ -2791,7 +2875,67 @@ function applyTheme(){
   if(settings.bubbleTaText) root.setProperty('--bubble-ta-text',settings.bubbleTaText); else root.removeProperty('--bubble-ta-text');
   if(settings.bubbleRadius!=null) root.setProperty('--bubble-radius',settings.bubbleRadius+'px'); else root.removeProperty('--bubble-radius');
   if(settings.bubbleTail!=null) root.setProperty('--bubble-tail',settings.bubbleTail+'px'); else root.removeProperty('--bubble-tail');
+  if(typeof applyDeskWall==='function') applyDeskWall();
+  if(typeof renderDeskWalls==='function') renderDeskWalls();
 }
+/* ===== 桌面壁纸（右滑桌面的背景）：渐变预设 / 跟随主题 / 自定义图片 ===== */
+const DESK_WALLS=[
+  {id:'peach',   name:'蜜桃', css:'linear-gradient(165deg,#FFE9D9,#FFC7B0 55%,#FFB3C6)'},
+  {id:'lavender',name:'薰衣草',css:'linear-gradient(165deg,#EEE8FF,#D3C4F2 60%,#B9A6E8)'},
+  {id:'mint',    name:'薄荷', css:'linear-gradient(165deg,#E4F6EC,#B6E3CD 60%,#93D3B8)'},
+  {id:'sky',     name:'晴空', css:'linear-gradient(165deg,#E2EEFF,#BBD6F5 60%,#9FC4EE)'},
+  {id:'sunset',  name:'落日', css:'linear-gradient(160deg,#FFDDB0,#FFAEC0 50%,#C6A2F0)'},
+  {id:'sakura',  name:'樱',   css:'linear-gradient(165deg,#FFE8EF,#FCCADB 60%,#F5A9C6)'},
+  {id:'aurora',  name:'极光', css:'linear-gradient(160deg,#C7F0E4,#A9D8F0 45%,#C3B5F2 90%)'},
+  {id:'dusk',    name:'暮夜', css:'linear-gradient(165deg,#3A3556,#2A2740 55%,#20233B)'},
+];
+function themeWallCss(){
+  const t=settings.theme, ct=customTheme(t);
+  if(ct){ const bg=ct.vars['--bg']||'#FBF6EE', ac=ct.vars['--accent']||'#E7B7A0'; return `linear-gradient(165deg,${bg},${ac})`; }
+  if(t==='night')   return 'linear-gradient(165deg,#2A2438,#201C17 60%,#181521)';
+  if(t==='mist')    return DESK_WALLS.find(w=>w.id==='lavender').css;
+  if(t==='celadon') return DESK_WALLS.find(w=>w.id==='mint').css;
+  return DESK_WALLS.find(w=>w.id==='peach').css;
+}
+function deskWallCss(){
+  const w=settings.deskWall;
+  if(!w||w==='theme') return themeWallCss();
+  if(w==='img') return settings.deskWallImg ? `#000 center/cover no-repeat url("${settings.deskWallImg}")` : themeWallCss();
+  const g=DESK_WALLS.find(x=>x.id===w); return g?g.css:themeWallCss();
+}
+function applyDeskWall(){ const el=document.getElementById('deskPage'); if(el) el.style.background=deskWallCss(); }
+function renderDeskWalls(){
+  const box=document.getElementById('deskWallChips'); if(!box) return;
+  const cur=settings.deskWall||'theme';
+  let html=`<button class="wallChip${cur==='theme'?' on':''}" data-w="theme" style="background:${themeWallCss()}"><span class="lbl">跟随主题</span></button>`;
+  for(const g of DESK_WALLS) html+=`<button class="wallChip${cur===g.id?' on':''}" data-w="${g.id}" style="background:${g.css}"><span class="lbl">${g.name}</span></button>`;
+  const upBg=(settings.deskWallImg&&cur==='img')?` style="background:url('${settings.deskWallImg}') center/cover"`:'';
+  html+=`<button class="wallChip wcUpload${cur==='img'?' on':''}" data-w="__up"${upBg}>${(settings.deskWallImg&&cur==='img')?'':'＋'}</button>`;
+  box.innerHTML=html;
+  box.querySelectorAll('.wallChip').forEach(b=>b.onclick=()=>{
+    const w=b.dataset.w;
+    if(w==='__up'){ const f=document.getElementById('deskWallFile'); if(f) f.click(); return; }
+    settings.deskWall=w; persistAll(); applyDeskWall(); renderDeskWalls();
+  });
+}
+(function(){
+  const f=document.getElementById('deskWallFile'); if(!f) return;
+  f.onchange=e=>{
+    const file=e.target.files&&e.target.files[0]; e.target.value='';
+    if(!file) return;
+    const img=new Image(), rd=new FileReader();
+    rd.onload=()=>{ img.onload=()=>{
+      const MAXW=1080, sc=Math.min(1,MAXW/img.width);
+      const cw=Math.round(img.width*sc), chH=Math.round(img.height*sc);
+      const cv=document.createElement('canvas'); cv.width=cw; cv.height=chH;
+      cv.getContext('2d').drawImage(img,0,0,cw,chH);
+      let dataUrl; try{ dataUrl=cv.toDataURL('image/jpeg',0.82); }catch(_){ dataUrl=rd.result; }
+      settings.deskWallImg=dataUrl; settings.deskWall='img'; persistAll(); applyDeskWall(); renderDeskWalls();
+      if(typeof toast==='function') toast('壁纸换好啦 🖼');
+    }; img.onerror=()=>{ if(typeof toast==='function') toast('这张图读不了'); }; img.src=rd.result; };
+    rd.readAsDataURL(file);
+  };
+})();
 /* ===== 导入色卡主题：粘贴 [data-theme]{--vars} 块，可一次多套 ===== */
 function parseThemeCards(text){
   const blocks=[]; let m;
@@ -3498,7 +3642,7 @@ function renderChat(){
 
 /* 输入框自适应高度 */
 const input=$('input');
-input.oninput=()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,120)+'px'; };
+input.oninput=()=>{ const area=$('msgArea'); const pin=area.scrollHeight-area.scrollTop-area.clientHeight<80; input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,120)+'px'; if(pin) area.scrollTop=area.scrollHeight; };
 
 /* ================= ➕ 功能面板 ================= */
 const curOnline=()=>chatOnline(curChat());
@@ -3539,7 +3683,7 @@ $('confirmVoice').onclick=()=>{
   sendRaw(`<语音:${t.replace(/[<>]/g,'').slice(0,200)}>`,'[语音]');
 };
 $('ppAlbum').onclick=()=>{ togglePlus(false); renderAlbum(); openSheet('albumSheet'); };
-$('ppGame').onclick=()=>{ togglePlus(false); openSheet('gameSheet'); };
+$('ppGame').onclick=()=>{ togglePlus(false); if(window.openArcade) openArcade(); else openSheet('gameSheet'); };
 
 /* ===== 线描图标：把 .ic 里的彩色 emoji 统一换成细线 SVG（和底部导航/➕面板一个风格）。
    静态 HTML 启动时换一遍；动态渲染（恋爱主页/换装/日历等）由 MutationObserver 兜住，新加功能零改动 ===== */
@@ -4531,6 +4675,7 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   }
   if(always.length) slow.push('【世界设定】\n'+always.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
   if(preset && preset.prompt.trim()) slow.push(preset.prompt);
+  if(c && c.fishOn && typeof fishingNote==='function') slow.push(fishingNote());
   if(groupNote) fast.push(groupNote);
   const mems=memActive(ch)?charMems(ch?.id):[];
   if(mems.length) fast.push('【记忆】关于用户，你记得这些事（每条前面的 #编号 用来修改或删除它；标⭐的是核心记忆，格外重要、要一直记牢，绝不能删）：\n'+mems.map((m,i)=>`#${i+1} ${m.core?'⭐ ':''}${m.text}`).join('\n'));
@@ -5214,19 +5359,34 @@ async function runReply(c,api,body,ch){
       else if(/android/i.test(navigator.userAgent)) setTimeout(()=>toast('📅 点消息里的「导入手机📲」放进手机日历'),1200);
       else try{ icsDownload(icsEvents,`${ch?.name||'TA'}帮你记的日程.ics`); setTimeout(()=>toast('📲 日程文件已下载，点开它就进日历'),1200); }catch(_){}
     }
+    /* TA钓鱼：<钓鱼:指令> → 跑引擎，简报稍后作为系统消息喂回黎湛；出错绝不影响聊天 */
+    let fishSummaries=[], hadFish=false;
+    if(c.fishOn && window.Fishing && /<钓鱼[:：]/.test(out.acc)){
+      try{
+        const st=fishState(c); let _fn=0;
+        out.acc=out.acc.replace(/<钓鱼[:：]\s*([^>]*?)\s*>/g,(_,g)=>{
+          if(_fn++>3) return '';
+          const r=window.Fishing.cmd(st,String(g).trim());
+          fishSummaries.push(r.text.split('\n')[0]);
+          return '';
+        }).replace(/\n{3,}/g,'\n\n').trim();
+        c.fishing=st; hadFish=true;
+      }catch(e){}
+    }
     const stats=(out.usage&&(out.usage.in!=null||out.usage.out!=null))
       ?{in:out.usage.in,out:out.usage.out,cached:out.usage.cached||0,wrote:out.usage.wrote||0,secs:out.t0?Math.round((Date.now()-out.t0)/100)/10:null}
       :null;
     const _nm={role:'assistant',charId:ch?.id,content:out.acc,ts:Date.now(),online:isOnline,...(stats?{stats}:{})};
     if(regenInto){ _nm.variants=regenInto.variants.concat([out.acc]); _nm.vi=_nm.variants.length-1; regenInto=null; }   // 重生成：旧版本保留，新版本追加到末尾
     c.messages.push(_nm);
+    if(hadFish && fishSummaries.length) c.messages.push({role:'sys',content:'🎣 '+fishSummaries.join('　·　'),ts:Date.now()});
     c.ts=Date.now(); persistAll();
     const idx=c.messages.length-1;
     bub.ondblclick=()=>openMsgActions(idx);
     wireThink(bub); wireCode(bub);
     /* 线上模式：回复完按行拆成小气泡；含特殊卡片（语音/拍照等）也重渲染成卡片 */
     const onlineNow=chatOnline(c);
-    if(c.id===currentId && (hadRecall || hadTransferAct || agentActs || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|画图|礼物|来电|搜索|查自习|查日历)[:：>]/.test(out.acc)))
+    if(c.id===currentId && (hadRecall || hadTransferAct || agentActs || hadFish || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|画图|礼物|来电|搜索|查自习|查日历)[:：>]/.test(out.acc)))
       renderChat();
     else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
   };
@@ -8040,6 +8200,7 @@ function shotText(m){
   let t=stripThink(textOf(m.content)).trim();
   t=t.replace(/<语音:([^>]*)>/g,'🎤 $1')
      .replace(/<来电:(语音|视频)>/g,'📞 $1通话邀请')
+     .replace(/<钓鱼[:：][^>]*>/g,'🎣')
      .replace(/<转账:([^:>]*):?([^>]*)>/g,(_,a,b)=>`💰 转账 ¥${String(a).trim()}${b?' · '+b.trim():''}`)
      .replace(/<表情包:([^>]*)>/g,'😊 [表情]')
      .replace(/<拍照:([^>]*)>/g,'📷 $1')
@@ -10074,10 +10235,183 @@ if(backupRemindOn()){
   }catch(e){ /* 没有 IndexedDB 就继续用 localStorage */ }
 })();
 
+/* ===== 🎣 文字钓鱼引擎（原创·确定性mulberry32·状态全序列化，存 c.fishing 随窗口）===== */
+window.Fishing = (function(){
+  function rng(state){ let a = state.r |= 0; a = (a + 0x6D2B79F5) | 0; state.r = a;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+  const ri=(s,a,b)=>a+Math.floor(rng(s)*(b-a+1));
+  const pick=(s,arr)=>arr[Math.floor(rng(s)*arr.length)];
+  const RAR={ common:{star:'',w:60,mul:1.0,tag:'杂鱼'}, uncommon:{star:'★',w:26,mul:1.8,tag:''},
+    rare:{star:'★★',w:10,mul:3.4,tag:'稀有'}, epic:{star:'★★★',w:3.4,mul:7.0,tag:'史诗'}, legendary:{star:'★★★★',w:0.6,mul:16.0,tag:'传说'} };
+  const FISH=[
+    {id:'crucian',name:'鲫鱼',rar:'common',base:6,loc:'pond'},{id:'shrimp',name:'河虾',rar:'common',base:5,loc:'pond'},
+    {id:'carp',name:'鲤鱼',rar:'uncommon',base:14,loc:'pond'},{id:'frog',name:'牛蛙',rar:'uncommon',base:12,loc:'pond',season:['春','夏']},
+    {id:'goldfish',name:'走失的金鱼',rar:'rare',base:40,loc:'pond'},
+    {id:'minnow',name:'白条',rar:'common',base:7,loc:'creek'},{id:'loach',name:'泥鳅',rar:'common',base:8,loc:'creek'},
+    {id:'trout',name:'溪红点鲑',rar:'uncommon',base:18,loc:'creek'},{id:'crab',name:'溪蟹',rar:'uncommon',base:16,loc:'creek',season:['秋']},
+    {id:'sweetfish',name:'香鱼',rar:'rare',base:52,loc:'creek',season:['夏']},{id:'ghostkoi',name:'月影锦鲤',rar:'epic',base:150,loc:'creek'},
+    {id:'bass',name:'鲈鱼',rar:'common',base:11,loc:'lake'},{id:'bream',name:'鳊鱼',rar:'common',base:10,loc:'lake'},
+    {id:'pike',name:'狗鱼',rar:'uncommon',base:24,loc:'lake'},{id:'catfish',name:'鲶鱼',rar:'rare',base:60,loc:'lake',season:['夏','秋']},
+    {id:'moonbass',name:'月光鲈',rar:'epic',base:180,loc:'lake'},{id:'dragon',name:'锦鳞·龙睛',rar:'legendary',base:800,loc:'lake'},
+    {id:'sardine',name:'沙丁鱼',rar:'common',base:12,loc:'sea'},{id:'mackerel',name:'鲭鱼',rar:'common',base:13,loc:'sea'},
+    {id:'squid',name:'鱿鱼',rar:'uncommon',base:28,loc:'sea'},{id:'snapper',name:'真鲷',rar:'rare',base:72,loc:'sea'},
+    {id:'tuna',name:'蓝鳍金枪',rar:'epic',base:240,loc:'sea',season:['冬']},{id:'seaghost',name:'深海·灯笼幽灵',rar:'legendary',base:1200,loc:'sea'},
+  ];
+  const LOC={ pond:{name:'家门口的小池塘',unlock:0}, creek:{name:'林间溪流',unlock:120}, lake:{name:'雾湖',unlock:600}, sea:{name:'黄昏海岸',unlock:2000} };
+  const LOC_ORDER=['pond','creek','lake','sea'];
+  const BAIT={ basic:{name:'普通蚯蚓',cost:2,luck:0}, good:{name:'红虫',cost:6,luck:1}, premium:{name:'亮片假饵',cost:18,luck:3} };
+  function season(){ const m=new Date().getMonth()+1; return m<=2||m===12?'冬':m<=5?'春':m<=8?'夏':'秋'; }
+  function newGame(seed){ seed=(seed==null?(Date.now()&0x7fffffff):seed)|0;
+    return {seed,r:seed,points:30,bait:{basic:5},curBait:'basic',loc:'pond',unlocked:['pond'],dex:{},casts:0,basket:[]}; }
+  function rollRarity(s,luck){ const keys=Object.keys(RAR);
+    const weights=keys.map(k=>{ let w=RAR[k].w; if(luck&&k!=='common') w*=(1+luck*0.5*(RAR[k].mul/2)); return w; });
+    let total=weights.reduce((a,b)=>a+b,0),x=rng(s)*total; for(let i=0;i<keys.length;i++){ x-=weights[i]; if(x<=0) return keys[i]; } return 'common'; }
+  function fishHere(loc){ const se=season(); return FISH.filter(f=>f.loc===loc&&(!f.season||f.season.includes(se))); }
+  function worth(f){ return Math.round(f.base*RAR[f.rar].mul); }
+  function doCast(s){ let bt=s.curBait;
+    if(!s.bait[bt]||s.bait[bt]<=0){ const has=Object.keys(BAIT).find(b=>s.bait[b]>0); if(!has) return {err:'没有鱼饵了。先 buy basic 5 买点普通蚯蚓吧。'}; s.curBait=has; }
+    const bait=BAIT[s.curBait]; s.bait[s.curBait]--; s.casts++;
+    if(rng(s)<0.05) return {junk:'……浮漂沉了一下，又不动了。空竿。'};
+    if(rng(s)<0.08){ const j=pick(s,['一只旧靴子','半张湿掉的报纸','一个漂流瓶(里面是空的)','一截水草','一枚生锈的硬币(+1)']); if(j.includes('硬币')) s.points+=1; return {junk:'捞上来'+j+'。'}; }
+    const pool=fishHere(s.loc); if(!pool.length) return {junk:'这个季节这里静悄悄的，什么都没上钩。'};
+    let rar=rollRarity(s,bait.luck); let cand=pool.filter(f=>f.rar===rar);
+    while(!cand.length){ const order=['legendary','epic','rare','uncommon','common']; const idx=order.indexOf(rar); rar=order[Math.min(order.length-1,idx+1)]; cand=pool.filter(f=>f.rar===rar); if(rar==='common'&&!cand.length) return {junk:'只搅起一圈涟漪，没鱼。'}; }
+    const f=pick(s,cand); const size=(0.7+rng(s)*0.9).toFixed(2); const val=Math.max(1,Math.round(worth(f)*(0.6+size*0.5)));
+    s.dex[f.id]=(s.dex[f.id]||0)+1; s.basket.push({id:f.id,name:f.name,rar:f.rar,val,size}); return {fish:{f,val,size,first:s.dex[f.id]===1}}; }
+  function line1(o){ if(o.err) return '⚠️ '+o.err; if(o.junk) return '🫧 '+o.junk;
+    const {f,val,size,first}=o.fish; const r=RAR[f.rar]; const star=r.star?' '+r.star:'';
+    const flair=f.rar==='legendary'?'　★传说★ 水面炸开，你几乎握不住竿——':f.rar==='epic'?'　✧ 手感沉得反常，一寸寸拉近——':f.rar==='rare'?'　· 竿梢猛地一压！':'';
+    return `${flair?flair+'\n':''}🎣 钓到「${f.name}」${star}　${size}倍体型　+${val}点${first?'　🆕入图鉴!':''}`; }
+  function statusLine(s){ const se=season(); const dexN=Object.keys(s.dex).length;
+    const baits=Object.entries(s.bait).filter(([,n])=>n>0).map(([b,n])=>`${BAIT[b].name}×${n}`).join(' ')||'无';
+    const basket=s.basket.length?`　篓中${s.basket.length}条(可sell)`:''; return `📊 点数${s.points}　${LOC[s.loc].name}·${se}　图鉴${dexN}/${FISH.length}　饵:${baits}${basket}`; }
+  function cmd(state,line){ const s=state; line=String(line||'').trim(); const out=[];
+    const parts=line.split(/[;\n]+/).map(x=>x.trim()).filter(Boolean);
+    if(parts.length>1){ for(const p of parts){ out.push(cmd(s,p).text); } return {text:out.join('\n'),state:s}; }
+    const [c0,...rest]=line.split(/\s+/); const c=(c0||'').toLowerCase();
+    if(c==='help'||c===''){ return {text:'🎣 文字钓鱼 · 指令\n cast [N] [stop=rare] 抛竿\n buy <basic|good|premium> <数量>\n use <饵> 换饵\n sell 卖鱼\n goto <creek|lake|sea> 换钓点\n where 看钓点\n dex 图鉴\n status 状态',state:s}; }
+    if(c==='status') return {text:statusLine(s),state:s};
+    if(c==='where'){ const se=season(); const rows=LOC_ORDER.map(id=>{ const ok=s.unlocked.includes(id); const cur=id===s.loc?'▶ ':'  '; const lock=ok?'':`　🔒需${LOC[id].unlock}点`; const n=fishHere(id).length; return `${cur}${LOC[id].name}${lock}${ok?`　(本季${n}种)`:''}`; }).join('\n'); return {text:`🗺️ 钓点（当前季节：${se}）\n${rows}`,state:s}; }
+    if(c==='goto'){ const id=(rest[0]||'').toLowerCase(); if(!LOC[id]) return {text:'去哪？可选：'+LOC_ORDER.join(' / '),state:s};
+      if(!s.unlocked.includes(id)){ if(s.points>=LOC[id].unlock){ s.unlocked.push(id); } else return {text:`「${LOC[id].name}」还没解锁，需要 ${LOC[id].unlock} 点（你有 ${s.points}）。`,state:s}; }
+      s.loc=id; return {text:`🚶 来到「${LOC[id].name}」。\n`+statusLine(s),state:s}; }
+    if(c==='buy'){ const b=(rest[0]||'').toLowerCase(),n=parseInt(rest[1]||'1',10)||1; if(!BAIT[b]) return {text:'买啥饵？basic / good / premium',state:s};
+      const cost=BAIT[b].cost*n; if(s.points<cost) return {text:`点数不够：${BAIT[b].name}×${n} 要 ${cost} 点，你只有 ${s.points}。`,state:s};
+      s.points-=cost; s.bait[b]=(s.bait[b]||0)+n; s.curBait=b; return {text:`🪱 买了 ${BAIT[b].name}×${n}（-${cost}点），已换上。\n`+statusLine(s),state:s}; }
+    if(c==='use'){ const b=(rest[0]||'').toLowerCase(); if(!BAIT[b]) return {text:'换啥饵？basic / good / premium',state:s}; if(!s.bait[b]) return {text:`你没有${BAIT[b].name}，先 buy ${b} 5`,state:s}; s.curBait=b; return {text:`换上 ${BAIT[b].name}。`,state:s}; }
+    if(c==='sell'){ if(!s.basket.length) return {text:'篓子是空的，先 cast 钓几条。',state:s}; const sum=s.basket.reduce((a,x)=>a+x.val,0); const n=s.basket.length; s.points+=sum; s.basket=[]; return {text:`💰 卖了 ${n} 条鱼，+${sum} 点。\n`+statusLine(s),state:s}; }
+    if(c==='dex'){ if(!Object.keys(s.dex).length) return {text:'图鉴还是空的。去 cast 吧~',state:s}; const rows=FISH.filter(f=>s.dex[f.id]).map(f=>`  ${RAR[f.rar].star||'·'} ${f.name} ×${s.dex[f.id]}`).join('\n'); return {text:`📖 图鉴 ${Object.keys(s.dex).length}/${FISH.length}\n${rows}`,state:s}; }
+    if(c==='cast'){ let n=1,stop=null; for(const a of rest){ if(/^\d+$/.test(a)) n=Math.min(50,Math.max(1,parseInt(a,10))); else if(/^stop=/.test(a)) stop=a.slice(5).toLowerCase(); }
+      const rank={common:0,uncommon:1,rare:2,epic:3,legendary:4}; const lines=[]; let caught=0,junk=0,basket0=s.basket.length,best=null;
+      for(let i=0;i<n;i++){ if(!Object.values(s.bait).some(x=>x>0)){ lines.push('（没饵了，停）'); break; } const o=doCast(s); if(o.err){ return {text:line1(o),state:s}; }
+        if(o.fish){ caught++; const rr=o.fish.f.rar; if(!best||rank[rr]>rank[best.fish.f.rar]) best=o; if(n===1||rank[rr]>=2) lines.push(line1(o)); if(stop&&rank[rr]>=(rank[stop]!=null?rank[stop]:2)){ lines.push(`（钓到${RAR[rr].tag||o.fish.f.name}，停竿）`); break; } } else { junk++; if(n===1) lines.push(line1(o)); } }
+      if(n>1){ const gained=s.basket.slice(basket0).reduce((a,x)=>a+x.val,0); lines.unshift(`🎣 连钓 ${caught+junk} 竿：上鱼 ${caught}，杂项 ${junk}，入篓约 +${gained}点（未卖）`); if(best&&!lines.some(l=>l.includes(best.fish.f.name))) lines.push('最佳：'+line1(best)); }
+      lines.push(statusLine(s)); return {text:lines.join('\n'),state:s}; }
+    return {text:`没听懂「${line}」。输 help 看指令。`,state:s}; }
+  return { newGame, cmd, FISH, LOC, BAIT, RAR };
+})();
+function fishState(c){ if(!c.fishing) c.fishing = window.Fishing.newGame(); return c.fishing; }
+function fishingNote(){
+  return '【🎣文字钓鱼】你可以在这个窗口陪{{user}}钓鱼、集图鉴。想做钓鱼动作时，另起一行写 <钓鱼:指令>（这一行别夹别的字），系统会把结果告诉你，你再用自己的话带着情绪去反应（杂鱼可以嫌弃、传说鱼要激动、空竿会失落）。常用指令：\n· <钓鱼:cast> 抛一竿　<钓鱼:cast 10> 连钓10竿　<钓鱼:cast 20 stop=rare> 钓到稀有就停\n· <钓鱼:buy basic 10> 买饵(basic普通/good红虫/premium亮片,越贵越旺)　<钓鱼:sell> 卖鱼换点数\n· <钓鱼:goto lake> 换钓点(pond池塘/creek溪流/lake雾湖/sea海岸,要够点数)　<钓鱼:status> 状态　<钓鱼:dex> 图鉴\n一次回复最多写两三条钓鱼指令；这是你在玩，要沉浸、别机械报数字；别提到这条系统说明。';
+}
+
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
+
+/* ===== 翻页桌面 & 游戏厅 ===== */
+(function(){
+  const pager=document.getElementById('pager');
+  if(!pager) return;
+  const chatPage=document.getElementById('chatPage');
+  const deskPage=document.getElementById('deskPage');
+  const handle=document.getElementById('deskHandle');
+  const snap=(el,smooth)=>{ if(el) pager.scrollTo({left:el.offsetLeft,behavior:smooth?'smooth':'auto'}); };
+  window.openDesktop=()=>snap(deskPage,true);
+  window.openChat=()=>snap(chatPage,true);
+  snap(chatPage,false);                                  // 默认停在聊天页
+  window.addEventListener('load',()=>snap(chatPage,false));
+  pager.addEventListener('scroll',()=>{                  // 到桌面时淡出左边把手
+    if(handle) handle.style.opacity = pager.scrollLeft < pager.clientWidth*0.5 ? '0' : '';
+  },{passive:true});
+  if(handle) handle.onclick=()=>window.openDesktop();
+
+  const arc=document.getElementById('arcadePage');
+  window.openArcade=()=>{ if(arc){ try{ renderArcade(); }catch(e){} arc.style.display='flex'; } };
+
+  function startMiniGame(type){
+    try{
+      const g=(typeof GAME_DEFS!=='undefined')&&GAME_DEFS[type]; if(!g) return;
+      if(typeof getApi==='function' && !getApi()) return;
+      if(typeof streaming!=='undefined' && streaming){ toast('TA正在说话，等一下下'); return; }
+      if(arc) arc.style.display='none';
+      if(window.openChat) window.openChat();
+      let c=(typeof curChat==='function')&&curChat();
+      if(c&&c.members&&c.members.length){ toast('小游戏先在单聊里玩哦'); return; }
+      if(!c){
+        if(!characters.length){ toast('先去「角色」里建个角色吧'); return; }
+        c={id:'t'+Date.now(),title:'[小游戏]',charId:selCharId,ts:Date.now(),messages:[]};
+        chats.push(c); currentId=c.id;
+      }
+      c.messages.push({role:'sys',content:`${userName()} 发起了「${g.name}」`,ts:Date.now()});
+      c.ts=Date.now();
+      try{ gamesLog.push({charId:curChar(c)?.id,type,ts:Date.now()}); }catch(e){}
+      persistAll(); renderChat(); renderHistory();
+      generateReply(c,null,g.instr());
+    }catch(e){}
+  }
+
+  function renderArcade(){
+    const body=document.getElementById('arcadeBody'); if(!body) return;
+    const c=(typeof curChat==='function')&&curChat()||null;
+    let chName='TA'; try{ const ch=c&&curChar(c); if(ch&&ch.name) chName=ch.name; }catch(e){}
+    const E=(typeof esc==='function')?esc:(x=>String(x));
+    let fishHtml, extra='';
+    if(!c){
+      fishHtml=`<div class="gmCard soon"><span class="gico">🎣</span><div class="ginfo"><div class="gname">文字钓鱼</div><div class="gdesc">先打开一个和角色的对话，再来这陪TA钓</div></div></div>`;
+    } else if(!c.fishOn){
+      fishHtml=`<div class="gmCard"><span class="gico">🎣</span><div class="ginfo"><div class="gname">文字钓鱼</div><div class="gdesc">让「${E(chName)}」在这个窗口陪你钓鱼、集图鉴</div></div><button class="gtag" id="fishToggle">开启</button></div>`;
+    } else {
+      let st; try{ st=fishState(c); }catch(e){ st=null; }
+      if(st){
+        const dexN=Object.keys(st.dex||{}).length;
+        const locName=(window.Fishing.LOC[st.loc]||{}).name||st.loc;
+        fishHtml=`<div class="gmCard"><span class="gico">🎣</span><div class="ginfo"><div class="gname">文字钓鱼 · ${E(chName)}</div><div class="gdesc">点数 ${st.points} · 图鉴 ${dexN}/${window.Fishing.FISH.length} · ${E(locName)}${st.basket&&st.basket.length?' · 篓中'+st.basket.length+'条':''}</div></div><button class="gtag" id="fishGo">去钓</button></div>`;
+        extra=`<div style="display:flex;gap:10px;margin:-6px 2px 20px"><button class="arcBtn off" id="fishOff">停止陪钓</button></div>`;
+      } else fishHtml='';
+    }
+    body.innerHTML=
+      `<div class="arcSec">💞 一起玩（和TA）</div>`+
+      `<button class="gmCard gameCard" data-game="truth"><span class="gico">🎲</span><div class="ginfo"><div class="gname">真心话大冒险</div><div class="gdesc">一人一轮，真心话诚实答，大冒险敢做</div></div></button>`+
+      `<button class="gmCard gameCard" data-game="tacit"><span class="gico">💞</span><div class="ginfo"><div class="gname">默契问答</div><div class="gdesc">TA出关于你们的题，看你们多默契</div></div></button>`+
+      `<button class="gmCard gameCard" data-game="emoji"><span class="gico">🧩</span><div class="ginfo"><div class="gname">emoji你画我猜</div><div class="gdesc">一串emoji猜词，猜对换你出题</div></div></button>`+
+      `<div class="arcSec">🕹️ 单机小游戏（TA自己玩）</div>`+
+      fishHtml+extra+
+      `<div class="arcHint">更多游戏正在搬进来…… 🚧</div>`;
+    const bind=(id,fn)=>{ const el=document.getElementById(id); if(el) el.onclick=fn; };
+    bind('fishToggle',()=>{ c.fishOn=true; try{fishState(c);}catch(e){} persistAll(); renderArcade(); toast('🎣 '+chName+'学会钓鱼啦，去聊天说「我们去钓鱼吧」'); });
+    bind('fishOff',()=>{ c.fishOn=false; persistAll(); renderArcade(); });
+    bind('fishGo',()=>{ if(arc) arc.style.display='none'; if(window.openChat) window.openChat(); toast('跟'+chName+'说「我们去钓鱼吧」🎣'); });
+    body.querySelectorAll('.gameCard').forEach(b=>b.onclick=()=>startMiniGame(b.dataset.game));
+  }
+  const ac=document.getElementById('arcadeClose'); if(ac) ac.onclick=()=>{ arc.style.display='none'; };
+  const aA=document.getElementById('appArcade'); if(aA) aA.onclick=()=>window.openArcade();
+  const aC=document.getElementById('appChat');   if(aC) aC.onclick=()=>window.openChat();
+
+  const ct=document.querySelector('#deskClock .t'), cd=document.querySelector('#deskClock .d'), hi=document.getElementById('deskHi');
+  const pad=x=>String(x).padStart(2,'0');
+  function tick(){
+    if(!ct) return;
+    const n=new Date();
+    ct.textContent=pad(n.getHours())+':'+pad(n.getMinutes());
+    const wk=['周日','周一','周二','周三','周四','周五','周六'][n.getDay()];
+    cd.textContent=(n.getMonth()+1)+'月'+n.getDate()+'日 · '+wk;
+    if(hi){ const h=n.getHours(); hi.textContent = (h<5||h>=23)?'夜深了，早点睡呀 🌙':h<11?'早安 ☀️':h<14?'午安 ~':h<18?'下午好':'晚上好 🌙'; }
+  }
+  tick(); setInterval(tick,20000);
+})();
 </script>
 </body>
 </html>
