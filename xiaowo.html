@@ -650,6 +650,14 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 
 /* 语音条 */
 .voiceMsg{position:relative}
+/* TA 发起的来电邀请卡片 */
+.callInvite{display:flex;align-items:center;gap:11px;min-width:200px;padding:11px 14px;border-radius:16px;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;box-shadow:var(--shadow)}
+.callInvite.done{background:var(--card);color:var(--ink-soft);cursor:default;box-shadow:none;border:1px solid var(--line)}
+.callInvite .ciIco{font-size:24px;line-height:1}
+.callInvite .ciBody{flex:1;display:flex;flex-direction:column;line-height:1.35}
+.callInvite .ciBody b{font-size:14px}
+.callInvite .ciSub{font-size:11px;opacity:.85}
+.callInvite .ciAns{flex:0 0 auto;background:rgba(255,255,255,.22);border-radius:14px;padding:6px 14px;font-size:13px;font-weight:600}
 .voiceBar{
   display:flex;align-items:center;gap:8px;cursor:pointer;
   min-width:90px;padding:10px 14px;border-radius:16px;
@@ -2593,6 +2601,20 @@ function voiceHtml(text,msg){
   const unread=msg&&msg.role!=='user'&&!msg.voiceRead;
   return `<div class="voiceMsg${unread?' unread':''}"><div class="voiceBar"><span>▶</span><span class="vWave"><i></i><i></i><i></i><i></i><i></i></span><span>${secs}″</span></div><span class="vDot"></span><div class="vTxt">${fmt(text)}</div></div>`;
 }
+/* TA 发起的来电邀请卡片：点一下接听进入通话（对应模式）。已接过的显示成通话记录 */
+function callInviteHtml(mode,msg){
+  const ico=mode==='video'?'📹':'📞', lab=mode==='video'?'视频通话':'语音通话';
+  const done=msg&&msg.callAnswered;
+  return `<div class="callInvite${done?' done':''}"${done?'':` onclick="answerCall('${mode}')"`}>`
+    +`<span class="ciIco">${ico}</span><div class="ciBody"><b>${done?'已结束的'+lab:'邀请你'+lab}</b>`
+    +`<span class="ciSub">${done?'点头像可再拨':'点一下接听'}</span></div>${done?'':'<span class="ciAns">接听</span>'}</div>`;
+}
+/* 接听来电：进入对应模式的通话界面 */
+function answerCall(mode){
+  const c=curChat();
+  if(c){ for(let i=c.messages.length-1;i>=0;i--){ const t=typeof c.messages[i].content==='string'?c.messages[i].content:''; if(/^<来电[:：]/m.test(t)){ c.messages[i].callAnswered=true; break; } } persistAll(); }
+  openCall(mode);
+}
 /* 宝丽来照片：没有真图，用渐变底+文字描述当"照片"，色调由内容定（同一张永远同色） */
 const PHOTO_GRADS=['linear-gradient(135deg,#FFB88C,#DE6262)','linear-gradient(135deg,#A1C4FD,#7F9CF5)','linear-gradient(135deg,#FBC2EB,#A6C1EE)','linear-gradient(135deg,#5EC9A0,#8FD3F4)','linear-gradient(135deg,#FCCB90,#D57EEB)','linear-gradient(135deg,#B8A9F7,#8EC5FC)'];
 function photoHtml(text,msg){
@@ -2628,6 +2650,8 @@ function specialHtml(line,msg){
   if(m&&Number(m[1])>0) return transferHtml(Number(m[1]),m[2]||'',msg);
   m=line.match(/^<语音[:：]\s*([\s\S]+?)\s*>$/);
   if(m) return voiceHtml(m[1],msg);
+  m=line.match(/^<来电[:：]\s*(语音|视频)\s*>$/);
+  if(m){ const mode=m[1]==='视频'?'video':'voice'; return callInviteHtml(mode,msg); }
   m=line.match(/^<拍照[:：]\s*([\s\S]+?)\s*>$/);
   if(m) return photoHtml(m[1],msg);
   m=line.match(/^<画图[:：]\s*([\s\S]+?)\s*>$/);
@@ -4031,12 +4055,15 @@ function renderCallAvatar(ch){
   if(!ch) return;
   $('callAv').innerHTML=ch.avatar?`<img class="callAvBig" src="${safeUrl(ch.avatar)}">`:`<div class="callAvFb">${esc(ch.emoji||'☺')}</div>`;
 }
-function openCall(){
+function openCall(mode){
   const c=curChat(), ch=callChar();
   if(!c){ toast('先打开和TA的单聊再通话哦'); return; }
   if(!ch){ toast('群聊还不能通话哦'); return; }
   if(!getApi()) return;
   togglePlus(false);
+  const sc=$('callScreen');   // TA 发起或点☎️指定了模式就切过去，否则保持上次
+  if(mode==='voice'){ sc.classList.add('callVoice'); sc.classList.remove('callVideo'); }
+  else if(mode==='video'){ sc.classList.add('callVideo'); sc.classList.remove('callVoice'); }
   $('callName').textContent=ch.name;
   $('callStat').textContent='正在接通…';
   $('callCap').innerHTML=''; $('callTextRow').classList.remove('show');
@@ -4065,7 +4092,11 @@ function showCap(who,text){
   $('callCap').innerHTML=`<span class="who">${who==='me'?'你':esc($('callName').textContent)}</span>${esc(text)}`;
 }
 function callSpeak(text){
-  if(callMuted||!text||!('speechSynthesis'in window)) return;
+  if(callMuted||!text) return;
+  /* App 壳里用原生 TTS（WebView 的 speechSynthesis 常年哑巴）；开始/结束由壳回调 __ttsStart/__ttsEnd */
+  const na=nativeApp();
+  if(na&&typeof na.speak==='function'){ try{ callAvSpeaking(true); na.speak(text); return; }catch(e){ callAvSpeaking(false); } }
+  if(!('speechSynthesis'in window)) return;
   try{
     speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(text);
@@ -4077,6 +4108,13 @@ function callSpeak(text){
     speechSynthesis.speak(u);
   }catch(e){}
 }
+/* 壳里原生 TTS/STT 的回调（壳通过 evaluateJavascript 调这些） */
+window.__ttsStart=()=>callAvSpeaking(true);
+window.__ttsEnd=()=>callAvSpeaking(false);
+window.__sttResult=(text,isFinal)=>{ showCap('me',text); if(isFinal) callFinal=text; };
+window.__sttEnd=()=>{ callMicOn=false; updateMicUI(); const t=(callFinal||'').trim(); callFinal=''; if(t) callSay(t); };
+window.__sttError=(msg)=>{ callMicOn=false; updateMicUI(); if(msg) toast(msg); };
+function stopCallVoice(){ const na=nativeApp(); try{ na&&na.stopSpeak&&na.stopSpeak(); }catch(e){} try{ speechSynthesis&&speechSynthesis.cancel(); }catch(e){} }
 function callAvSpeaking(on){ const el=$('callAv').firstElementChild; if(el) el.classList.toggle('callSpeaking',on); }
 async function callSay(text){
   text=(text||'').trim(); if(!text) return;
@@ -4089,6 +4127,15 @@ async function callSay(text){
   callBusy=false;
 }
 function callListen(){
+  /* App 壳里用原生语音识别（WebView 没有 webkitSpeechRecognition）；结果由壳回调 __sttResult/__sttEnd */
+  const na=nativeApp();
+  if(na&&typeof na.startListen==='function'){
+    if(callBusy){ toast('等TA说完再说哦'); return; }
+    if(callMicOn){ try{ na.stopListen&&na.stopListen(); }catch(e){} return; }
+    callFinal=''; callMicOn=true; updateMicUI();
+    try{ na.startListen(); }catch(e){ callMicOn=false; updateMicUI(); toast('麦克风启动失败'); }
+    return;
+  }
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){ toast('这台设备不支持语音识别，用 ⌨️ 打字吧'); $('callTextRow').classList.add('show'); return; }
   if(callBusy){ toast('等TA说完再说哦'); return; }
@@ -4103,7 +4150,8 @@ function callListen(){
 function updateMicUI(){ $('callMicBtn').classList.toggle('on',callMicOn); }
 function hangUp(){
   clearInterval(callTimer); callTimer=null;
-  try{ speechSynthesis.cancel(); }catch(e){}
+  stopCallVoice();
+  const na=nativeApp(); try{ na&&na.stopListen&&na.stopListen(); }catch(e){}
   try{ callRec&&callRec.stop(); }catch(e){}
   callMicOn=false; callBusy=false; callAvSpeaking(false);
   $('callScreen').classList.remove('show');
@@ -4113,7 +4161,7 @@ $('callMicBtn').onclick=callListen;
 $('callHangBtn').onclick=hangUp;
 $('callStyleBtn').onclick=()=>{ const sc=$('callScreen'); sc.classList.toggle('callVideo'); sc.classList.toggle('callVoice'); };
 $('callTextBtn').onclick=()=>{ $('callTextRow').classList.toggle('show'); if($('callTextRow').classList.contains('show')) $('callInput').focus(); };
-$('callMuteBtn').onclick=()=>{ callMuted=!callMuted; $('callMuteBtn').textContent=callMuted?'🔇':'🔊'; if(callMuted){ try{ speechSynthesis.cancel(); }catch(e){} callAvSpeaking(false); } };
+$('callMuteBtn').onclick=()=>{ callMuted=!callMuted; $('callMuteBtn').textContent=callMuted?'🔇':'🔊'; if(callMuted){ stopCallVoice(); callAvSpeaking(false); } };
 $('callSendBtn').onclick=()=>{ const t=$('callInput').value.trim(); if(t){ $('callInput').value=''; callSay(t); } };
 $('callInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('callSendBtn').onclick(); } });
 
@@ -5178,7 +5226,7 @@ async function runReply(c,api,body,ch){
     wireThink(bub); wireCode(bub);
     /* 线上模式：回复完按行拆成小气泡；含特殊卡片（语音/拍照等）也重渲染成卡片 */
     const onlineNow=chatOnline(c);
-    if(c.id===currentId && (hadRecall || hadTransferAct || agentActs || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|画图|礼物|搜索|查自习|查日历)[:：>]/.test(out.acc)))
+    if(c.id===currentId && (hadRecall || hadTransferAct || agentActs || (onlineNow&&out.acc.includes('\n')) || /<(表情包|转账|语音|拍照|画图|礼物|来电|搜索|查自习|查日历)[:：>]/.test(out.acc)))
       renderChat();
     else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
   };
@@ -6958,6 +7006,7 @@ function onlineExtraNote(){
   if(stickers.length) parts.push(`【表情包】你可以发表情包，可用的有：${stickers.map(s=>s.name).join('、')}。想发时单独占一行写 <表情包:名字>，那一行不要有别的字。偶尔发一个就好，别刷屏。`);
   parts.push(`【转账】合适的情境下你可以给${userName()}转账：单独占一行写 <转账:金额:备注>，金额是数字。别频繁用，重要时刻才有意义。\n当${userName()}转账给你时（消息里会提示），你要表个态：想收下就单独占一行写 <收款>，想退回就写 <退回> 或 <退回:理由>；同时也用你的话回应一下（道谢、撒娇、心疼、或解释为啥不收）。`);
   parts.push(`【语音条】偶尔可以发语音：单独占一行写 <语音:想说的话>，对方要点开才能听。适合撒娇、哄人、或者有点害羞打字说不出口的话。别频繁用。`);
+  parts.push(`【打电话】很想${userName()}、有话想当面说、或者哄睡哄人的时候，你可以主动发起通话：单独占一行写 <来电:语音> 或 <来电:视频>，${userName()}会收到一张来电邀请，点接听就进入通话。只在特别想TA的时刻用，别频繁打。`);
   parts.push(`【礼物】重要的时刻（纪念日、TA达成目标、道歉、或就是突然很想TA）你可以送${userName()}一份礼物：单独占一行写 <礼物:礼物名字:一句寄语>，礼物按你的性格和你们的故事挑，会永久存进你们的礼物橱窗。很偶尔才送，才显得珍贵。`);
   parts.push(`【随手拍】你可以"拍张照片"分享你的此刻：单独占一行写 <拍照:照片画面的描述>，描述照片里拍到了什么（你在哪、看到什么），像随手拍的配文，40字以内。偶尔分享一张就好，照片会存进你们共同的相册。`);
   parts.push(`【撤回】偶尔可以"发了又撤回"，演出欲言又止、害羞说漏嘴、或脱口而出又后悔：把想收回的那句话用 <撤回>想说又咽回去的话</撤回> 单独占一行包起来，${userName()}只会看到「对方撤回了一条消息」（TA点一下能偷看到原话）。撤回那行之后还可以再写你真正说出口的话。很偶尔才用一次，用多了就不灵了。`);
@@ -7990,6 +8039,7 @@ let shotEnd=0, shotCount=6, shotDataUrl=null;
 function shotText(m){
   let t=stripThink(textOf(m.content)).trim();
   t=t.replace(/<语音:([^>]*)>/g,'🎤 $1')
+     .replace(/<来电:(语音|视频)>/g,'📞 $1通话邀请')
      .replace(/<转账:([^:>]*):?([^>]*)>/g,(_,a,b)=>`💰 转账 ¥${String(a).trim()}${b?' · '+b.trim():''}`)
      .replace(/<表情包:([^>]*)>/g,'😊 [表情]')
      .replace(/<拍照:([^>]*)>/g,'📷 $1')
