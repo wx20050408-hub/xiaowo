@@ -1025,7 +1025,8 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 .deskApp .nm{font-size:11px;color:var(--ink);max-width:66px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
 .deskApp.arcade .ico{background:linear-gradient(150deg,#EA5148,#C4362B);color:#fff;border:2px solid #A82C22}
 .deskApp.chat .ico{background:linear-gradient(135deg,#86A8E7,#91EAE4);color:#fff;border:none}
-#deskHandle{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:25;width:5px;height:48px;border-radius:0 8px 8px 0;background:var(--accent);opacity:.4;transition:opacity .25s;cursor:pointer}
+#deskHandle{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:25;width:20px;height:64px;border-radius:0 15px 15px 0;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:2px 2px 8px rgba(0,0,0,.22);opacity:.9;transition:opacity .25s,transform .12s;cursor:pointer}
+#deskHandle:active{transform:translateY(-50%) scale(.9)}
 /* 游戏厅 = 自成一体的「红白掌机」皮，不跟随app主题（全原创，非任何品牌） */
 #arcadePage{--con-red:#EA5148;--con-red-d:#C4362B;--con-cream:#FBF6EE;--con-card:#FFFFFF;--con-ink:#2C2A2E;--con-soft:#948E97;--con-line:#EBE0D0;--con-blue:#3B79D0;
   position:fixed;inset:0;z-index:56;display:none;flex-direction:column;max-width:760px;margin:0 auto;
@@ -1120,7 +1121,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <button class="ppItem" id="ppVoice"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/></svg></span>语音</button>
     <button class="ppItem" id="ppShop"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8h13l-1 11.2a1.5 1.5 0 0 1-1.5 1.3H8a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M9 8V6.2a3 3 0 0 1 6 0V8"/></svg></span>购物</button>
     <button class="ppItem" id="ppAlbum"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2L8 4.8h8L17.5 7h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/><circle cx="12" cy="12.5" r="3.2"/></svg></span>相册</button>
-    <button class="ppItem" id="ppGame"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7.5" width="20" height="9" rx="4.5"/><path d="M6.5 11v3M5 12.5h3"/><circle cx="16" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="18.5" cy="13.5" r="1" fill="currentColor" stroke="none"/></svg></span>小游戏</button>
+    <!-- 小游戏已移到「桌面 › 游戏厅」 -->
     <button class="ppItem" id="ppStudy"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10.5 5 8 4.5 4 5v13c4-.5 6.5 0 8 1.5 1.5-1.5 4-2 8-1.5V5c-4-.5-6.5 0-8 1.5z"/><path d="M12 6.5v13"/></svg></span>自习</button>
     <button class="ppItem" id="ppHome"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5S3.5 15.5 3.5 9.5C3.5 6.7 5.6 5 7.8 5c1.7 0 3.2.9 4.2 2.3C13 5.9 14.5 5 16.2 5c2.2 0 4.3 1.7 4.3 4.5 0 6-8.5 11-8.5 11z"/></svg></span>恋爱主页</button>
     <button class="ppItem" id="ppCall"><span class="ppIc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.8 3.5c.6 0 1.1.4 1.3 1l.9 2.7c.2.5 0 1.1-.4 1.5L7.3 10c1 2 2.7 3.7 4.7 4.7l1.3-1.3c.4-.4 1-.6 1.5-.4l2.7.9c.6.2 1 .7 1 1.3 0 3-2.4 4-4 3.6C9.4 17.7 6.3 14.6 5 9.5 4.5 7.9 3.8 3.5 6.8 3.5z"/></svg></span>通话</button>
@@ -1129,7 +1130,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 </section><!-- /chatPage -->
 </div><!-- /pager -->
 
-<div id="deskHandle" title="桌面"></div>
+<div id="deskHandle" title="桌面">›</div>
 
 <!-- 游戏厅 -->
 <div id="arcadePage">
@@ -3683,7 +3684,7 @@ $('confirmVoice').onclick=()=>{
   sendRaw(`<语音:${t.replace(/[<>]/g,'').slice(0,200)}>`,'[语音]');
 };
 $('ppAlbum').onclick=()=>{ togglePlus(false); renderAlbum(); openSheet('albumSheet'); };
-$('ppGame').onclick=()=>{ togglePlus(false); if(window.openArcade) openArcade(); else openSheet('gameSheet'); };
+/* 小游戏入口已移到「桌面 › 游戏厅」，＋号不再放 */
 
 /* ===== 线描图标：把 .ic 里的彩色 emoji 统一换成细线 SVG（和底部导航/➕面板一个风格）。
    静态 HTML 启动时换一遍；动态渲染（恋爱主页/换装/日历等）由 MutationObserver 兜住，新加功能零改动 ===== */
@@ -3762,7 +3763,7 @@ new MutationObserver(muts=>{
 }).observe(document.body,{childList:true,subtree:true});
 
 /* ===== 功能 ➕ 面板图标配色：默认多彩 / 纯墨色(跟随主题) / 每个图标可单独自定义 ===== */
-const PP_ICONS=[['ppImg','图片'],['ppFile','文件'],['ppSticker','表情'],['ppTransfer','转账'],['ppVoice','语音'],['ppShop','购物'],['ppAlbum','相册'],['ppGame','游戏'],['ppStudy','自习'],['ppHome','恋爱'],['ppCall','通话']];
+const PP_ICONS=[['ppImg','图片'],['ppFile','文件'],['ppSticker','表情'],['ppTransfer','转账'],['ppVoice','语音'],['ppShop','购物'],['ppAlbum','相册'],['ppStudy','自习'],['ppHome','恋爱'],['ppCall','通话']];
 const DEFAULT_PP_COLORS={ppImg:'#E8A87C',ppFile:'#8C84C8',ppSticker:'#4A4036',ppTransfer:'#6FA88E',ppVoice:'#D98EA0',ppShop:'#D88C5A',ppAlbum:'#7AA0C8',ppGame:'#C98AB8',ppStudy:'#C2954E',ppHome:'#E07A8B',ppCall:'#5FA89E'};
 /* 返回某图标该用的颜色：单独覆盖优先 → 纯墨色档返回''(空＝跟随CSS主题墨色) → 否则默认多彩 */
 function ppIconColor(id){
