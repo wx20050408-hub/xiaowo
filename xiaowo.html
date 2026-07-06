@@ -6039,7 +6039,9 @@ $('diaryBtn').onclick=()=>{
 };
 $('diaryChar').onchange=()=>{ renderDiary(); autoDiary(); };
 /* 这个角色相关的统计：全部本地算，零成本 */
-function charStats(ch){
+/* ⚠️ 曾经也叫 charStats——和上面树/小报告用的同名函数打架，后者被顶掉导致
+   关系树 days 恒为 0、三周没长过叶子。改名分家，此教训与 delKey/durChip 并列同型 */
+function charLedger(ch){
   const solo=chats.filter(c=>!(c.members&&c.members.length)&&c.charId===ch.id);
   let first=Infinity,mine=0,theirs=0,tin=0,tout=0;
   const inChat=c=>!(c.members&&c.members.length)?c.charId===ch.id:(c.members||[]).includes(ch.id);
@@ -6072,7 +6074,7 @@ function charStats(ch){
 }
 function renderDiary(){
   const ch=charOf($('diaryChar').value); if(!ch) return;
-  const s=charStats(ch);
+  const s=charLedger(ch);
   $('statGrid').innerHTML=[
     [s.days||'—','认识天数'],[s.msgs,'聊过的话'],[s.mems,'TA记住的事'],
     [s.moments,'TA发的动态'],[s.anns,'纪念日'],[s.money,'转账 收/出 ¥'],
@@ -6107,7 +6109,7 @@ async function genDiary(ch){
   diaryWriting=true; renderDiary();
   const t=new Date();
   const snippet=recentChatSnippet(ch);
-  const s=charStats(ch);
+  const s=charLedger(ch);
   const ask=`今天是${t.getFullYear()}年${t.getMonth()+1}月${t.getDate()}日，你们认识的第${s.days||1}天。`
     +`请你以「${ch.name}」的身份写一篇今天的私人日记，关于你和${userName()}。`
     +(snippet?`\n\n你们最近聊了：\n${snippet}`:'')
