@@ -3698,22 +3698,31 @@ function renderChat(){
 /* 输入框自适应高度 */
 const input=$('input');
 input.oninput=()=>{ const area=$('msgArea'); const pin=area.scrollHeight-area.scrollTop-area.clientHeight<80; input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,120)+'px'; if(pin) area.scrollTop=area.scrollHeight; };
-/* 消息老往上跑的一劳永逸兜底：盯住消息区，内容/尺寸一变(发消息·回复流式·"让TA回复"按钮出现·输入框缩回·键盘·图片)，
-   只要你「本来就在底部」就自动重新贴底；翻历史(离底远)时绝不打扰。原生壳(WebView)键盘那套 visualViewport 不一定吃，这个全覆盖 */
+/* 消息还往上跑：双保险。①壳里键盘可能把「整页」(window/documentElement)顶起——一旦被顶就归零；
+   ②消息区默认死粘底，只有「你没在打字时」主动往上滚才放手看历史（键盘引起的滚动别误判成上滚） */
 (function(){
   const area=$('msgArea'); if(!area) return;
-  const dist=()=>area.scrollHeight-area.scrollTop-area.clientHeight;
-  let nearBottom=true;
-  area.addEventListener('scroll',()=>{ nearBottom=dist()<90; },{passive:true});
-  const repin=()=>{ if(nearBottom) area.scrollTop=area.scrollHeight; };
+  let stick=true, lastTop=0;
+  const resetWin=()=>{ if(window.scrollY) window.scrollTo(0,0); const de=document.documentElement; if(de&&de.scrollTop) de.scrollTop=0; if(document.body&&document.body.scrollTop) document.body.scrollTop=0; };
+  const repin=()=>{ resetWin(); if(stick){ area.scrollTop=area.scrollHeight; lastTop=area.scrollTop; } };
+  window.stickBottom=()=>{ stick=true; repin(); };
+  area.addEventListener('scroll',()=>{
+    const t=area.scrollTop;
+    if(t<lastTop-6 && document.activeElement!==input) stick=false;      // 非打字时主动上滚→放手
+    if(area.scrollHeight-t-area.clientHeight<70) stick=true;            // 滚回底部→恢复粘
+    lastTop=t;
+  },{passive:true});
+  window.addEventListener('scroll',resetWin,{passive:true});
   try{ new MutationObserver(repin).observe(area,{childList:true,subtree:true,characterData:true}); }catch(e){}
   try{ if(window.ResizeObserver) new ResizeObserver(repin).observe(area); }catch(e){}
-  // 键盘弹出动画那零点几秒里(壳里可能没有resize事件)持续钉一下
-  let until=0,running=false;
-  const burst=ms=>{ until=Date.now()+ms; if(running) return; running=true;
-    const loop=()=>{ repin(); if(Date.now()<until) requestAnimationFrame(loop); else running=false; }; loop(); };
-  input.addEventListener('focus',()=>burst(900));
-  window.addEventListener('resize',()=>burst(500));
+  let until=0,run=false; const burst=ms=>{ until=Date.now()+ms; if(run) return; run=true;
+    const l=()=>{ repin(); if(Date.now()<until) requestAnimationFrame(l); else run=false; }; l(); };
+  input.addEventListener('focus',()=>{ stick=true; burst(1200); });
+  window.addEventListener('resize',()=>{ if(document.activeElement===input) stick=true; burst(700); });
+  if(window.visualViewport){ const vv=window.visualViewport;
+    vv.addEventListener('resize',()=>{ if(document.activeElement===input) stick=true; burst(700); });
+    vv.addEventListener('scroll',()=>{ resetWin(); burst(300); });
+  }
 })();
 
 /* ================= ➕ 功能面板 ================= */
@@ -6246,6 +6255,8 @@ async function send(){
   pendingImgs=[]; pendingFiles=[]; renderImgPreview();
   input.value=''; input.style.height='auto';
   persistAll(); renderChat();
+  if(window.stickBottom) window.stickBottom();   // 发完强制粘底 + 归零整页
+  requestAnimationFrame(()=>{ if(window.stickBottom) window.stickBottom(); });
   if(typeof content!=='string') genImgDescs(c);   // 带图：后台生成文字描述
 
   /* 线上模式：不自动回，等「让TA回复」或点名 */
