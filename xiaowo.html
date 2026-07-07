@@ -3724,6 +3724,12 @@ input.oninput=()=>{ const area=$('msgArea'); const pin=area.scrollHeight-area.sc
     vv.addEventListener('resize',()=>{ stick=true; force(800); });
     vv.addEventListener('scroll',()=>{ resetWin(); force(400); });
   }
+  /* 点进软件/从后台切回/开屏加载完：图片布局陆续到位会把已到底的位置顶上去——死钉底1.6秒稳住 */
+  const openForce=()=>{ stick=true; force(1600); };
+  window.addEventListener('load',openForce);
+  window.addEventListener('pageshow',openForce);
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') openForce(); });
+  setTimeout(openForce,350);
 })();
 
 /* ================= ➕ 功能面板 ================= */
