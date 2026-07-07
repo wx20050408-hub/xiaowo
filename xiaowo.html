@@ -3698,30 +3698,31 @@ function renderChat(){
 /* 输入框自适应高度 */
 const input=$('input');
 input.oninput=()=>{ const area=$('msgArea'); const pin=area.scrollHeight-area.scrollTop-area.clientHeight<80; input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,120)+'px'; if(pin) area.scrollTop=area.scrollHeight; };
-/* 消息还往上跑：双保险。①壳里键盘可能把「整页」(window/documentElement)顶起——一旦被顶就归零；
-   ②消息区默认死粘底，只有「你没在打字时」主动往上滚才放手看历史（键盘引起的滚动别误判成上滚） */
+/* 真凶：收键盘瞬间消息区变高，浏览器把 scrollTop 往回夹（变小），被误判成「用户主动上滑」→放手→消息就往上跑。
+   解法：弹/收键盘的那 1 秒里开 forcing 锁，强制死钉底、无视一切误导性滚动；blur(收键盘)也触发。 */
 (function(){
   const area=$('msgArea'); if(!area) return;
-  let stick=true, lastTop=0;
-  const resetWin=()=>{ if(window.scrollY) window.scrollTo(0,0); const de=document.documentElement; if(de&&de.scrollTop) de.scrollTop=0; if(document.body&&document.body.scrollTop) document.body.scrollTop=0; };
-  const repin=()=>{ resetWin(); if(stick){ area.scrollTop=area.scrollHeight; lastTop=area.scrollTop; } };
+  let stick=true, lastTop=0, forcing=0;
+  const resetWin=()=>{ if(window.scrollY) window.scrollTo(0,0); const de=document.documentElement; if(de&&de.scrollTop) de.scrollTop=0; };
+  const repin=()=>{ resetWin(); if(stick||forcing){ area.scrollTop=area.scrollHeight; lastTop=area.scrollTop; } };
   window.stickBottom=()=>{ stick=true; repin(); };
   area.addEventListener('scroll',()=>{
     const t=area.scrollTop;
-    if(t<lastTop-6 && document.activeElement!==input) stick=false;      // 非打字时主动上滚→放手
-    if(area.scrollHeight-t-area.clientHeight<70) stick=true;            // 滚回底部→恢复粘
+    if(!forcing && t<lastTop-6 && document.activeElement!==input) stick=false;   // 只有非锁定+非打字时的主动上滚才放手
+    if(area.scrollHeight-t-area.clientHeight<70) stick=true;
     lastTop=t;
   },{passive:true});
   window.addEventListener('scroll',resetWin,{passive:true});
   try{ new MutationObserver(repin).observe(area,{childList:true,subtree:true,characterData:true}); }catch(e){}
   try{ if(window.ResizeObserver) new ResizeObserver(repin).observe(area); }catch(e){}
-  let until=0,run=false; const burst=ms=>{ until=Date.now()+ms; if(run) return; run=true;
-    const l=()=>{ repin(); if(Date.now()<until) requestAnimationFrame(l); else run=false; }; l(); };
-  input.addEventListener('focus',()=>{ stick=true; burst(1200); });
-  window.addEventListener('resize',()=>{ if(document.activeElement===input) stick=true; burst(700); });
+  function force(ms){ forcing++; const end=Date.now()+ms;
+    const l=()=>{ repin(); if(Date.now()<end) requestAnimationFrame(l); else forcing=Math.max(0,forcing-1); }; l(); }
+  input.addEventListener('focus',()=>{ stick=true; force(1100); });   // 弹键盘
+  input.addEventListener('blur', ()=>{ stick=true; force(1100); });   // 收键盘 ← 你这个case
+  window.addEventListener('resize',()=>{ stick=true; force(800); });
   if(window.visualViewport){ const vv=window.visualViewport;
-    vv.addEventListener('resize',()=>{ if(document.activeElement===input) stick=true; burst(700); });
-    vv.addEventListener('scroll',()=>{ resetWin(); burst(300); });
+    vv.addEventListener('resize',()=>{ stick=true; force(800); });
+    vv.addEventListener('scroll',()=>{ resetWin(); force(400); });
   }
 })();
 
