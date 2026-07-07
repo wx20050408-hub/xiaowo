@@ -3675,21 +3675,22 @@ function renderChat(){
 /* 输入框自适应高度 */
 const input=$('input');
 input.oninput=()=>{ const area=$('msgArea'); const pin=area.scrollHeight-area.scrollTop-area.clientHeight<80; input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,120)+'px'; if(pin) area.scrollTop=area.scrollHeight; };
-/* 键盘顶起消息就往上跑：原生壳(WebView)里 visualViewport 不一定吃，改用「聚焦后 rAF 连续钉底约1秒」硬扛键盘动画，window.resize(壳里键盘走这个)也钉 */
+/* 消息老往上跑的一劳永逸兜底：盯住消息区，内容/尺寸一变(发消息·回复流式·"让TA回复"按钮出现·输入框缩回·键盘·图片)，
+   只要你「本来就在底部」就自动重新贴底；翻历史(离底远)时绝不打扰。原生壳(WebView)键盘那套 visualViewport 不一定吃，这个全覆盖 */
 (function(){
-  const A=()=>$('msgArea'); const now=()=>Date.now();
-  let until=0, running=false, focused=false;
-  const pinNow=()=>{ const a=A(); if(a) a.scrollTop=a.scrollHeight; };
-  function burst(ms){ until=now()+ms; if(running) return; running=true;
-    const loop=()=>{ pinNow(); if(now()<until) requestAnimationFrame(loop); else running=false; }; loop(); }
-  input.addEventListener('focus',()=>{ focused=true; burst(1000); });
-  input.addEventListener('click',()=>{ if(focused) burst(500); });
-  input.addEventListener('blur',()=>{ focused=false; });
-  window.addEventListener('resize',()=>{ if(focused) burst(600); });
-  if(window.visualViewport){ const vv=window.visualViewport;
-    vv.addEventListener('resize',()=>{ if(focused) burst(600); });
-    vv.addEventListener('scroll',()=>{ if(focused) burst(300); });
-  }
+  const area=$('msgArea'); if(!area) return;
+  const dist=()=>area.scrollHeight-area.scrollTop-area.clientHeight;
+  let nearBottom=true;
+  area.addEventListener('scroll',()=>{ nearBottom=dist()<90; },{passive:true});
+  const repin=()=>{ if(nearBottom) area.scrollTop=area.scrollHeight; };
+  try{ new MutationObserver(repin).observe(area,{childList:true,subtree:true,characterData:true}); }catch(e){}
+  try{ if(window.ResizeObserver) new ResizeObserver(repin).observe(area); }catch(e){}
+  // 键盘弹出动画那零点几秒里(壳里可能没有resize事件)持续钉一下
+  let until=0,running=false;
+  const burst=ms=>{ until=Date.now()+ms; if(running) return; running=true;
+    const loop=()=>{ repin(); if(Date.now()<until) requestAnimationFrame(loop); else running=false; }; loop(); };
+  input.addEventListener('focus',()=>burst(900));
+  window.addEventListener('resize',()=>burst(500));
 })();
 
 /* ================= ➕ 功能面板 ================= */
