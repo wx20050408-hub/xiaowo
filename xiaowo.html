@@ -3706,6 +3706,7 @@ input.oninput=()=>{ const area=$('msgArea'); const pin=area.scrollHeight-area.sc
   const resetWin=()=>{ if(window.scrollY) window.scrollTo(0,0); const de=document.documentElement; if(de&&de.scrollTop) de.scrollTop=0; };
   const repin=()=>{ resetWin(); if(stick||forcing){ area.scrollTop=area.scrollHeight; lastTop=area.scrollTop; } };
   window.stickBottom=()=>{ stick=true; repin(); };
+  window.forceBottom=(ms)=>{ stick=true; force(ms==null?1300:ms); };   // 供 send()/收到回复时主动调，锁内死钉底
   area.addEventListener('scroll',()=>{
     const t=area.scrollTop;
     if(!forcing && t<lastTop-6 && document.activeElement!==input) stick=false;   // 只有非锁定+非打字时的主动上滚才放手
@@ -5467,6 +5468,7 @@ async function runReply(c,api,body,ch){
     const _nm={role:'assistant',charId:ch?.id,content:out.acc,ts:Date.now(),online:isOnline,...(stats?{stats}:{})};
     if(regenInto){ _nm.variants=regenInto.variants.concat([out.acc]); _nm.vi=_nm.variants.length-1; regenInto=null; }   // 重生成：旧版本保留，新版本追加到末尾
     c.messages.push(_nm);
+    if(window.forceBottom) window.forceBottom(1600);   // TA回复落地(含头像/贴纸图片加载)期间死钉底
     if(hadFish && fishSummaries.length) c.messages.push({role:'sys',content:'🎣 '+fishSummaries.join('　·　'),ts:Date.now()});
     c.ts=Date.now(); persistAll();
     const idx=c.messages.length-1;
@@ -6262,8 +6264,7 @@ async function send(){
   pendingImgs=[]; pendingFiles=[]; renderImgPreview();
   input.value=''; input.style.height='auto';
   persistAll(); renderChat();
-  if(window.stickBottom) window.stickBottom();   // 发完强制粘底 + 归零整页
-  requestAnimationFrame(()=>{ if(window.stickBottom) window.stickBottom(); });
+  if(window.forceBottom) window.forceBottom(1500);   // 发送(键盘收起)+回复陆续到位期间死钉底
   if(typeof content!=='string') genImgDescs(c);   // 带图：后台生成文字描述
 
   /* 线上模式：不自动回，等「让TA回复」或点名 */
