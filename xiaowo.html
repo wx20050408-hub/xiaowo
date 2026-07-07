@@ -114,6 +114,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 /* ============ 消息区 ============ */
 #msgArea{
   flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior-x:none;-webkit-overflow-scrolling:touch;
+  overflow-anchor:none;   /* 关掉浏览器自动挪滚动位置，别跟我们的"钉底"打架(治一闪一闪) */
   padding:18px 14px 10px;
   display:flex;flex-direction:column;gap:14px;
 }
@@ -3704,7 +3705,7 @@ input.oninput=()=>{ const area=$('msgArea'); const pin=area.scrollHeight-area.sc
   const area=$('msgArea'); if(!area) return;
   let stick=true, lastTop=0, forcing=0;
   const resetWin=()=>{ if(window.scrollY) window.scrollTo(0,0); const de=document.documentElement; if(de&&de.scrollTop) de.scrollTop=0; };
-  const repin=()=>{ resetWin(); if(stick||forcing){ area.scrollTop=area.scrollHeight; lastTop=area.scrollTop; } };
+  const repin=()=>{ resetWin(); if(stick||forcing){ if(area.scrollHeight-area.scrollTop-area.clientHeight>1) area.scrollTop=area.scrollHeight; lastTop=area.scrollTop; } };
   window.stickBottom=()=>{ stick=true; repin(); };
   window.forceBottom=(ms)=>{ stick=true; force(ms==null?1300:ms); };   // 供 send()/收到回复时主动调，锁内死钉底
   area.addEventListener('scroll',()=>{
