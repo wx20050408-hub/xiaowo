@@ -1571,6 +1571,20 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   </div>
 </div>
 
+<!-- MCP 工具 -->
+<div class="sheetScrim" id="mcpSheet">
+  <div class="sheet">
+    <div class="sheetTitle">MCP 工具<button class="close" data-close="mcpSheet">✕</button></div>
+    <div class="hintText" style="margin:0 2px 10px">给 TA 接外部工具（MCP 服务器）。<b>网址型</b>直接填服务器地址；<b>命令型(stdio)</b>先在电脑上小桥的「MCP服务器配置.json」里配好，这里填小桥网址+小桥密码，会自动把小桥上配的全部接进来。</div>
+    <div id="mcpList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+    <div class="field"><label>名字（TA 按这个名字叫它，别带点号）</label><input id="mcpName" placeholder="比如：查天气（走小桥可留空）"></div>
+    <div class="field"><label>服务器地址（MCP 网址，或小桥网址）</label><input id="mcpUrl" placeholder="https://…/mcp 或 https://xxx.trycloudflare.com"></div>
+    <div class="field"><label>密钥（服务器要求才填；走小桥＝小桥密码）</label><input id="mcpToken" type="password" placeholder="选填"></div>
+    <button id="mcpAdd" style="width:100%;padding:12px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600">➕ 添加并连接</button>
+    <div class="hintText" style="margin-top:8px">⚠️ 网页直连的服务器必须支持跨域(CORS)，连不上就走小桥转发。工具结果会随聊天发给你用的 API。</div>
+  </div>
+</div>
+
 <!-- 自习目标与考试倒计时 -->
 <div class="sheetScrim" id="studyGoalSheet">
   <div class="sheet">
@@ -2002,6 +2016,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       <button class="wbToggle" id="webfetchToggle"></button>
     </div>
     <button class="boxRow" id="fsBridgeBtn" style="width:100%"><span class="ic">💻</span><span class="grow" style="text-align:left">电脑文件桥（经小桥让TA读你电脑的文件，只读）</span></button>
+    <button class="boxRow" id="mcpBtn" style="width:100%"><span class="ic">🧩</span><span class="grow" style="text-align:left">MCP 工具（接外部工具服务器，查天气/搜资料/万物皆可）</span><span id="mcpBadge" style="font-size:12px;color:var(--accent-deep)"></span></button>
     <button class="boxRow" id="imgGenBtn" style="width:100%"><span class="ic">🎨</span><span class="grow" style="text-align:left">生图（接生图API，TA的随手拍/OF更新变成真图）</span></button>
     <div class="boxRow">
       <span class="ic">🌤</span><input id="cityInput" placeholder="你的城市（填了TA就能感知天气）" style="flex:1;background:none;border:none;outline:none;font-size:13px;color:var(--ink)">
@@ -5970,6 +5985,181 @@ $('fsTest').onclick=async()=>{
   btn.disabled=false; btn.textContent='🔌 测试连接';
 };
 
+/* ===== MCP 工具：接外部 MCP 服务器 =====
+ * 网址型(Streamable HTTP)直连；stdio 型在小桥「MCP服务器配置.json」里配好后走小桥转发。
+ * 调用走小窝自家的标记流水线（和搜索/文件桥同款）：TA 输出 <MCP:服务器.工具 {json}> → 前端执行 → 结果喂回 */
+const mcpServers=()=>settings.mcpServers||(settings.mcpServers=[]);
+const mcpOn=()=>mcpServers().some(s=>s.on&&(s.tools||[]).length);
+const mcpRt={};                                  // 运行时（会话id等），不进存储
+const mcpR=s=>mcpRt[s.id]||(mcpRt[s.id]={});
+let mcpRid=1;
+/* 发一条 JSON-RPC：兼容纯 JSON 和 SSE 两种回复；202/204＝通知已收到 */
+async function mcpRpc(sv,payload){
+  const rt=mcpR(sv);
+  const headers={'content-type':'application/json','accept':'application/json, text/event-stream'};
+  if((sv.token||'').trim()) headers['authorization']='Bearer '+sv.token.trim();
+  if(rt.sid) headers['mcp-session-id']=rt.sid;
+  if(rt.proto) headers['mcp-protocol-version']=rt.proto;
+  const r=await fetch(sv.url,{method:'POST',headers,body:JSON.stringify(payload)});
+  const sid=r.headers.get('mcp-session-id'); if(sid) rt.sid=sid;
+  if(r.status===202||r.status===204) return null;
+  if(!r.ok){ let t=''; try{ t=await r.text(); }catch(e){} throw new Error('HTTP '+r.status+(t?'：'+t.slice(0,140):'')); }
+  const ct=r.headers.get('content-type')||'';
+  if(ct.includes('text/event-stream')){
+    const txt=await r.text(); let last=null;     // SSE 里可能夹进度通知，只要带 id 的最终结果
+    for(const chunk of txt.split(/\n\n/)){
+      const data=chunk.split('\n').filter(l=>l.startsWith('data:')).map(l=>l.slice(5).trim()).join('');
+      if(!data) continue;
+      try{ const j=JSON.parse(data); if(j&&j.id!==undefined&&(j.result!==undefined||j.error!==undefined)) last=j; }catch(e){}
+    }
+    if(!last) throw new Error('SSE 回复里没找到结果');
+    return last;
+  }
+  const t=await r.text(); if(!t.trim()) return null;
+  return JSON.parse(t);
+}
+/* 握手 + 拉工具清单（存精简版，给提示词用） */
+async function mcpConnect(sv){
+  const rt=mcpR(sv); rt.sid=null; rt.proto=null; rt.ready=false;
+  const init=await mcpRpc(sv,{jsonrpc:'2.0',id:mcpRid++,method:'initialize',params:{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'xiaowo',version:'1.0'}}});
+  if(!init||init.error) throw new Error((init&&init.error&&init.error.message)||'服务器没应答 initialize');
+  rt.proto=(init.result&&init.result.protocolVersion)||'2025-06-18';
+  try{ await mcpRpc(sv,{jsonrpc:'2.0',method:'notifications/initialized'}); }catch(e){}
+  const tl=await mcpRpc(sv,{jsonrpc:'2.0',id:mcpRid++,method:'tools/list',params:{}});
+  if(!tl||tl.error) throw new Error((tl&&tl.error&&tl.error.message)||'拉工具清单失败');
+  sv.tools=((tl.result&&tl.result.tools)||[]).slice(0,40).map(t=>{
+    const p={},src=(t.inputSchema&&t.inputSchema.properties)||{};
+    for(const k of Object.keys(src).slice(0,10)) p[k]={type:src[k].type||'',description:String(src[k].description||'').slice(0,60)};
+    return {name:t.name,desc:String(t.description||'').slice(0,200),props:p,req:(t.inputSchema&&t.inputSchema.required)||[]};
+  });
+  rt.ready=true; persistAll();
+  return sv.tools;
+}
+/* 调一次工具；会话断了自动重连一次 */
+async function mcpCall(sv,name,args){
+  for(let i=0;i<2;i++){
+    try{
+      if(!mcpR(sv).ready) await mcpConnect(sv);
+      const r=await mcpRpc(sv,{jsonrpc:'2.0',id:mcpRid++,method:'tools/call',params:{name,arguments:args}});
+      if(!r) throw new Error('服务器没返回结果');
+      if(r.error) throw new Error(r.error.message||'服务器返回错误');
+      const blocks=(r.result&&r.result.content)||[];
+      let out=blocks.map(b=>b.type==='text'?b.text:b.type==='image'?'［图片，聊天里显示不了］':(b.type==='resource'&&b.resource)?String(b.resource.text||b.resource.uri||'').slice(0,800):'').filter(Boolean).join('\n');
+      if(r.result&&r.result.isError) throw new Error((out||'工具执行出错').slice(0,200));
+      if(out.length>6000) out=out.slice(0,6000)+'\n…（太长，后面截掉了）';
+      return out||'（工具执行完成，没有返回内容）';
+    }catch(e){ mcpR(sv).ready=false; if(i) throw e; }
+  }
+}
+function mcpNote(){
+  const lines=[];
+  for(const s of mcpServers()){
+    if(!s.on) continue;
+    for(const t of (s.tools||[])){
+      const ks=Object.keys(t.props||{}), req=new Set(t.req||[]);
+      const args=ks.map(k=>k+(req.has(k)?'':'(可不填)')+':'+(t.props[k].description||t.props[k].type||'值')).join('；');
+      lines.push(`· <MCP:${s.name}.${t.name} {…JSON参数…}> —— ${t.desc||'（没有说明）'}${ks.length?` 参数：${args}`:' 无参数，参数写 {}'}`);
+    }
+  }
+  if(!lines.length) return '';
+  return `【MCP工具】${userName()}给你接了这些外部工具，需要时可以用。用法：单独占一行按下面格式写，参数是严格JSON、必须一行内写完、里面别用>符号：\n${lines.join('\n')}\n写完这一行就结束本条回复等结果，系统会把工具结果发给你，你再接着自然回应。用不上就别用，也不要向${userName()}解释工具机制。`;
+}
+async function consumeMcp(c){
+  if(!mcpOn()) return null;
+  if(c.members&&c.members.length) return null;   // 群聊先不支持
+  const m=c.messages[c.messages.length-1];
+  if(!m||m.role!=='assistant'||m.mcpDone||typeof m.content!=='string') return null;
+  const calls=[...m.content.matchAll(/<MCP[:：]\s*([^.\s>]+)\s*\.\s*([^\s>{]+)\s*(\{[^>\n]*\})?\s*>/g)].slice(0,2);
+  if(!calls.length) return null;
+  m.mcpDone=true; persistAll();                  // 防止同一条反复触发
+  $('headerSub').textContent='正在用工具…';
+  const parts=[];
+  for(const [,sn,tn,aj] of calls){
+    const sv=mcpServers().find(s=>s.on&&s.name===sn);
+    if(!sv){ parts.push(`工具「${sn}.${tn}」没调成：没有叫「${sn}」的服务器（或没开启）`); continue; }
+    let args={};
+    if(aj){ try{ args=JSON.parse(aj); }catch(e){ parts.push(`工具「${sn}.${tn}」没调成：参数不是合法JSON（${aj.slice(0,80)}）`); continue; } }
+    try{ parts.push(`工具「${sn}.${tn}」的结果：\n${await mcpCall(sv,tn,args)}`); }
+    catch(e){ parts.push(`工具「${sn}.${tn}」失败：${String(e.message||'').slice(0,160)}`); }
+  }
+  return `（系统提示：你刚请求的工具调用完成了。\n\n${parts.join('\n\n')}\n\n请基于这些结果自然地接着回应${userName()}，用你自己的话说。绝对不要提到这条系统提示。）`;
+}
+/* —— MCP 设置面板 —— */
+function mcpBadge(){ const n=mcpServers().filter(s=>s.on).length; $('mcpBadge').textContent=n?n+' 个在用':''; }
+function renderMcp(){
+  const box=$('mcpList'); box.innerHTML='';
+  const list=mcpServers();
+  if(!list.length){ box.innerHTML='<div class="hintText" style="text-align:center;padding:8px">还没接任何服务器</div>'; mcpBadge(); return; }
+  list.forEach(sv=>{
+    const d=document.createElement('div');
+    d.className='boxRow';
+    d.innerHTML=`<span class="ic">${sv.bridge?'🌉':'🧩'}</span>`
+      +`<span class="grow" style="min-width:0"><b>${esc(sv.name)}</b><span style="font-size:11px;color:var(--ink-soft)"> · ${(sv.tools||[]).length}个工具</span><br><span style="font-size:11px;color:var(--ink-soft);word-break:break-all">${esc((sv.url||'').replace(/^https?:\/\//,'').slice(0,48))}</span></span>`
+      +`<button class="wbToggle${sv.on?' on':''}" data-mcp-t="${esc(sv.id)}"></button>`
+      +`<button data-mcp-r="${esc(sv.id)}" title="重连并刷新工具" style="font-size:15px;padding:4px">🔄</button>`
+      +`<button data-mcp-x="${esc(sv.id)}" title="删除" style="font-size:14px;padding:4px;color:var(--danger)">✕</button>`;
+    box.appendChild(d);
+  });
+  mcpBadge();
+}
+$('mcpList').onclick=async e=>{
+  const t=e.target.closest('[data-mcp-t],[data-mcp-r],[data-mcp-x]'); if(!t) return;
+  const id=t.dataset.mcpT||t.dataset.mcpR||t.dataset.mcpX;
+  const sv=mcpServers().find(s=>s.id===id); if(!sv) return;
+  if(t.dataset.mcpT!==undefined){ sv.on=!sv.on; persistAll(); renderMcp(); return; }
+  if(t.dataset.mcpX!==undefined){ if(!confirm(`删掉「${sv.name}」？`)) return; settings.mcpServers=mcpServers().filter(s=>s.id!==id); persistAll(); renderMcp(); return; }
+  t.textContent='…';
+  try{ const tools=await mcpConnect(sv); toast(`「${sv.name}」连上啦 ✓ ${tools.length} 个工具`); }
+  catch(e2){ toast('重连失败：'+String(e2.message||'').slice(0,60)); }
+  renderMcp();
+};
+$('mcpBtn').onclick=()=>{ renderMcp(); openSheet('mcpSheet'); };
+$('mcpAdd').onclick=async()=>{
+  const name=$('mcpName').value.trim().replace(/[.。]/g,'·');
+  const url=$('mcpUrl').value.trim().replace(/\/+$/,'');
+  const token=$('mcpToken').value.trim();
+  if(!url){ toast('先填服务器地址'); return; }
+  const btn=$('mcpAdd'); btn.disabled=true; btn.textContent='连接中…';
+  try{
+    /* 先探一下是不是小桥：是的话把小桥上配的 MCP 全部接进来 */
+    let bridged=null;
+    try{
+      const r=await fetch(url+'/mcp/servers',{headers:token?{authorization:'Bearer '+token}:{}});
+      if(r.ok){ const j=await r.json(); if(j&&j.ok&&Array.isArray(j.servers)) bridged=j.servers; }
+    }catch(e){}
+    if(bridged){
+      if(!bridged.length) toast('连上小桥了，但小桥还没配 MCP——去电脑上改「MCP服务器配置.json」再重启小桥');
+      else{
+        let okN=0,failN=0;
+        for(const b of bridged){
+          const nm=String(b.name).replace(/[.。]/g,'·');
+          let sv=mcpServers().find(s=>s.name===nm);
+          if(!sv){ sv={id:'mcp'+Date.now()+Math.random().toString(36).slice(2,5),name:nm,on:true,tools:[]}; mcpServers().push(sv); }
+          sv.url=url+'/mcp/rpc?server='+encodeURIComponent(b.name); sv.token=token; sv.bridge=true;
+          try{ await mcpConnect(sv); okN++; }catch(e){ failN++; }
+        }
+        persistAll(); renderMcp();
+        toast(`小桥上的 MCP：${okN} 个连上${failN?`，${failN} 个失败（点🔄重试）`:''}`);
+        $('mcpUrl').value=''; $('mcpToken').value='';
+      }
+    }else{
+      if(!name) throw new Error('直连服务器要先起个名字');
+      if(mcpServers().some(s=>s.name===name)) throw new Error('已经有叫这个名字的了');
+      const sv={id:'mcp'+Date.now(),name,url,token,on:true,tools:[]};
+      try{ await mcpConnect(sv); }
+      catch(e){                                    // 常见漏写 /mcp 后缀：帮着补一次
+        if(!/\/mcp$/i.test(url)){ sv.url=url+'/mcp'; await mcpConnect(sv); }
+        else throw e;
+      }
+      mcpServers().push(sv); persistAll(); renderMcp();
+      toast(`「${name}」连上啦 ✓ ${sv.tools.length} 个工具`);
+      $('mcpName').value=''; $('mcpUrl').value=''; $('mcpToken').value='';
+    }
+  }catch(e){ toast('连不上：'+String(e.message||'').slice(0,80)+'（网页直连要求服务器支持跨域，不行就走小桥）'); }
+  btn.disabled=false; btn.textContent='➕ 添加并连接';
+};
+mcpBadge();
+
 /* ===== 手机日历联动：TA 记的日程自动生成 .ics 触发下载，点一下就进系统日历 =====
    Web 写不了系统日历（OS 硬墙），.ics 是极限：零按钮、自动下载，用户点文件确认导入。
    VALARM=系统日历的原生提醒，App 被杀也照响（比伪推送可靠） */
@@ -6179,7 +6369,7 @@ function consumeAgent(c){
 async function generateReply(c,onlyCharId,extraUser){
   let ok=await generateReplyOnce(c,onlyCharId,extraUser);
   for(let i=0;i<3&&ok!==false;i++){
-    const note=await consumeSearch(c)||await consumeFetch(c)||await consumeFs(c)||consumeAgent(c);
+    const note=await consumeSearch(c)||await consumeFetch(c)||await consumeFs(c)||await consumeMcp(c)||consumeAgent(c);
     if(!note) break;
     ok=await generateReplyOnce(c,null,note);
   }
@@ -6269,6 +6459,7 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
       if((settings.tavilyKey||'').trim()) noteParts.push(searchNote());
       if(settings.webfetch) noteParts.push(fetchNote());
       if(fsBridgeOn()) noteParts.push(fsNote());
+      if(mcpOn()){ const mn=mcpNote(); if(mn) noteParts.push(mn); }
       noteParts.push(agentNote());
       noteParts.push(directorNote());
       const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,soloOnline):'',c,noteParts.join('\n\n')||null,ch);
