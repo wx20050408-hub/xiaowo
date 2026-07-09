@@ -8067,11 +8067,14 @@ function compressAvatar(file){
     fr.onload=()=>{
       const img=new Image();
       img.onload=()=>{
-        const S=128, side=Math.min(img.width,img.height);
+        /* 通话大头像/视频全屏都要用，128太糊：提到512；原图更小就不硬放大 */
+        const side=Math.min(img.width,img.height), S=Math.min(512,side);
         const cv=document.createElement('canvas');
         cv.width=S; cv.height=S;
-        cv.getContext('2d').drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,S,S);
-        resolve(cv.toDataURL('image/jpeg',.85));
+        const ctx=cv.getContext('2d');
+        try{ ctx.imageSmoothingQuality='high'; }catch(e){}
+        ctx.drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,S,S);
+        resolve(cv.toDataURL('image/jpeg',.82));
       };
       img.onerror=()=>reject(new Error('bad image'));
       img.src=fr.result;
