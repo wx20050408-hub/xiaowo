@@ -342,24 +342,38 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 /* 亲密视频通话 */
 #privCall{position:fixed;inset:0;z-index:200;background:#0d0d14;display:none;flex-direction:column;color:#fff;overflow:hidden}
 #privCall.show{display:flex}
-#vcBg{position:absolute;inset:0;z-index:0}
-#vcBg::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.35),rgba(0,0,0,.15) 42%,rgba(0,0,0,.78))}
+#vcBg{position:absolute;inset:0;z-index:0;transition:background 1.2s ease}
+#vcBg::before{content:'';position:absolute;inset:-25%;pointer-events:none;
+  background:radial-gradient(40% 34% at 30% 26%,rgba(255,255,255,.16),transparent 70%),
+             radial-gradient(36% 30% at 72% 68%,rgba(255,150,180,.15),transparent 70%);
+  animation:callDrift 14s ease-in-out infinite alternate}
+#vcBg::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.42),rgba(0,0,0,.12) 40%,rgba(0,0,0,.8))}
 #vcTop{position:relative;z-index:2;text-align:center;padding:calc(env(safe-area-inset-top) + 18px) 16px 0}
-#vcName{font-size:18px;font-weight:600;text-shadow:0 1px 6px rgba(0,0,0,.6)}
-#vcTimer{font-size:13px;opacity:.85;margin-top:4px}
-#vcPip{position:absolute;top:calc(env(safe-area-inset-top) + 66px);right:14px;width:88px;height:118px;border-radius:14px;overflow:hidden;background:#2a2636;z-index:3;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 4px 16px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.15)}
+#vcName{font-size:19px;font-weight:700;letter-spacing:.5px;text-shadow:0 1px 8px rgba(0,0,0,.6)}
+#vcTimer{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;margin-top:6px;padding:3px 12px;border-radius:20px;background:rgba(0,0,0,.32);backdrop-filter:blur(8px)}
+#vcTimer::before{content:'';width:7px;height:7px;border-radius:50%;background:#FF5D7D;box-shadow:0 0 6px #FF5D7D;animation:callDot 1.4s ease-in-out infinite;flex-shrink:0}
+#vcPip{position:absolute;top:calc(env(safe-area-inset-top) + 76px);right:14px;width:92px;height:124px;border-radius:16px;overflow:hidden;background:linear-gradient(160deg,#3a3350,#241f33);z-index:3;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 8px 24px rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.3)}
 #vcPip img{width:100%;height:100%;object-fit:cover}
-#vcScene{position:relative;z-index:2;flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:15px;line-height:1.75;text-shadow:0 1px 6px rgba(0,0,0,.75)}
-#vcSub{position:relative;z-index:2;padding:8px 22px;text-align:center;font-size:15px;line-height:1.6;min-height:22px;text-shadow:0 1px 6px rgba(0,0,0,.85)}
-#vcInputRow{position:relative;z-index:2;display:flex;gap:8px;padding:6px 16px}
-#vcInputRow input{flex:1;padding:11px 15px;border-radius:22px;border:none;background:rgba(255,255,255,.16);color:#fff;font-size:14px;min-width:0}
+/* 画面描述：软取景框 + REC 角标，像真的在看TA的镜头 */
+#vcScene{position:relative;z-index:2;flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;margin:14px 18px 8px;font-size:15px;line-height:1.85;text-shadow:0 1px 8px rgba(0,0,0,.8)}
+#vcScene::before{content:'';position:absolute;inset:0;border:1.5px solid rgba(255,255,255,.16);border-radius:22px;pointer-events:none}
+#vcScene::after{content:'● REC';position:absolute;top:9px;left:14px;font-size:10px;letter-spacing:1.5px;color:#FF5D7D;text-shadow:0 0 6px rgba(255,93,125,.8);animation:callDot 1.4s ease-in-out infinite}
+/* TA的话：毛玻璃胶囊 */
+#vcSub{position:relative;z-index:2;margin:0 auto 6px;max-width:min(480px,86%);text-align:center;font-size:15px;line-height:1.65;min-height:22px;text-shadow:0 1px 6px rgba(0,0,0,.85)}
+#vcSub:not(:empty){background:rgba(15,12,22,.45);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.13);border-radius:18px;padding:10px 18px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+#vcInputRow{position:relative;z-index:2;display:flex;gap:8px;padding:10px 16px 6px}
+#vcInputRow input{flex:1;padding:12px 16px;border-radius:24px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.14);backdrop-filter:blur(10px);color:#fff;font-size:14px;min-width:0}
+#vcInputRow input:focus{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.45);outline:none}
 #vcInputRow input::placeholder{color:rgba(255,255,255,.5)}
-#vcInputRow button{padding:0 18px;border-radius:22px;background:var(--accent);color:#fff;font-size:14px}
-#vcBar{position:relative;z-index:2;display:flex;justify-content:center;gap:30px;padding:14px 0 calc(env(safe-area-inset-bottom) + 22px)}
-.vcCircle{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:23px;background:rgba(255,255,255,.18);color:#fff}
-.vcCircle:active{transform:scale(.93)}
-.vcCircle.hang{background:#e0245e}
-.vcCircle.muted{background:rgba(255,255,255,.55);color:#333}
+#vcInputRow button{padding:0 20px;border-radius:24px;background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;font-size:14px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+#vcBar{position:relative;z-index:2;display:flex;justify-content:center;align-items:flex-start;gap:30px;padding:12px 0 calc(env(safe-area-inset-bottom) + 20px)}
+.vcWrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.vcWrap>span{font-size:11px;opacity:.7;letter-spacing:.5px}
+.vcCircle{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(10px);color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.25);transition:transform .12s}
+.vcCircle:active{transform:scale(.9)}
+.vcWrap .vcCircle:not(.hang){margin-top:3px}
+.vcCircle.hang{width:62px;height:62px;background:linear-gradient(145deg,#FF6B6B,#E5484B);border-color:rgba(255,255,255,.3);box-shadow:0 6px 20px rgba(229,72,75,.5)}
+.vcCircle.muted{background:rgba(255,255,255,.75);color:#333}
 /* 直播 */
 #privStage{position:relative;margin:2px 14px 7px;border-radius:20px;min-height:128px;display:flex;align-items:flex-end;padding:16px;color:#fff;font-size:14px;line-height:1.55;overflow:hidden;background:linear-gradient(135deg,#7F7FD5,#86A8E7,#91EAE4);box-shadow:0 6px 20px rgba(0,0,0,.18)}
 #privStage::before{content:'';position:absolute;left:0;right:0;bottom:0;height:62%;background:linear-gradient(to top,rgba(0,0,0,.55),transparent);z-index:0}
@@ -655,6 +669,8 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 .callInvite{display:flex;align-items:center;gap:11px;min-width:200px;padding:11px 14px;border-radius:16px;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;box-shadow:var(--shadow)}
 .callInvite.done{background:var(--card);color:var(--ink-soft);cursor:default;box-shadow:none;border:1px solid var(--line)}
 .callInvite .ciIco{font-size:24px;line-height:1}
+.callInvite:not(.done) .ciIco{animation:ciRing 1.6s ease-in-out infinite;transform-origin:50% 10%}
+@keyframes ciRing{0%,60%,100%{transform:rotate(0)}68%,84%{transform:rotate(-13deg)}76%,92%{transform:rotate(11deg)}}
 .callInvite .ciBody{flex:1;display:flex;flex-direction:column;line-height:1.35}
 .callInvite .ciBody b{font-size:14px}
 .callInvite .ciSub{font-size:11px;opacity:.85}
@@ -921,33 +937,62 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 #momentsEmpty{text-align:center;color:var(--ink-soft);font-size:13px;padding:50px 20px;line-height:2}
 .mPosting{display:flex;align-items:center;gap:10px;color:var(--ink-soft);font-size:13px;padding:4px 4px 14px}
 /* ===== 通话模式 ===== */
-#callScreen{position:fixed;inset:0;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:space-between;padding:max(34px,env(safe-area-inset-top)) 20px max(28px,env(safe-area-inset-bottom));color:#fff}
+#callScreen{position:fixed;inset:0;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:space-between;padding:max(34px,env(safe-area-inset-top)) 20px max(28px,env(safe-area-inset-bottom));color:#fff;overflow:hidden}
 #callScreen.show{display:flex}
-#callScreen.callVoice{background:linear-gradient(160deg,#F6DCC4,#E3C7E0);color:var(--ink)}
-#callScreen.callVideo{background:#15110D}
-.callTop{text-align:center;z-index:2}
-.callName{font-size:22px;font-weight:700}
-.callStat{font-size:13px;opacity:.8;margin-top:4px}
+/* 语音：柔光渐层 + 两团慢慢漂的光斑，像午后窗边 */
+#callScreen.callVoice{background:linear-gradient(165deg,#F9E4CE 0%,#F2D2C8 45%,#E3C7E0 100%);color:var(--ink)}
+#callScreen.callVoice::before{content:'';position:absolute;inset:-22%;z-index:0;pointer-events:none;
+  background:radial-gradient(38% 32% at 26% 24%,rgba(255,214,165,.75),transparent 70%),
+             radial-gradient(34% 30% at 76% 70%,rgba(214,170,222,.55),transparent 70%),
+             radial-gradient(26% 22% at 66% 16%,rgba(255,255,255,.6),transparent 70%);
+  animation:callDrift 16s ease-in-out infinite alternate}
+@keyframes callDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(4%,6%) scale(1.12)}}
+/* 视频：深色氛围底（没头像时也不是一片死黑） */
+#callScreen.callVideo{background:radial-gradient(120% 100% at 50% 0%,#2B2333 0%,#181420 55%,#0E0B14 100%)}
+.callTop{text-align:center;z-index:2;position:relative}
+.callName{font-size:24px;font-weight:700;letter-spacing:.5px;text-shadow:0 2px 12px rgba(0,0,0,.18)}
+.callStat{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;opacity:.92;margin-top:8px;padding:4px 13px;border-radius:20px;background:rgba(0,0,0,.22);backdrop-filter:blur(8px)}
+#callScreen.callVoice .callStat{background:rgba(255,255,255,.5)}
+.callStat::before{content:'';width:7px;height:7px;border-radius:50%;background:#5ECC8F;box-shadow:0 0 6px #5ECC8F;animation:callDot 1.6s ease-in-out infinite;flex-shrink:0}
+@keyframes callDot{0%,100%{opacity:1}50%{opacity:.3}}
 .callAvWrap{flex:1;display:flex;align-items:center;justify-content:center;width:100%;position:relative}
-.callScreen.callVideo .callAvWrap{position:absolute;inset:0}
-#callScreen.callVideo .callAvBig{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:0}
-#callScreen.callVideo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35),transparent 30%,transparent 60%,rgba(0,0,0,.55))}
-.callAvBig{width:200px;height:200px;border-radius:50%;object-fit:cover;box-shadow:0 10px 40px rgba(0,0,0,.3)}
-.callAvFb{width:200px;height:200px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:90px;background:rgba(255,255,255,.18)}
-.callSpeaking{animation:callpulse 1.1s ease-in-out infinite}
+#callAv{position:relative;display:flex;align-items:center;justify-content:center}
+/* 视频模式：头像铺满全屏当"视频画面"，容器让位 */
+#callScreen.callVideo .callAvWrap,#callScreen.callVideo #callAv{position:static}
+#callScreen.callVideo .callAvBig{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:0;border:none;box-shadow:none}
+#callScreen.callVideo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.42),transparent 28%,transparent 58%,rgba(0,0,0,.62));pointer-events:none}
+.callAvBig{width:200px;height:200px;border-radius:50%;object-fit:cover;border:4px solid rgba(255,255,255,.65);box-shadow:0 14px 44px rgba(120,80,60,.3)}
+.callAvFb{width:200px;height:200px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:90px;background:rgba(255,255,255,.35);border:4px solid rgba(255,255,255,.5);box-shadow:0 14px 44px rgba(120,80,60,.22)}
+#callScreen.callVideo .callAvFb{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.14);box-shadow:none}
+/* TA说话：头像轻轻呼吸 + 语音模式外圈两道涟漪扩散 */
+#callAv.callSpeaking .callAvBig,#callAv.callSpeaking .callAvFb{animation:callpulse 1.1s ease-in-out infinite}
+#callScreen.callVideo #callAv.callSpeaking .callAvBig{animation:none}
 @keyframes callpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
-.callCap{position:relative;z-index:2;max-width:480px;width:100%;text-align:center;min-height:46px;font-size:15px;line-height:1.5;margin-bottom:8px;text-shadow:0 1px 6px rgba(0,0,0,.25)}
-.callCap .who{font-size:11px;opacity:.7;display:block;margin-bottom:2px}
-.callCtrls{z-index:2;display:flex;gap:18px;align-items:center;justify-content:center}
-.callBtn{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(255,255,255,.2);backdrop-filter:blur(6px);color:inherit}
-#callScreen.callVoice .callBtn{background:rgba(255,255,255,.55)}
-.callBtn.mic.on{background:var(--accent);color:#fff;box-shadow:0 0 0 6px rgba(232,168,124,.3)}
-.callBtn.hang{background:#E5544B;color:#fff}
-.callSmall{width:46px;height:46px;font-size:19px}
+#callScreen.callVoice #callAv.callSpeaking::before,#callScreen.callVoice #callAv.callSpeaking::after{content:'';position:absolute;left:50%;top:50%;width:208px;height:208px;margin:-104px 0 0 -104px;border-radius:50%;border:2px solid rgba(255,255,255,.8);animation:callRipple 1.8s ease-out infinite;pointer-events:none}
+#callScreen.callVoice #callAv.callSpeaking::after{animation-delay:.9s}
+@keyframes callRipple{0%{transform:scale(1);opacity:.75}100%{transform:scale(1.45);opacity:0}}
+/* 字幕：毛玻璃胶囊 */
+.callCap{position:relative;z-index:2;max-width:min(480px,88vw);text-align:center;min-height:46px;font-size:15px;line-height:1.55;margin-bottom:10px}
+.callCap:not(:empty){background:rgba(20,16,26,.4);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:10px 18px;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+#callScreen.callVoice .callCap:not(:empty){background:rgba(255,255,255,.55);border-color:rgba(255,255,255,.7);box-shadow:0 6px 18px rgba(150,110,90,.16)}
+.callCap .who{font-size:11px;opacity:.6;display:block;margin-bottom:3px;letter-spacing:1px}
+/* 按钮排：毛玻璃圆钮 + 下面小字标签 */
+.callCtrls{z-index:2;display:flex;align-items:flex-start;justify-content:space-evenly;width:100%;max-width:430px;position:relative}
+.cbWrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.cbWrap>span{font-size:11px;opacity:.7;letter-spacing:.5px}
+.callBtn{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(10px);color:inherit;box-shadow:0 4px 14px rgba(0,0,0,.14);transition:transform .12s}
+.callBtn:active{transform:scale(.9)}
+#callScreen.callVoice .callBtn{background:rgba(255,255,255,.5);border-color:rgba(255,255,255,.7)}
+.callBtn.mic{width:62px;height:62px;font-size:25px}
+.callBtn.mic.on{background:var(--accent);color:#fff;animation:micGlow 1.4s ease-in-out infinite}
+@keyframes micGlow{0%,100%{box-shadow:0 0 0 5px rgba(255,255,255,.18)}50%{box-shadow:0 0 0 11px rgba(255,255,255,.3)}}
+.callBtn.hang{width:62px;height:62px;background:linear-gradient(145deg,#FF6B6B,#E5484B);color:#fff;border-color:rgba(255,255,255,.3);box-shadow:0 6px 18px rgba(229,72,75,.45)}
+.hangIco{display:block;transform:rotate(135deg)}
+.callSmall{width:48px;height:48px;font-size:19px;margin-top:7px}
 .callTextRow{z-index:2;display:none;gap:8px;width:100%;max-width:480px;margin-top:12px}
 .callTextRow.show{display:flex}
-.callTextRow input{flex:1;min-width:0;border:none;border-radius:18px;padding:11px 15px;font-size:15px;background:rgba(255,255,255,.9);color:var(--ink)}
-.callTextRow button{padding:0 18px;border-radius:18px;background:var(--accent);color:#fff;font-weight:600;flex-shrink:0}
+.callTextRow input{flex:1;min-width:0;border:1px solid rgba(255,255,255,.35);border-radius:22px;padding:12px 16px;font-size:15px;background:rgba(255,255,255,.92);color:#4A4036}
+.callTextRow button{padding:0 20px;border-radius:22px;background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;font-weight:600;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.16)}
 /* ===== 开屏页：你和TA的关系树 ===== */
 #splash{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;
   background:radial-gradient(120% 90% at 50% 16%, var(--bg-soft,#fff7ee) 0%, var(--bg,#f6ecdf) 72%);
@@ -1299,9 +1344,9 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div id="vcSub"></div>
   <div id="vcInputRow"><input id="vcInput" placeholder="说点什么…" maxlength="500"><button id="vcSendBtn">说</button></div>
   <div id="vcBar">
-    <button class="vcCircle" id="vcFlip" title="翻转镜头">🔄</button>
-    <button class="vcCircle hang" id="vcHangup" title="挂断">📞</button>
-    <button class="vcCircle" id="vcMic" title="麦克风">🎤</button>
+    <div class="vcWrap"><button class="vcCircle" id="vcFlip" title="翻转镜头">🔄</button><span>翻转</span></div>
+    <div class="vcWrap"><button class="vcCircle hang" id="vcHangup" title="挂断"><span class="hangIco">📞</span></button><span>挂断</span></div>
+    <div class="vcWrap"><button class="vcCircle" id="vcMic" title="麦克风">🎤</button><span>麦克风</span></div>
   </div>
 </div>
 
@@ -2493,11 +2538,11 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <button id="callSendBtn">发送</button>
   </div>
   <div class="callCtrls">
-    <button class="callBtn callSmall" id="callStyleBtn" title="切换界面">🔄</button>
-    <button class="callBtn callSmall" id="callTextBtn" title="打字">⌨️</button>
-    <button class="callBtn mic" id="callMicBtn" title="说话">🎤</button>
-    <button class="callBtn callSmall" id="callMuteBtn" title="静音TA">🔊</button>
-    <button class="callBtn hang" id="callHangBtn" title="挂断">📞</button>
+    <div class="cbWrap"><button class="callBtn callSmall" id="callStyleBtn" title="切换界面">🔄</button><span>切换</span></div>
+    <div class="cbWrap"><button class="callBtn callSmall" id="callTextBtn" title="打字">⌨️</button><span>打字</span></div>
+    <div class="cbWrap"><button class="callBtn mic" id="callMicBtn" title="说话">🎤</button><span>说话</span></div>
+    <div class="cbWrap"><button class="callBtn callSmall" id="callMuteBtn" title="静音TA">🔊</button><span>静音TA</span></div>
+    <div class="cbWrap"><button class="callBtn hang" id="callHangBtn" title="挂断"><span class="hangIco">📞</span></button><span>挂断</span></div>
   </div>
 </div>
 
@@ -4355,7 +4400,7 @@ window.__sttResult=(text,isFinal)=>{ showCap('me',text); if(isFinal) callFinal=t
 window.__sttEnd=()=>{ callMicOn=false; updateMicUI(); const t=(callFinal||'').trim(); callFinal=''; if(t) callSay(t); };
 window.__sttError=(msg)=>{ callMicOn=false; updateMicUI(); if(msg) toast(msg); };
 function stopCallVoice(){ const na=nativeApp(); try{ na&&na.stopSpeak&&na.stopSpeak(); }catch(e){} try{ speechSynthesis&&speechSynthesis.cancel(); }catch(e){} }
-function callAvSpeaking(on){ const el=$('callAv').firstElementChild; if(el) el.classList.toggle('callSpeaking',on); }
+function callAvSpeaking(on){ $('callAv').classList.toggle('callSpeaking',on); }
 async function callSay(text){
   text=(text||'').trim(); if(!text) return;
   const c=curChat(); if(!c||callBusy){ if(callBusy) toast('等TA说完再说哦'); return; }
