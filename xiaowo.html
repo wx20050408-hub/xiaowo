@@ -820,29 +820,49 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 .dText{font-size:14px;line-height:1.85;white-space:pre-wrap;word-break:break-word}
 .dDel{position:absolute;top:10px;right:12px;color:var(--ink-soft);font-size:12px;padding:4px}
 
-/* 日历 */
+/* 日历（ins 风：无框数字 + 圆点标记 + 大圆角月历卡 + 日程流） */
 #calPage{position:fixed;inset:0;z-index:55;background:var(--bg);display:none;flex-direction:column;max-width:760px;margin:0 auto}
 #calPage.show{display:flex}
-#calHeader{
-  display:flex;align-items:center;gap:6px;
-  padding:calc(env(safe-area-inset-top) + 12px) 14px 12px;
-  border-bottom:1px solid var(--line);flex-shrink:0;
-}
-#calTitle{flex:1;text-align:center;font-weight:600;font-size:16px}
-#calWeek,#calGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;padding:10px 12px 0}
-#calWeek{padding-bottom:0}
-#calWeek div{text-align:center;font-size:11px;color:var(--ink-soft)}
-.calDay{
-  aspect-ratio:1;border-radius:12px;background:var(--card);box-shadow:var(--shadow);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  font-size:14px;gap:1px;
-}
-.calDay:active{transform:scale(.95)}
-.calDay.empty{background:none;box-shadow:none;pointer-events:none}
-.calDay.today{outline:2px solid var(--accent)}
-.calDay.period{background:var(--bubble-me)}
-.calDay.predict{outline:1.5px dashed var(--accent-deep)}
-.calDay .marks{font-size:8px;line-height:1;height:9px;color:var(--accent-deep)}
+#calHeader{display:flex;align-items:center;gap:6px;padding:calc(env(safe-area-inset-top) + 12px) 14px 4px;flex-shrink:0}
+#calTitle{flex:1;text-align:center;font-weight:700}
+#calTitle .calTM{font-size:22px;letter-spacing:1px}
+#calTitle .calTY{font-size:11px;font-weight:600;color:var(--ink-soft);margin-left:6px;letter-spacing:2px}
+#calBody{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
+#calCard{background:var(--card);border-radius:24px;box-shadow:0 8px 28px rgba(0,0,0,.06);margin:8px 14px 0;padding:14px 8px 10px}
+#calWeek,#calGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+#calWeek div{text-align:center;font-size:10px;color:var(--ink-soft);letter-spacing:1px;padding-bottom:6px}
+.calDay{aspect-ratio:1;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:14px;transition:background .15s}
+.calDay:active{background:var(--bg-soft)}
+.calDay.empty{pointer-events:none}
+.calDay .dNum{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--ink)}
+.calDay.period .dNum{background:var(--bubble-me);font-weight:600}
+.calDay.predict .dNum{border:1.5px dashed var(--accent-deep);color:var(--accent-deep)}
+.calDay.today .dNum{background:var(--accent);color:#fff;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+.calDay .marks{height:6px;display:flex;gap:3px;align-items:center}
+.calDay .marks i{width:4px;height:4px;border-radius:50%;background:var(--accent-deep);display:block}
+.calDay .marks i.dim{background:var(--line)}
+.calDay .marks i.hrt{width:auto;height:auto;background:none;font-size:7px;font-style:normal;color:#E0729B;line-height:1}
+#calLegend{text-align:center;font-size:11px;color:var(--ink-soft);padding:10px 18px 0}
+#calPredict{margin:10px 14px 0;font-size:12.5px;color:var(--ink);background:var(--bubble-me);border-radius:16px;padding:10px 14px;line-height:1.6;display:none}
+#calPredict.show{display:block}
+/* 日程流：接下来30天 */
+#calAgenda{margin:16px 14px 0}
+.agLabel{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--ink-soft);margin:0 4px 8px}
+.agItem{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:16px;padding:11px 13px;margin-bottom:8px;box-shadow:0 3px 12px rgba(0,0,0,.05);cursor:pointer}
+.agItem .agTxt{flex:1;min-width:0;font-size:14px;line-height:1.45;word-break:break-word}
+.agItem .agWhen{flex-shrink:0;font-size:11px;color:var(--accent-deep);font-weight:600;text-align:right;line-height:1.4}
+.agItem.done .agTxt{text-decoration:line-through;color:var(--ink-soft)}
+.agItem.done .agWhen{color:var(--ink-soft)}
+.agEmpty{text-align:center;font-size:12px;color:var(--ink-soft);padding:14px;background:var(--bg-soft);border-radius:16px}
+/* 完成圈（日程流 + 当天弹层共用）：办完点一下，划掉 */
+.ckDot{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);background:var(--card);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;padding:0;transition:all .15s}
+.ckDot.on{background:var(--accent);border-color:var(--accent)}
+/* 当天弹层的备忘条 */
+.dnItem{display:flex;align-items:center;gap:10px;background:var(--bg-soft);border-radius:14px;padding:10px 12px;margin-bottom:8px}
+.dnItem .dnBody{flex:1;min-width:0;font-size:14px;line-height:1.45;word-break:break-word}
+.dnItem .dnTime{display:inline-block;font-size:11px;font-weight:700;color:var(--accent-deep);background:var(--card);border-radius:8px;padding:1px 7px;margin-right:7px}
+.dnItem.done .dnBody{text-decoration:line-through;color:var(--ink-soft)}
+.dnItem .dnDel{color:var(--ink-soft);font-size:13px;padding:4px}
 /* 可多选小标签（生理期表单：流量/症状/心情） */
 .chipRow{display:flex;flex-wrap:wrap;gap:8px}
 .chip{padding:6px 13px;border-radius:16px;border:1.5px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:13px;cursor:pointer;transition:all .15s}
@@ -1425,11 +1445,13 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <button class="iconBtn" id="calNext">▸</button>
     <div style="width:38px"></div>
   </header>
-  <div id="calWeek"></div>
-  <div id="calGrid"></div>
-  <div class="hintText" style="padding:10px 18px 0">● 有备忘 · 底色♥ 经期 · 虚线圈 预计经期 · 点日期记一笔</div>
-  <div class="hintText" id="calPredict" style="padding:4px 18px"></div>
-  <div style="padding:6px 18px 16px"><button class="primaryBtn" id="periodBtn" style="margin:0">🌸 生理期记录</button></div>
+  <div id="calBody">
+    <div id="calCard"><div id="calWeek"></div><div id="calGrid"></div></div>
+    <div id="calLegend">● 有事 · <span style="color:var(--line)">●</span> 都办完了 · ♥ 经期 · 虚线圈 预计经期 · 点日期记一笔</div>
+    <div id="calPredict"></div>
+    <div id="calAgenda"></div>
+    <div style="padding:14px 14px 16px"><button class="primaryBtn" id="periodBtn" style="margin:0">🌸 生理期记录</button></div>
+  </div>
 </div>
 
 <!-- 生理期记录页 -->
@@ -1481,8 +1503,11 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div class="boxRow"><span class="ic">🌸</span><span class="grow">这天是经期</span><button class="wbToggle" id="dayPeriod"></button></div>
     <div id="dayNotes"></div>
     <div class="field"><label>添加备忘 / 提醒</label><textarea id="dayText" style="min-height:60px" placeholder="比如：交作业、取快递、和TA的约定…"></textarea></div>
-    <button class="primaryBtn" id="addDayNote">记下</button>
-    <div class="hintText">当天打开Serenade会提醒你；TA 也看得到当天的备忘，会自然地帮你记着。</div>
+    <div style="display:flex;gap:8px;align-items:stretch">
+      <input type="time" id="dayTime" title="几点（可不填）" style="flex:0 0 108px;padding:10px;border-radius:14px;border:1px solid var(--line);background:var(--bg-soft);color:var(--ink);font-size:14px;font-family:inherit">
+      <button class="primaryBtn" id="addDayNote" style="flex:1;margin:0">记下</button>
+    </div>
+    <div class="hintText">时间可不填。办完了点前面的圈圈划掉，TA 就知道不用再催啦；TA 也看得到当天的备忘，会自然地帮你记着。</div>
   </div>
 </div>
 
@@ -2861,8 +2886,10 @@ function specialHtml(line,msg){
   if(m) return photoHtml(m[1],msg);
   m=line.match(/^<礼物[:：]\s*([^:：>]+?)\s*(?:[:：]\s*([^>]*?))?\s*>$/);
   if(m) return giftHtml(m[1],m[2]||'',msg);
-  m=line.match(/^<备忘[:：]\s*(\d{4}-\d{2}-\d{2})\s*[:：]\s*(.+?)\s*>$/);
-  if(m) return `<span class="searchChip" style="cursor:pointer" onclick="icsChip(this)" data-d="${esc(m[1])}" data-t="${esc(m[2])}" title="点我导入手机日历">📅 记到日历 ${+m[1].slice(5,7)}月${+m[1].slice(8)}日：${esc(m[2])}　<u style="opacity:.7">导入手机📲</u></span>`;
+  m=line.match(/^<备忘[:：]\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{1,2}:\d{2}))?\s*[:：]\s*(.+?)\s*>$/);
+  if(m) return `<span class="searchChip" style="cursor:pointer" onclick="icsChip(this)" data-d="${esc(m[1])}" data-t="${esc((m[2]?m[2]+' ':'')+m[3])}" title="点我导入手机日历">📅 记到日历 ${+m[1].slice(5,7)}月${+m[1].slice(8)}日${m[2]?' '+m[2]:''}：${esc(m[3])}　<u style="opacity:.7">导入手机📲</u></span>`;
+  m=line.match(/^<完成备忘[:：]\s*(.+?)\s*>$/);
+  if(m) return `<span class="searchChip">✓ 帮你划掉了：${esc(m[1])}</span>`;
   m=line.match(/^<纪念日[:：]\s*([^:：>]+?)\s*[:：]\s*(\d{4}-\d{2}-\d{2})\s*>$/);
   if(m) return `<span class="searchChip" style="cursor:pointer" onclick="icsChip(this)" data-d="${esc(m[2])}" data-t="🎂 ${esc(m[1])}" data-y="1" title="点我导入手机日历">🎂 记下纪念日「${esc(m[1])}」 ${esc(m[2])}　<u style="opacity:.7">导入手机📲</u></span>`;
   m=line.match(/^<心愿[:：]\s*(.+?)\s*>$/);
@@ -2892,7 +2919,7 @@ function specialHtml(line,msg){
 /* 线下模式搜索/读网页/小助手标记夹在正文里时也转成小芯片（输入已被 esc 过） */
 const fmtSearchChips=h=>h.replace(/&lt;搜索[:：]\s*(.+?)\s*&gt;/g,'<span class="searchChip">🔍 搜了搜：$1</span>')
                          .replace(/&lt;读网页[:：]\s*(\S+?)\s*&gt;/g,'<span class="searchChip">🌐 看了看网页</span>')
-                         .replace(/&lt;(?:备忘|纪念日|心愿|购物)[:：]([^&]*?)&gt;/g,(_,v)=>`<span class="searchChip">✍️ 记下了：${v.replace(/[:：]/g,' · ')}</span>`)
+                         .replace(/&lt;(?:完成备忘|备忘|纪念日|心愿|购物)[:：]([^&]*?)&gt;/g,(_,v)=>`<span class="searchChip">✍️ 记下了：${v.replace(/[:：]/g,' · ')}</span>`)
                          .replace(/&lt;查(自习|日历|手机使用)\s*\/?\s*&gt;/g,'<span class="searchChip">🔎 查了查$1</span>')
                          .replace(/&lt;(列目录|读文件)[:：]([^&]*?)&gt;/g,'<span class="searchChip">📂 $1：$2</span>');
 /* 语音条：点一下展开文字并朗读，再点一下收起 */
@@ -4990,7 +5017,7 @@ function buildDynamic(c,ch){
   {
     const tdy=new Date(), tds=`${tdy.getFullYear()}-${String(tdy.getMonth()+1).padStart(2,'0')}-${String(tdy.getDate()).padStart(2,'0')}`;
     const todayNotes=calNotes.filter(n=>n.date===tds);
-    if(todayNotes.length) parts.push(`【今日备忘】${userName()}的日历上今天记着：${todayNotes.map(n=>n.text).join('；')}。聊到相关话题时可以自然地帮TA记着、提醒TA。`);
+    if(todayNotes.length) parts.push(`【今日备忘】${userName()}的日历上今天记着：${todayNotes.map(n=>`${n.time?n.time+' ':''}${n.text}${n.done?'（已办完✓）':''}`).join('；')}。聊到相关话题时可以自然地帮TA记着、提醒TA；标了✓的TA已经办完了，别再提醒、也别再问进度。TA说哪件办完了，记得用<完成备忘:关键词>帮TA划掉。`);
     if(periods.includes(tds)){
       let s=tds; while(periods.includes(addDaysStr(s,-1))) s=addDaysStr(s,-1);   // 回溯到这段经期的开始日
       const meta=periodMeta[s], bits=[];
@@ -5472,10 +5499,18 @@ async function runReply(c,api,body,ch){
     }
     /* TA 的小助手动作：记日历备忘 / 纪念日 / 心愿 / 购物清单 */
     let agentActs=0; const icsEvents=[];
-    for(const am of out.acc.matchAll(/<备忘[:：]\s*(\d{4}-\d{2}-\d{2})\s*[:：]\s*([^>]+?)\s*>/g)){
-      const note={id:rid('n'),date:am[1],text:am[2].slice(0,200)};
+    for(const am of out.acc.matchAll(/<备忘[:：]\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{1,2}:\d{2}))?\s*[:：]\s*([^>]+?)\s*>/g)){
+      const note={id:rid('n'),date:am[1],time:am[2]||'',text:am[3].slice(0,200),done:false};
       calNotes.push(note); agentActs++;
-      icsEvents.push({id:note.id,date:note.date,title:note.text});
+      icsEvents.push({id:note.id,date:note.date,title:(note.time?note.time+' ':'')+note.text});
+    }
+    /* TA 划掉办完的备忘：按关键词找最早那条没办完的（只往前找14天以内+未来的，太久远的不乱动） */
+    for(const am of out.acc.matchAll(/<完成备忘[:：]\s*([^>]+?)\s*>/g)){
+      const kw=am[1].trim(); if(!kw) continue;
+      const lo=addDaysStr(todayStr(),-14);
+      let hit=null;
+      for(const n of calNotes){ if(!n.done&&n.date>=lo&&(n.text.includes(kw)||kw.includes(n.text))){ if(!hit||n.date<hit.date) hit=n; } }
+      if(hit){ hit.done=true; agentActs++; toast(`✓ 「${hit.text.slice(0,14)}」划掉啦`); }
     }
     for(const am of out.acc.matchAll(/<纪念日[:：]\s*([^:：>]+?)\s*[:：]\s*(\d{4}-\d{2}-\d{2})\s*>/g)){
       const an={id:'a'+Date.now()+'_'+agentActs,charId:ch?.id,name:am[1].slice(0,20),date:am[2]};
@@ -6301,7 +6336,8 @@ $('csPull').onclick=async()=>{
 /* ===== TA 的小助手（agent 工具）：写=记日历/纪念日/心愿/购物（saveMsg 里执行）；查=自习/日历（接力循环喂真数据） ===== */
 function agentNote(){
   return `【小助手】${userName()}让你帮忙记东西、或问到相关的事时，你可以直接操作TA的Serenade（每个标记单独占一行）：
-· 记日历备忘：<备忘:YYYY-MM-DD:内容>——"周五提醒我交作业"这类，把日期换算成具体年月日再写。
+· 记日历备忘：<备忘:YYYY-MM-DD:内容>，知道几点就带上时间 <备忘:YYYY-MM-DD HH:MM:内容>——"周五下午三点提醒我交作业"这类，把日期换算成具体年月日再写。
+· 划掉办完的备忘：<完成备忘:那条备忘的关键词>——${userName()}说某件事已经做完/办好了就用它划掉，之后就别再提醒别再问了。
 · 记纪念日：<纪念日:名字:YYYY-MM-DD>
 · 加心愿单：<心愿:想一起做的事>
 · 记购物清单：<购物:东西:价格>（价格不知道可省略）
@@ -6332,7 +6368,7 @@ function agentCalDigest(ch){
   const lines=[], now=new Date(); now.setHours(0,0,0,0);
   const end=new Date(now); end.setDate(end.getDate()+30);
   const notes=calNotes.filter(n=>{ const d=new Date(n.date+'T00:00:00'); return d>=now&&d<=end; }).sort((a,b)=>a.date<b.date?-1:1);
-  lines.push(notes.length?('接下来30天的备忘：\n'+notes.map(n=>`- ${+n.date.slice(5,7)}月${+n.date.slice(8)}日：${n.text}`).join('\n')):'接下来30天日历上没有备忘');
+  lines.push(notes.length?('接下来30天的备忘：\n'+notes.map(n=>`- ${+n.date.slice(5,7)}月${+n.date.slice(8)}日${n.time?' '+n.time:''}：${n.text}${n.done?'（已办完✓）':''}`).join('\n')+'\n（标✓的已经办完了，别再提醒）'):'接下来30天日历上没有备忘');
   const na=nextAnniv(ch);
   if(na) lines.push(`最近的纪念日：「${na.a.name}」${na.days===0?'就是今天！':'还有 '+na.days+' 天'}`);
   return lines.join('\n');
@@ -6714,7 +6750,7 @@ function periodInfo(){
   return {starts,runs,lens,gaps,next,cycle,len:Math.min(10,Math.max(2,len))};
 }
 function renderCal(){
-  $('calTitle').textContent=`${calY}年${calM+1}月`;
+  $('calTitle').innerHTML=`<span class="calTM">${calM+1}月</span><span class="calTY">${calY}</span>`;
   $('calWeek').innerHTML=['日','一','二','三','四','五','六'].map(d=>`<div>${d}</div>`).join('');
   const grid=$('calGrid'); grid.innerHTML='';
   const first=new Date(calY,calM,1).getDay();
@@ -6731,35 +6767,61 @@ function renderCal(){
       +(ds===tdy?' today':'')
       +(periods.includes(ds)?' period':'')
       +(predDays.has(ds)&&!periods.includes(ds)?' predict':'');
-    const hasNote=calNotes.some(n=>n.date===ds);
-    cell.innerHTML=`<span>${d}</span><span class="marks">${hasNote?'●':''}${periods.includes(ds)?'♥':''}</span>`;
+    const dayNotes=calNotes.filter(n=>n.date===ds);
+    const marks=(dayNotes.length?`<i${dayNotes.every(n=>n.done)?' class="dim"':''}></i>`:'')
+      +(periods.includes(ds)?'<i class="hrt">♥</i>':'');
+    cell.innerHTML=`<span class="dNum">${d}</span><span class="marks">${marks}</span>`;
     cell.onclick=()=>openDay(ds);
     grid.appendChild(cell);
   }
+  let pt='';
   if(info.next){
     const dl=dayDiffD(tdy,info.next);
-    $('calPredict').textContent=`🌸 预计下次经期：${info.next}（周期约${info.cycle}天，${dl>=0?`还有 ${dl} 天`:'好像迟到了，记得留意'}）`;
-  }else if(info.starts.length===1){
-    $('calPredict').textContent='🌸 再记录一次经期，就能帮你预测下次了';
-  }else $('calPredict').textContent='';
+    pt=`🌸 预计下次经期：${+info.next.slice(5,7)}月${+info.next.slice(8)}日（周期约${info.cycle}天，${dl>=0?`还有 ${dl} 天`:'好像迟到了，记得留意'}）`;
+  }else if(info.starts.length===1) pt='🌸 再记录一次经期，就能帮你预测下次了';
+  $('calPredict').textContent=pt;
+  $('calPredict').classList.toggle('show',!!pt);
+  renderAgenda();
+}
+/* 日程流：今天起 30 天内的备忘，点圈圈划掉，点条目跳到那天 */
+function renderAgenda(){
+  const box=$('calAgenda'); if(!box) return;
+  const tdy=todayStr(), end=addDaysStr(tdy,30);
+  const items=calNotes.filter(n=>n.date>=tdy&&n.date<=end)
+    .sort((a,b)=>a.date===b.date?((a.time||'99')<(b.time||'99')?-1:1):(a.date<b.date?-1:1));
+  box.innerHTML='<div class="agLabel">接下来 30 天</div>';
+  if(!items.length){ box.innerHTML+='<div class="agEmpty">这一个月还很空～点上面的日期记一笔</div>'; return; }
+  items.forEach(n=>{
+    const d=document.createElement('div');
+    d.className='agItem'+(n.done?' done':'');
+    const dl=dayDiffD(tdy,n.date);
+    const when=(dl===0?'今天':dl===1?'明天':dl===2?'后天':`${+n.date.slice(5,7)}月${+n.date.slice(8)}日`)+(n.time?`<br>${n.time}`:'');
+    d.innerHTML=`<button class="ckDot${n.done?' on':''}" title="办完点我划掉">${n.done?'✓':''}</button><span class="agTxt">${esc(n.text)}</span><span class="agWhen">${when}</span>`;
+    d.querySelector('.ckDot').onclick=e=>{ e.stopPropagation(); n.done=!n.done; persistAll(); renderCal(); };
+    d.onclick=()=>openDay(n.date);
+    box.appendChild(d);
+  });
 }
 function openDay(ds){
   selDay=ds;
   $('dayTitle').childNodes[0].textContent=ds;
   $('dayPeriod').classList.toggle('on',periods.includes(ds));
-  $('dayText').value='';
+  $('dayText').value=''; $('dayTime').value='';
   renderDayNotes();
   openSheet('daySheet');
 }
 function renderDayNotes(){
   const list=$('dayNotes'); list.innerHTML='';
-  const items=calNotes.filter(n=>n.date===selDay);
+  const items=calNotes.filter(n=>n.date===selDay).sort((a,b)=>(a.time||'99')<(b.time||'99')?-1:1);
   if(!items.length) return;
   items.forEach(n=>{
     const it=document.createElement('div');
-    it.className='keyItem';
-    it.innerHTML=`<div class="keyInfo"><div class="keyPreview" style="white-space:normal">${esc(n.text)}</div></div><button class="delKey">✕</button>`;
-    it.querySelector('.delKey').onclick=()=>{
+    it.className='dnItem'+(n.done?' done':'');
+    it.innerHTML=`<button class="ckDot${n.done?' on':''}" title="办完点我划掉">${n.done?'✓':''}</button>`
+      +`<div class="dnBody">${n.time?`<span class="dnTime">${n.time}</span>`:''}${esc(n.text)}</div>`
+      +`<button class="dnDel">✕</button>`;
+    it.querySelector('.ckDot').onclick=()=>{ n.done=!n.done; persistAll(); renderDayNotes(); renderCal(); };
+    it.querySelector('.dnDel').onclick=()=>{
       calNotes=calNotes.filter(x=>x.id!==n.id);
       persistAll(); renderDayNotes(); renderCal();
     };
@@ -6776,8 +6838,8 @@ $('dayPeriod').onclick=()=>{
 $('addDayNote').onclick=()=>{
   const t=$('dayText').value.trim();
   if(!t){ toast('写点什么叭'); return; }
-  calNotes.push({id:rid('n'),date:selDay,text:t.slice(0,200)});
-  $('dayText').value='';
+  calNotes.push({id:rid('n'),date:selDay,text:t.slice(0,200),time:$('dayTime').value||'',done:false});
+  $('dayText').value=''; $('dayTime').value='';
   persistAll(); renderDayNotes(); renderCal(); toast('记下啦');
 };
 $('calBtn').onclick=()=>{
