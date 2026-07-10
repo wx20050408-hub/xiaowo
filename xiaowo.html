@@ -2814,8 +2814,9 @@ $('codePrevSave').onclick=()=>{ if(codePrevCode){ dlFile('Serenade网页.html',c
 $('codePrevFull').onclick=()=>{
   const f=$('codePrevFrame');
   const rq=f.requestFullscreen||f.webkitRequestFullscreen;
-  if(rq) rq.call(f).catch(()=>toast('这台设备不给全屏，转成横屏看吧'));
-  else toast('这台设备不给全屏，转成横屏看吧');
+  /* 老 WebKit 的 webkitRequestFullscreen 不返回 Promise，直接 .catch 会炸 */
+  try{ const p=rq&&rq.call(f); if(p&&p.catch) p.catch(()=>toast('这台设备不给全屏，转成横屏看吧')); if(!rq) toast('这台设备不给全屏，转成横屏看吧'); }
+  catch(e){ toast('这台设备不给全屏，转成横屏看吧'); }
 };
 /* 关掉预览时清空 iframe，省得后台还在跑 */
 document.querySelector('#codePrevSheet .close').addEventListener('click',()=>{ $('codePrevFrame').srcdoc=''; });
@@ -2964,6 +2965,8 @@ function specialHtml(line,msg){
   if(m) return `<span class="searchChip">🔎 翻了翻你的自习记录</span>`;
   m=line.match(/^<查日历\s*\/?\s*>$/);
   if(m) return `<span class="searchChip">🔎 看了看你的日历</span>`;
+  m=line.match(/^<MCP[:：]\s*([^.\s>]+)\s*\.\s*([^\s>{]+)[\s\S]*>$/);
+  if(m) return `<span class="searchChip">🧩 用了工具：${esc(m[1])} · ${esc(m[2])}</span>`;
   m=line.match(/^<查手机使用\s*\/?\s*>$/);
   if(m) return `<span class="searchChip">🔎 看了看你的屏幕时间</span>`;
   m=line.match(/^<搜索[:：]\s*(.+?)\s*>$/);
@@ -2976,6 +2979,7 @@ function specialHtml(line,msg){
 const fmtSearchChips=h=>h.replace(/&lt;搜索[:：]\s*(.+?)\s*&gt;/g,'<span class="searchChip">🔍 搜了搜：$1</span>')
                          .replace(/&lt;读网页[:：]\s*(\S+?)\s*&gt;/g,'<span class="searchChip">🌐 看了看网页</span>')
                          .replace(/&lt;(?:完成备忘|备忘|纪念日|心愿|购物)[:：]([^&]*?)&gt;/g,(_,v)=>`<span class="searchChip">✍️ 记下了：${v.replace(/[:：]/g,' · ')}</span>`)
+                         .replace(/&lt;MCP[:：][\s\S]*?&gt;/g,'<span class="searchChip">🧩 用了个小工具</span>')
                          .replace(/&lt;查(自习|日历|手机使用)\s*\/?\s*&gt;/g,'<span class="searchChip">🔎 查了查$1</span>')
                          .replace(/&lt;(列目录|读文件)[:：]([^&]*?)&gt;/g,'<span class="searchChip">📂 $1：$2</span>');
 /* 语音条：点一下展开文字并朗读，再点一下收起 */
@@ -6431,7 +6435,7 @@ function agentStudyDigest(){
 function agentCalDigest(ch){
   const lines=[], now=new Date(); now.setHours(0,0,0,0);
   const end=new Date(now); end.setDate(end.getDate()+30);
-  const notes=calNotes.filter(n=>{ const d=new Date(n.date+'T00:00:00'); return d>=now&&d<=end; }).sort((a,b)=>a.date<b.date?-1:1);
+  const notes=calNotes.filter(n=>{ const d=new Date(n.date+'T00:00:00'); return d>=now&&d<=end; }).sort((a,b)=>a.date===b.date?((a.time||'99')<(b.time||'99')?-1:1):(a.date<b.date?-1:1));
   lines.push(notes.length?('接下来30天的备忘：\n'+notes.map(n=>`- ${+n.date.slice(5,7)}月${+n.date.slice(8)}日${n.time?' '+n.time:''}：${n.text}${n.done?'（已办完✓）':''}`).join('\n')+'\n（标✓的已经办完了，别再提醒）'):'接下来30天日历上没有备忘');
   const na=nextAnniv(ch);
   if(na) lines.push(`最近的纪念日：「${na.a.name}」${na.days===0?'就是今天！':'还有 '+na.days+' 天'}`);
@@ -9883,6 +9887,8 @@ function sanitizeHtml(html){
   const t=document.createElement('template');
   t.innerHTML=String(html);
   t.content.querySelectorAll('script,iframe,object,embed,form,link,meta,base,audio,video').forEach(n=>n.remove());
+  /* <style> 里的 body/html 全局选择器改写到 .rxHtml 上，别让一条消息把整个App的样式带跑 */
+  t.content.querySelectorAll('style').forEach(st=>{ st.textContent=String(st.textContent||'').replace(/(^|[,{}\s])(body|html)\b/gi,'$1.rxHtml'); });
   t.content.querySelectorAll('*').forEach(el=>{
     for(const a of [...el.attributes]){
       const n=a.name.toLowerCase();
