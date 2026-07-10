@@ -2024,6 +2024,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div class="boxSec"><span class="ic">📚</span> 内容与记忆</div>
     <button class="boxRow" id="memBtn" style="width:100%"><span class="ic">🧠</span><span class="grow" style="text-align:left">记忆</span></button>
     <button class="boxRow" id="wbBtn" style="width:100%"><span class="ic">📖</span><span class="grow" style="text-align:left">世界书</span></button>
+    <button class="boxRow" id="rxBtn" style="width:100%"><span class="ic">🔣</span><span class="grow" style="text-align:left">正则脚本（酒馆同款，改写显示/发给API的内容）</span></button>
     <button class="boxRow" id="presetBtn" style="width:100%"><span class="ic">🎛️</span><span class="grow" style="text-align:left">预设</span></button>
     <button class="boxRow" id="injBtn" style="width:100%"><span class="ic">💉</span><span class="grow" style="text-align:left">注入</span></button>
     <button class="boxRow" id="diaryBtn" style="width:100%"><span class="ic">📔</span><span class="grow" style="text-align:left">TA的日记 · Serenade档案</span></button>
@@ -2163,6 +2164,35 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div class="field"><label>只对这些角色生效（都不选＝所有角色都生效）</label><div id="wbCharsRow" class="chipRow"></div></div>
     <button class="primaryBtn" id="saveWb">保存</button>
     <button class="ghostBtn" id="delWb" style="color:var(--danger);display:none">删除这个条目</button>
+  </div>
+</div>
+
+<!-- 正则脚本列表弹层 -->
+<div class="sheetScrim" id="rxSheet">
+  <div class="sheet">
+    <div class="sheetTitle">正则脚本<button class="close" data-close="rxSheet">✕</button></div>
+    <div id="rxList"></div>
+    <button class="ghostBtn" id="addRx">＋ 新正则</button>
+    <button class="ghostBtn" id="importRx">📥 导入 json（支持酒馆正则）</button>
+    <input type="file" id="rxJsonFile" accept=".json" multiple style="display:none">
+    <div class="hintText">像酒馆一样用正则改写消息：「仅显示」＝只改你看到的（比如隐藏状态栏代码），「仅发给API」＝只改发出去的（比如删掉某些标记），聊天记录原文永远不动。导入角色卡时，卡里自带的正则会自动进到这里并限定给那个角色。</div>
+  </div>
+</div>
+
+<!-- 正则编辑弹层 -->
+<div class="sheetScrim" id="rxEditSheet">
+  <div class="sheet" style="max-height:88vh;overflow-y:auto">
+    <div class="sheetTitle" id="rxEditTitle">新正则<button class="close" data-close="rxEditSheet">✕</button></div>
+    <div class="field"><label>名字</label><input id="rxName" placeholder="比如：隐藏状态栏"></div>
+    <div class="field"><label>查找（正则，不用写两边的 / /）</label><input id="rxFind" placeholder="比如：&lt;status&gt;[\s\S]*?&lt;/status&gt;"></div>
+    <div class="field"><label>修饰符</label><input id="rxFlags" placeholder="g" value="g" style="max-width:140px"></div>
+    <div class="field"><label>替换成（留空＝删掉；$1 引用捕获组）</label><input id="rxRep" placeholder="留空＝删掉匹配的部分"></div>
+    <div class="field"><label>作用于谁的消息</label><div class="modeTabs" id="rxTgtTabs"><button class="modeTab" data-v="ta">TA的</button><button class="modeTab" data-v="me">我的</button><button class="modeTab" data-v="both">双方</button></div></div>
+    <div class="field"><label>生效层</label><div class="modeTabs" id="rxAffTabs"><button class="modeTab" data-v="display">仅显示</button><button class="modeTab" data-v="prompt">仅发给API</button><button class="modeTab" data-v="both">两层都</button></div></div>
+    <div class="field"><label>只对这些角色生效（都不选＝所有角色）</label><div id="rxCharsRow" class="chipRow"></div></div>
+    <button class="primaryBtn" id="saveRx">保存</button>
+    <button class="ghostBtn" id="delRx" style="color:var(--danger);display:none">删除这条正则</button>
+    <div class="hintText">「我的消息」只在发给API层生效，不会改你屏幕上看到的自己打的字。</div>
   </div>
 </div>
 
@@ -2630,7 +2660,8 @@ for(const k of apiKeys){
   if(k.compatCache){ k.cacheMode='compat'; k.cacheTtl=(settings.cache1h!==false)?'1h':'5m'; }
 }
 if(!selKeyId && apiKeys.length) selKeyId=apiKeys[0].id;
-let worldbook = load('xw_worldbook', []);   // [{id,name,on,entries:[{id,title,content,mode,keywords,on}]}]
+let worldbook = load('xw_worldbook', []);   // [{id,name,on,entries:[{id,title,content,mode,keywords,on,chars}]}]
+let regexScripts = load('xw_regex', []);    // 正则脚本（酒馆同款）：[{id,name,find,flags,replace,target:'ta'/'me'/'both',affect:'display'/'prompt'/'both',chars,on}]
 /* 兼容旧数据：平铺条目 → 装进一本默认世界书 */
 function migrateWb(arr){
   if(!Array.isArray(arr)) return [];
@@ -2796,6 +2827,7 @@ function extractThink(s){
 const thinkHtml=(t,closed)=>`<details class="thinkBlock"${closed?'':' open'}><summary>💭 ${closed?'思考过程':'思考中…'}</summary><div class="thinkBody">${fmt(t.trim(),settings.mdThink!==false)}</div></details>`;
 /* TA 的纯文本回复用这个渲染：思考折叠 + 正文照常（助手消息 Markdown 开关 settings.mdAssistant） */
 function fmtAssistant(s){
+  s=applyRegex(s,'ta','display',curChar(curChat()));   // 正则脚本·显示层（原始记录不动）
   const md=settings.mdAssistant!==false;
   if(!/<think/i.test(s)) return fmtSearchChips(fmt(s,md));
   return extractThink(s).map(seg=>
@@ -2999,7 +3031,7 @@ const userName = ()=> (settings.myName||'').trim()||'user';
 /* 聊天和角色（带图，体积大）住 IndexedDB；其余小数据住 localStorage */
 const persistAll = ()=>{
   save('xw_current',currentId); save('xw_selchar',selCharId); save('xw_settings',settings);
-  save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook);
+  save('xw_apikeys',apiKeys); save('xw_selkey',selKeyId); save('xw_worldbook',worldbook); save('xw_regex',regexScripts);
   save('xw_presets',presets); save('xw_selpreset',selPresetId); save('xw_memories',memories);
   save('xw_shopping',shopping);
   save('xw_reads',reads); save('xw_gifts',gifts);
@@ -6495,6 +6527,12 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
           else prev.content=toBlocks(prev.content).concat(toBlocks(ct));
         }else apiMsgs.push({role,content:ct});
       });
+      /* 正则脚本·发给API层：改的是发出去的副本，聊天记录原文不动 */
+      if(regexScripts.length) for(const am of apiMsgs){
+        const who=am.role==='user'?'me':'ta';
+        if(typeof am.content==='string') am.content=applyRegex(am.content,who,'prompt',ch);
+        else if(Array.isArray(am.content)) am.content=am.content.map(b=>b&&b.type==='text'?{...b,text:applyRegex(b.text,who,'prompt',ch)}:b);
+      }
       applyDepthInjections(apiMsgs,ch);
       injectIntoLastUser(apiMsgs,buildDynamic(c,ch));
       if(extraUser){
@@ -7912,6 +7950,7 @@ function cardToChar(j){
   if((d.scenario||'').trim()) parts.push('【场景设定】\n'+d.scenario.trim());
   if((d.mes_example||'').trim()) parts.push('【对话示例】\n'+d.mes_example.trim());
   if((d.first_mes||'').trim()) parts.push('【开场白】（TA 第一句话的风格参考）\n'+d.first_mes.trim());
+  if((d.post_history_instructions||'').trim()) parts.push('【补充要求】（始终遵循）\n'+d.post_history_instructions.trim());
   return { name, prompt:parts.join('\n\n') };
 }
 $('importChar').onclick=()=>$('cardFile').click();
@@ -7933,6 +7972,28 @@ $('cardFile').onchange=async e=>{
     if(ext&&typeof ext==='object'){
       ['emoji','bg','myPersona','extra','extraMode','temp','ctxOn','ctxN','online','proactive','autoMem','memOn','timeAware','model','treeStyle','treeColor'].forEach(k=>{ if(ext[k]!==undefined) nc[k]=ext[k]; });
       if(!avatar && ext.avatar) nc.avatar=ext.avatar;
+    }
+    /* 像酒馆一样：卡里自带的世界书/正则自动带进来，并限定只对这个角色生效 */
+    {
+      const dd=(card&&card.data&&typeof card.data==='object')?card.data:(card||{});
+      const extras=[];
+      const cb=dd.character_book;
+      if(cb&&cb.entries){
+        const ents=Array.isArray(cb.entries)?cb.entries:Object.values(cb.entries);
+        const mapped=ents.map(mapWiEntry).filter(w=>w.content.trim());
+        if(mapped.length){
+          mapped.forEach(w=>w.chars=[nc.id]);
+          worldbook.push({id:rid('wb'),name:String(cb.name||nc.name+'的世界书').slice(0,30),on:true,entries:mapped});
+          extras.push(`世界书 ${mapped.length} 条`);
+        }
+      }
+      const rs=(dd.extensions&&dd.extensions.regex_scripts)||dd.regex_scripts;
+      if(Array.isArray(rs)&&rs.length){
+        let rn=0;
+        for(const s0 of rs){ const r=stRegexToLocal(s0,nc.id); if(r){ regexScripts.push(r); rn++; } }
+        if(rn) extras.push(`正则 ${rn} 条`);
+      }
+      if(extras.length) setTimeout(()=>toast(`这张卡还自带：${extras.join('、')}，都装好了（只对「${nc.name}」生效）✓`),1400);
     }
     characters.push(nc); selCharId=nc.id;
     persistAll(); renderChars();
@@ -9781,6 +9842,117 @@ $('wbJsonFile').onchange=async e=>{
   if(n){ persistAll(); renderWb(); toast(`导入了 ${n} 本世界书 ✓`); }
   e.target.value='';
 };
+
+/* ===== 正则脚本（酒馆同款）：查找替换消息内容，分「显示层」和「发给API层」，原始聊天记录永远不动 ===== */
+const _rxCache=new Map();
+function rxRe(r){
+  const k=r.find+''+(r.flags||'g');
+  if(!_rxCache.has(k)){ let re=null; try{ re=new RegExp(r.find,r.flags||'g'); }catch(e){} _rxCache.set(k,re); }
+  return _rxCache.get(k);
+}
+function applyRegex(text,who,where,ch){
+  if(!regexScripts.length||typeof text!=='string'||!text) return text;
+  for(const r of regexScripts){
+    if(!r.on||!r.find) continue;
+    const tgt=r.target||'ta', aff=r.affect||'both';
+    if(tgt!=='both'&&tgt!==who) continue;
+    if(aff!=='both'&&aff!==where) continue;
+    if(r.chars&&r.chars.length&&!(ch&&r.chars.includes(ch.id))) continue;
+    const re=rxRe(r); if(!re) continue;
+    let rep=r.replace||'';
+    if(rep.includes('{{')) rep=rep.replace(/\{\{user\}\}/gi,userName()).replace(/\{\{char\}\}/gi,ch?.name||'TA');
+    try{ text=text.replace(re,rep); }catch(e){}
+  }
+  return text;
+}
+/* 酒馆正则脚本 → Serenade格式（findRegex 可能是 /xx/gi 也可能是裸串；placement 1=用户 2=AI） */
+function stRegexToLocal(s,charId){
+  if(!s||typeof s!=='object') return null;
+  let find=String(s.findRegex||s.find||''); if(!find) return null;
+  let flags='g';
+  const m=find.match(/^\/([\s\S]+)\/([a-z]*)$/i);
+  if(m){ find=m[1]; flags=m[2]||'g'; }
+  let rep=String(s.replaceString!=null?s.replaceString:(s.replace||''));
+  rep=rep.replace(/\{\{match\}\}/gi,'$$&');   // $$& 转义成字面 $&（直接写 $& 会被这次 replace 自己吃掉）
+  const pl=Array.isArray(s.placement)&&s.placement.length?s.placement:[2];
+  const target=pl.includes(2)&&pl.includes(1)?'both':pl.includes(1)?'me':'ta';
+  const affect=s.markdownOnly?'display':s.promptOnly?'prompt':'both';
+  try{ new RegExp(find,flags); }catch(e){ return null; }
+  return { id:rid('rx'), name:String(s.scriptName||s.name||'导入的正则').slice(0,30), find, flags, replace:rep, target, affect, chars:charId?[charId]:[], on:s.disabled!==true };
+}
+/* —— 正则设置面板 —— */
+let editingRx=null, rxTgt='ta', rxAff='both', rxCharsSel=new Set();
+const rxSeg=(id,val)=>document.querySelectorAll('#'+id+' .modeTab').forEach(b=>b.classList.toggle('on',b.dataset.v===val));
+document.querySelectorAll('#rxTgtTabs .modeTab').forEach(b=>b.onclick=()=>{ rxTgt=b.dataset.v; rxSeg('rxTgtTabs',rxTgt); });
+document.querySelectorAll('#rxAffTabs .modeTab').forEach(b=>b.onclick=()=>{ rxAff=b.dataset.v; rxSeg('rxAffTabs',rxAff); });
+function renderRxChars(){
+  const row=$('rxCharsRow');
+  row.innerHTML=characters.length?characters.map(c=>`<button class="chip${rxCharsSel.has(c.id)?' on':''}" data-cid="${esc(c.id)}">${esc(c.name)}</button>`).join(''):'<span style="font-size:12px;color:var(--ink-soft)">还没有角色</span>';
+  row.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.cid;
+    rxCharsSel.has(id)?rxCharsSel.delete(id):rxCharsSel.add(id);
+    b.classList.toggle('on',rxCharsSel.has(id));
+  });
+}
+function renderRx(){
+  const list=$('rxList'); list.innerHTML='';
+  if(!regexScripts.length){ list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:20px 0">还没有正则脚本</div>'; return; }
+  regexScripts.forEach(r=>{
+    const it=document.createElement('div'); it.className='charItem';
+    const lim=(r.chars&&r.chars.length)?` · 限「${r.chars.map(id=>characters.find(c=>c.id===id)?.name||'?').join('、')}」`:'';
+    const pv=`${r.target==='me'?'我的':r.target==='both'?'双方':'TA的'} · ${r.affect==='display'?'仅显示':r.affect==='prompt'?'仅API':'两层'}${lim} · ${r.find.slice(0,24)}`;
+    it.innerHTML=`<button class="wbToggle${r.on?' on':''}"></button><div class="info"><div class="nm">${esc(r.name)}</div><div class="pv">${esc(pv)}</div></div><button class="edit">编辑</button>`;
+    it.querySelector('.wbToggle').onclick=ev=>{ ev.stopPropagation(); r.on=!r.on; persistAll(); ev.target.classList.toggle('on',r.on); rerenderChat(); };
+    it.querySelector('.info').onclick=()=>openRxEdit(r);
+    it.querySelector('.edit').onclick=()=>openRxEdit(r);
+    list.appendChild(it);
+  });
+}
+function openRxEdit(r){
+  editingRx=r;
+  $('rxEditTitle').childNodes[0].textContent=r?'编辑正则':'新正则';
+  $('rxName').value=r?r.name:'';
+  $('rxFind').value=r?r.find:'';
+  $('rxFlags').value=r?(r.flags||'g'):'g';
+  $('rxRep').value=r?(r.replace||''):'';
+  rxTgt=r?(r.target||'ta'):'ta'; rxAff=r?(r.affect||'both'):'both';
+  rxSeg('rxTgtTabs',rxTgt); rxSeg('rxAffTabs',rxAff);
+  rxCharsSel=new Set((r&&r.chars)||[]); renderRxChars();
+  $('delRx').style.display=r?'block':'none';
+  openSheet('rxEditSheet');
+}
+$('addRx').onclick=()=>openRxEdit(null);
+$('saveRx').onclick=()=>{
+  const find=$('rxFind').value.trim();
+  if(!find){ toast('「查找」不能空着'); return; }
+  const flags=($('rxFlags').value.trim()||'g').replace(/[^gimsuy]/g,'')||'g';
+  try{ new RegExp(find,flags); }catch(e){ toast('这个正则写得不对：'+String(e.message).slice(0,50)); return; }
+  const data={ name:$('rxName').value.trim()||'未命名', find, flags, replace:$('rxRep').value, target:rxTgt, affect:rxAff, chars:[...rxCharsSel] };
+  if(editingRx) Object.assign(editingRx,data);
+  else regexScripts.push({id:rid('rx'),on:true,...data});
+  _rxCache.clear(); persistAll(); closeSheet('rxEditSheet'); renderRx(); rerenderChat(); toast('存好啦');
+};
+$('delRx').onclick=()=>{
+  if(!editingRx||!confirm(`删掉「${editingRx.name}」？`)) return;
+  regexScripts=regexScripts.filter(x=>x.id!==editingRx.id);
+  persistAll(); closeSheet('rxEditSheet'); renderRx(); rerenderChat();
+};
+$('rxBtn').onclick=()=>{ renderRx(); openSheet('rxSheet'); };
+$('importRx').onclick=()=>$('rxJsonFile').click();
+$('rxJsonFile').onchange=async e=>{
+  let n=0;
+  for(const f of e.target.files){
+    try{
+      const j=JSON.parse(await f.text());
+      const arr=Array.isArray(j)?j:(Array.isArray(j.regex_scripts)?j.regex_scripts:[j]);
+      for(const s0 of arr){ const r=stRegexToLocal(s0,null); if(r){ regexScripts.push(r); n++; } }
+    }catch(err){ toast(`「${f.name}」读不了`); }
+  }
+  e.target.value='';
+  if(n){ persistAll(); renderRx(); rerenderChat(); toast(`导入 ${n} 条正则 ✓`); }
+  else toast('没识别出正则脚本');
+};
+
 function openWbBook(bk){
   curWbBook=bk;
   $('wbBookName').value=bk.name||'';
@@ -10472,7 +10644,7 @@ if(settings.sysPush) startPushLoop();
 document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 /* 备份 JSON 统一在这拼（导出文件和云同步共用）；密钥/令牌/密码一律不进备份 */
 function buildBackupJson(){
-  return JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined,fsBridge:settings.fsBridge?{...settings.fsBridge,token:''}:undefined,imgGen:settings.imgGen?{...settings.imgGen,key:''}:undefined,cloudSync:settings.cloudSync?{...settings.cloudSync,token:'',pass:''}:undefined},characters,chats,worldbook,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2);
+  return JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined,fsBridge:settings.fsBridge?{...settings.fsBridge,token:''}:undefined,imgGen:settings.imgGen?{...settings.imgGen,key:''}:undefined,cloudSync:settings.cloudSync?{...settings.cloudSync,token:'',pass:''}:undefined},characters,chats,worldbook,regexScripts,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2);
 }
 $('exportBtn').onclick=()=>{
   const json=buildBackupJson();
@@ -10513,6 +10685,7 @@ function replaceImport(data){
   if(data.characters) characters=data.characters;
   if(data.chats) chats=data.chats;
   if(data.worldbook) worldbook=migrateWb(data.worldbook);
+  if(Array.isArray(data.regexScripts)) regexScripts=data.regexScripts;
   if(data.memories) memories=data.memories;
   if(data.reads) reads=data.reads;
   if(data.gifts) gifts=data.gifts;
@@ -10578,6 +10751,7 @@ function mergeImport(data){
   /* 世界书/预设/注入/贴纸：按 id 去重后追加（已存在的跳过，不动） */
   const concatById=(cur,inc)=>{ const have=new Set(cur.map(x=>x.id)); for(const x of (inc||[])) if(!have.has(x.id)){ have.add(x.id); cur.push(x); } };
   if(data.worldbook) concatById(worldbook,migrateWb(data.worldbook));
+  if(Array.isArray(data.regexScripts)) concatById(regexScripts,data.regexScripts);
   if(data.presets) concatById(presets,data.presets);
   if(data.injections) concatById(injections,data.injections);
   if(data.stickers){ concatById(stickers,data.stickers); persistStickers(); }
