@@ -2142,7 +2142,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
     <div class="field"><label>世界书名字</label><input id="wbBookName"></div>
     <div id="wbEntryList"></div>
     <button class="ghostBtn" id="addWbEntry">＋ 新条目</button>
-    <div class="hintText">「常驻」条目每次都生效；「关键词」条目只在最近 5 条消息提到关键词时生效。命中的内容会拼在角色设定后面发给 API。</div>
+    <div class="hintText">「常驻」条目每次都生效；「关键词」条目只在最近 5 条消息提到关键词时生效。命中的内容会拼在角色设定后面发给 API。每个条目还能限定「只对某些角色生效」——同一本书，修仙条目给A、末世条目给B，切角色不用再手动开关。</div>
   </div>
 </div>
 
@@ -2160,6 +2160,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
       </div>
       <input id="wbKeywords" placeholder="关键词，逗号分隔，比如：王国, 历史, 战争" style="display:none;margin-top:8px">
     </div>
+    <div class="field"><label>只对这些角色生效（都不选＝所有角色都生效）</label><div id="wbCharsRow" class="chipRow"></div></div>
     <button class="primaryBtn" id="saveWb">保存</button>
     <button class="ghostBtn" id="delWb" style="color:var(--danger);display:none">删除这个条目</button>
   </div>
@@ -3815,6 +3816,7 @@ input.oninput=()=>{ const area=$('msgArea'); const pin=area.scrollHeight-area.sc
   const repin=()=>{ resetWin(); if(stick||forcing){ if(area.scrollHeight-area.scrollTop-area.clientHeight>1) area.scrollTop=area.scrollHeight; lastTop=area.scrollTop; } };
   window.stickBottom=()=>{ stick=true; repin(); };
   window.forceBottom=(ms)=>{ stick=true; force(ms==null?1300:ms); };   // 供 send()/收到回复时主动调，锁内死钉底
+  window.chatAtBottom=()=>stick;   // 外面问一句「用户现在钉在底部吗」——上滑读长文时回复落地就别硬拽TA回底
   area.addEventListener('scroll',()=>{
     const t=area.scrollTop;
     if(!forcing && t<lastTop-6 && document.activeElement!==input) stick=false;   // 只有非锁定+非打字时的主动上滚才放手
@@ -4749,6 +4751,8 @@ function charScope(ch){
 }
 /* 某条世界书对这个角色生效吗 */
 const wbActive=(bk,sc)=> sc.wbIds!==null ? sc.wbIds.includes(bk.id) : (bk.on!==false);
+/* 单个条目的角色限定：没勾任何角色＝大家共用；勾了＝只对勾中的角色生效（同一本书里修仙给A、末世给B） */
+const wbEntryFor=(w,ch)=>!(w.chars&&w.chars.length)||!!(ch&&w.chars.includes(ch.id));
 /* 一个角色的记忆：核心(⭐)排最前、其余保持原顺序（稳定排序）。
    注入提示词、TA 用编号改记忆、记忆管理界面都走这一套，#N 才对得齐 */
 function charMems(charId){
@@ -4868,7 +4872,7 @@ function buildSystem(personaPrompt,c,groupNote,ch){
   for(const bk of worldbook){
     if(!wbActive(bk,sc)) continue;
     for(const w of (bk.entries||[]))
-      if(w.on && w.content.trim() && w.mode==='always') always.push(w);
+      if(w.on && w.content.trim() && w.mode==='always' && wbEntryFor(w,ch)) always.push(w);
   }
   if(always.length) slow.push('【世界设定】\n'+always.map(w=>`◆ ${w.title}\n${w.content}`).join('\n\n'));
   if(preset && preset.prompt.trim()) slow.push(preset.prompt);
@@ -4983,7 +4987,7 @@ function buildDynamic(c,ch){
   for(const bk of worldbook){
     if(!wbActive(bk,sc)) continue;
     for(const w of (bk.entries||[])){
-      if(!w.on || !w.content.trim() || w.mode!=='keyword') continue;
+      if(!w.on || !w.content.trim() || w.mode!=='keyword' || !wbEntryFor(w,ch)) continue;
       if((w.keywords||'').split(/[,，]/).map(s=>s.trim()).filter(Boolean).some(k=>recentText.includes(k)))
         hits.push(w);
     }
@@ -5584,7 +5588,9 @@ async function runReply(c,api,body,ch){
     const _nm={role:'assistant',charId:ch?.id,content:out.acc,ts:Date.now(),online:isOnline,...(stats?{stats}:{})};
     if(regenInto){ _nm.variants=regenInto.variants.concat([out.acc]); _nm.vi=_nm.variants.length-1; regenInto=null; }   // 重生成：旧版本保留，新版本追加到末尾
     c.messages.push(_nm);
-    if(window.forceBottom) window.forceBottom(1600);   // TA回复落地(含头像/贴纸图片加载)期间死钉底
+    /* TA回复落地(含头像/贴纸图片加载)期间死钉底——但只在用户本来就在底部时；
+       线下长文她上滑慢慢读的时候，回复写完绝不硬拽她回底部（Rikka系聊天App的通用做法） */
+    if(window.forceBottom&&(!window.chatAtBottom||window.chatAtBottom())) window.forceBottom(1600);
     if(hadFish && fishSummaries.length) c.messages.push({role:'sys',content:'🎣 '+fishSummaries.join('　·　'),ts:Date.now()});
     c.ts=Date.now(); persistAll();
     const idx=c.messages.length-1;
@@ -9795,7 +9801,8 @@ function renderWbEntries(){
   entries.forEach(w=>{
     const it=document.createElement('div');
     it.className='charItem';
-    const modeText=w.mode==='keyword'?`关键词：${w.keywords||'（没填）'}`:'常驻';
+    const limTxt=(w.chars&&w.chars.length)?` · 限「${w.chars.map(id=>characters.find(c=>c.id===id)?.name||'?').join('、')}」`:'';
+    const modeText=(w.mode==='keyword'?`关键词：${w.keywords||'（没填）'}`:'常驻')+limTxt;
     it.innerHTML=`<button class="wbToggle${w.on?' on':''}"></button>
       <div class="info"><div class="nm">${esc(w.title)}</div><div class="pv">${esc(modeText)}</div></div>
       <button class="edit">编辑</button>`;
@@ -9816,6 +9823,17 @@ function setWbMode(m){
   $('wbKeywords').style.display=m==='keyword'?'block':'none';
 }
 document.querySelectorAll('#wbEditSheet .modeTab').forEach(b=>b.onclick=()=>setWbMode(b.dataset.mode));
+/* 条目的角色限定勾选：同一本书，修仙条目勾A、末世条目勾B，切角色不用再手动开关 */
+let wbCharsSel=new Set();
+function renderWbChars(){
+  const row=$('wbCharsRow');
+  row.innerHTML=characters.length?characters.map(c=>`<button class="chip${wbCharsSel.has(c.id)?' on':''}" data-cid="${esc(c.id)}">${esc(c.name)}</button>`).join(''):'<span style="font-size:12px;color:var(--ink-soft)">还没有角色</span>';
+  row.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.cid;
+    wbCharsSel.has(id)?wbCharsSel.delete(id):wbCharsSel.add(id);
+    b.classList.toggle('on',wbCharsSel.has(id));
+  });
+}
 function openWbEdit(w){
   editingWb=w;
   $('wbEditTitle').childNodes[0].textContent=w?'编辑条目':'新条目';
@@ -9823,13 +9841,15 @@ function openWbEdit(w){
   $('wbContent').value=w?w.content:'';
   $('wbKeywords').value=w?(w.keywords||''):'';
   setWbMode(w?w.mode:'always');
+  wbCharsSel=new Set((w&&w.chars)||[]);
+  renderWbChars();
   $('delWb').style.display=w?'block':'none';
   openSheet('wbEditSheet');
 }
 $('saveWb').onclick=()=>{
   const title=$('wbTitle').value.trim();
   if(!title){ toast('标题不能空着'); return; }
-  const data={ title, content:$('wbContent').value, mode:wbMode, keywords:$('wbKeywords').value.trim() };
+  const data={ title, content:$('wbContent').value, mode:wbMode, keywords:$('wbKeywords').value.trim(), chars:[...wbCharsSel] };
   if(editingWb) Object.assign(editingWb,data);
   else curWbBook.entries.push({ id:'w'+Date.now(), on:true, ...data });
   persistAll(); closeSheet('wbEditSheet'); renderWbEntries(); renderWb(); toast('存好啦');
@@ -10618,8 +10638,8 @@ if(studySt){
 setInterval(()=>{ if(!streaming) renderHeader(); },60e3);
 /* 今天有备忘 → 开屏提醒一下 */
 {
-  const tn=calNotes.filter(n=>n.date===todayStr());
-  if(tn.length) setTimeout(()=>toast(`📅 今天有 ${tn.length} 条备忘：${tn[0].text.slice(0,12)}${tn.length>1||tn[0].text.length>12?'…':''}`),800);
+  const tn=calNotes.filter(n=>n.date===todayStr()&&!n.done);   // 划掉的不再提醒
+  if(tn.length) setTimeout(()=>toast(`📅 今天有 ${tn.length} 条备忘：${tn[0].time?tn[0].time+' ':''}${tn[0].text.slice(0,12)}${tn.length>1||tn[0].text.length>12?'…':''}`),800);
 }
 /* 好久没备份 → 开屏温柔提醒一次（默认超 7 天；备过就从上次算）。可在百宝箱里关掉 */
 if(backupRemindOn()){
