@@ -6206,17 +6206,46 @@ function renderMcp(){
       +`<span class="grow" style="min-width:0"><b>${esc(sv.name)}</b><span style="font-size:11px;color:var(--ink-soft)"> · ${(sv.tools||[]).length}个工具</span><br><span style="font-size:11px;color:var(--ink-soft);word-break:break-all">${esc((sv.url||'').replace(/^https?:\/\//,'').slice(0,48))}</span></span>`
       +`<button class="wbToggle${sv.on?' on':''}" data-mcp-t="${esc(sv.id)}"></button>`
       +`<button data-mcp-r="${esc(sv.id)}" title="重连并刷新工具" style="font-size:15px;padding:4px">🔄</button>`
+      +`<button data-mcp-e="${esc(sv.id)}" title="修改地址/密码" style="font-size:14px;padding:4px">✏️</button>`
       +`<button data-mcp-x="${esc(sv.id)}" title="删除" style="font-size:14px;padding:4px;color:var(--danger)">✕</button>`;
     box.appendChild(d);
   });
   mcpBadge();
 }
 $('mcpList').onclick=async e=>{
-  const t=e.target.closest('[data-mcp-t],[data-mcp-r],[data-mcp-x]'); if(!t) return;
-  const id=t.dataset.mcpT||t.dataset.mcpR||t.dataset.mcpX;
+  const t=e.target.closest('[data-mcp-t],[data-mcp-r],[data-mcp-e],[data-mcp-x]'); if(!t) return;
+  const id=t.dataset.mcpT||t.dataset.mcpR||t.dataset.mcpE||t.dataset.mcpX;
   const sv=mcpServers().find(s=>s.id===id); if(!sv) return;
   if(t.dataset.mcpT!==undefined){ sv.on=!sv.on; persistAll(); renderMcp(); return; }
   if(t.dataset.mcpX!==undefined){ if(!confirm(`删掉「${sv.name}」？`)) return; settings.mcpServers=mcpServers().filter(s=>s.id!==id); persistAll(); renderMcp(); return; }
+  if(t.dataset.mcpE!==undefined){
+    /* 小桥型的 url 是 基址+/mcp/rpc?server=名 —— 只让改基址，后缀原样保留；
+       同一小桥下的其他服务器共用基址，改一次全部跟着换（重启小桥换网址的场景） */
+    const m=sv.bridge?String(sv.url||'').match(/^(.*?)(\/mcp\/rpc\?server=.*)$/):null;
+    const oldBase=m?m[1]:String(sv.url||'');
+    const nu=prompt(sv.bridge?'小桥的新网址（重启小桥后黑窗口里那个）：':'新的服务器地址：',oldBase);
+    if(nu===null) return;
+    const base=nu.trim().replace(/\/+$/,'');
+    if(!base){ toast('地址不能为空'); return; }
+    const nt=prompt('密码/令牌（不改就直接确定）：',sv.token||'');
+    if(nt===null) return;
+    const token=nt.trim();
+    const changed=[];
+    if(m){
+      for(const s of mcpServers()){
+        const m2=s.bridge?String(s.url||'').match(/^(.*?)(\/mcp\/rpc\?server=.*)$/):null;
+        if(m2&&m2[1]===oldBase){ s.url=base+m2[2]; s.token=token; changed.push(s); }
+      }
+    }else{ sv.url=base; sv.token=token; changed.push(sv); }
+    persistAll(); renderMcp();
+    let okN=0,failN=0;
+    for(const s of changed){ try{ await mcpConnect(s); okN++; }catch(e2){ failN++; } }
+    persistAll(); renderMcp();
+    toast(changed.length>1
+      ?`小桥地址已换，${okN} 个连上${failN?`，${failN} 个失败（点🔄重试）`:''}`
+      :(okN?`「${sv.name}」改好并连上啦 ✓ ${sv.tools.length} 个工具`:'改是改了，但连不上——检查网址和密码，或点🔄重试'));
+    return;
+  }
   t.textContent='…';
   try{ const tools=await mcpConnect(sv); toast(`「${sv.name}」连上啦 ✓ ${tools.length} 个工具`); }
   catch(e2){ toast('重连失败：'+String(e2.message||'').slice(0,60)); }
