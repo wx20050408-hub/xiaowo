@@ -1187,6 +1187,10 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
   <div id="splashPick"></div>
   <div class="splashHint"><span class="arr">↑</span>点一下，回到Serenade</div>
 </div>
+<script>
+/* 开屏关了就在HTML解析到这里的瞬间藏掉——不等后面几百KB的大脚本跑起来，治「关了开屏但冷启动还是闪出个空壳」 */
+try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) document.getElementById('splash').style.display='none'; }catch(e){}
+</script>
 <div id="pager">
 <section class="pgPage" id="deskPage"></section>
 <section class="pgPage" id="chatPage">
