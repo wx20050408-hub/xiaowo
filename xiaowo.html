@@ -2450,11 +2450,14 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 
 <!-- 网页预览弹层（沙箱 iframe，跑TA写的代码） -->
 <div class="sheetScrim" id="codePrevSheet">
-  <div class="sheet">
+  <div class="sheet" style="max-width:860px">
     <div class="sheetTitle">网页预览<button class="close" data-close="codePrevSheet">✕</button></div>
-    <iframe id="codePrevFrame" sandbox="allow-scripts allow-modals allow-popups allow-forms" style="width:100%;height:58vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
+    <iframe id="codePrevFrame" allowfullscreen sandbox="allow-scripts allow-modals allow-popups allow-forms" style="width:100%;height:64vh;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe>
     <div class="hintText" style="margin:8px 2px">这是 TA 写的网页在「安全沙箱」里跑——它碰不到你的聊天记录和 API Key，放心看。</div>
-    <button class="ghostBtn" id="codePrevSave">保存成 .html 文件</button>
+    <div style="display:flex;gap:8px">
+      <button class="ghostBtn" id="codePrevFull" style="flex:1">⛶ 全屏看</button>
+      <button class="ghostBtn" id="codePrevSave" style="flex:1.4">保存成 .html 文件</button>
+    </div>
   </div>
 </div>
 
@@ -2736,6 +2739,11 @@ function fmt(s,md){
   if(!md) return esc(s);
   const blocks=[];
   s=s.replace(/```([^\n`]*)\n?([\s\S]*?)```/g,(_,lang,code)=>{ blocks.push([lang.trim(),code]); return 'CB'+(blocks.length-1)+''; });
+  /* 裸网页自动装框：TA忘打```围栏、整个网页直接写在消息里时，认出 <!doctype html>/<html>…</html> 装进代码框（要够长且像真网页，防误伤聊天里提到的标签） */
+  s=s.replace(/<!doctype\s+html[\s\S]*?(?:<\/html\s*>|$)|<html[\s>][\s\S]*?(?:<\/html\s*>|$)/gi,m=>{
+    if(!(m.length>150&&/<(head|body|style|script|div|meta|title)[\s>]/i.test(m))) return m;
+    blocks.push(['html',m]); return 'CB'+(blocks.length-1)+'';
+  });
   let h=esc(s);
   /* 块级按行处理：只用行内/inline-block 元素，配合气泡 white-space:pre-wrap，不会撑出多余空行 */
   h=h.split('\n').map(line=>{
@@ -2762,6 +2770,12 @@ function wireCode(root){
   });
 }
 $('codePrevSave').onclick=()=>{ if(codePrevCode){ dlFile('Serenade网页.html',codePrevCode,'text/html;charset=utf-8'); toast('网页保存好啦'); } };
+$('codePrevFull').onclick=()=>{
+  const f=$('codePrevFrame');
+  const rq=f.requestFullscreen||f.webkitRequestFullscreen;
+  if(rq) rq.call(f).catch(()=>toast('这台设备不给全屏，转成横屏看吧'));
+  else toast('这台设备不给全屏，转成横屏看吧');
+};
 /* 关掉预览时清空 iframe，省得后台还在跑 */
 document.querySelector('#codePrevSheet .close').addEventListener('click',()=>{ $('codePrevFrame').srcdoc=''; });
 
@@ -6334,6 +6348,9 @@ $('csPull').onclick=async()=>{
 };
 
 /* ===== TA 的小助手（agent 工具）：写=记日历/纪念日/心愿/购物（saveMsg 里执行）；查=自习/日历（接力循环喂真数据） ===== */
+function codeNote(){
+  return `【写代码】${userName()}让你写代码/网页时：代码必须用\`\`\`语言 围栏完整包住（网页用\`\`\`html），一个围栏一个文件；网页尽量写成完整的单文件HTML（CSS和JS都内联进去），${userName()}点代码框上的「▶ 预览」就能直接跑起来看效果；解释说明写在代码块外面，别把中文解说夹在代码中间。`;
+}
 function agentNote(){
   return `【小助手】${userName()}让你帮忙记东西、或问到相关的事时，你可以直接操作TA的Serenade（每个标记单独占一行）：
 · 记日历备忘：<备忘:YYYY-MM-DD:内容>，知道几点就带上时间 <备忘:YYYY-MM-DD HH:MM:内容>——"周五下午三点提醒我交作业"这类，把日期换算成具体年月日再写。
@@ -6496,6 +6513,7 @@ async function generateReplyOnce(c,onlyCharId,extraUser){
       if(settings.webfetch) noteParts.push(fetchNote());
       if(fsBridgeOn()) noteParts.push(fsNote());
       if(mcpOn()){ const mn=mcpNote(); if(mn) noteParts.push(mn); }
+      noteParts.push(codeNote());
       noteParts.push(agentNote());
       noteParts.push(directorNote());
       const sys=buildSystem(ch?ch.prompt+extraPromptOf(ch,soloOnline):'',c,noteParts.join('\n\n')||null,ch);
