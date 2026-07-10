@@ -150,6 +150,9 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .katex-display{margin:6px 0;overflow-x:auto;overflow-y:hidden}
 .msg.hlFlash .bubble{animation:hlpulse 1.6s ease}
 @keyframes hlpulse{0%,100%{box-shadow:var(--shadow)}25%,55%{box-shadow:0 0 0 3px var(--accent)}}
+/* 美化正则渲染出的HTML面板：白空格恢复正常，别被气泡的pre-wrap撑出大缝 */
+.rxHtml{white-space:normal;max-width:100%;overflow-x:auto;margin:4px 0}
+.rxHtml *{max-width:100%}
 /* 代码块 */
 .codeBox{margin:8px 0;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
 .codeBar{display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:var(--bg-soft);border-bottom:1px solid var(--line)}
@@ -2776,6 +2779,8 @@ function fmt(s,md){
     if(!(m.length>150&&/<(head|body|style|script|div|meta|title)[\s>]/i.test(m))) return m;
     blocks.push(['html',m]); return 'CB'+(blocks.length-1)+'';
   });
+  /* 美化正则的HTML面板（\x02H\x02…\x02/H\x02 哨兵）：抽出来净化后按真HTML渲染 */
+  s=s.replace(/\x02H\x02([\s\S]*?)\x02\/H\x02/g,(_,hh)=>{ blocks.push(['__rxhtml',hh]); return String.fromCharCode(1)+'CB'+(blocks.length-1)+String.fromCharCode(1); });
   let h=esc(s);
   /* 块级按行处理：只用行内/inline-block 元素，配合气泡 white-space:pre-wrap，不会撑出多余空行 */
   h=h.split('\n').map(line=>{
@@ -2787,7 +2792,7 @@ function fmt(s,md){
     return line;
   }).join('\n');
   h=mdInline(h);
-  if(blocks.length) h=h.replace(/CB(\d+)/g,(_,i)=>codeBlockHtml(blocks[+i][0],blocks[+i][1]));
+  if(blocks.length) h=h.replace(/CB(\d+)/g,(_,i)=>(blocks[+i][0]==='__rxhtml'?'<div class="rxHtml">'+sanitizeHtml(blocks[+i][1])+'</div>':codeBlockHtml(blocks[+i][0],blocks[+i][1])));
   return h;
 }
 /* 给代码框接上 复制 / 预览 按钮（textContent 拿到的是未转义的原始代码） */
@@ -9861,9 +9866,26 @@ function applyRegex(text,who,where,ch){
     const re=rxRe(r); if(!re) continue;
     let rep=r.replace||'';
     if(rep.includes('{{')) rep=rep.replace(/\{\{user\}\}/gi,userName()).replace(/\{\{char\}\}/gi,ch?.name||'TA');
+    /* 美化正则（替换产物是HTML面板，酒馆状态栏卡那种）：显示层用哨兵包起来，fmt里净化后真渲染 */
+    if(r.htmlRep&&where==='display') rep='\x02H\x02'+rep+'\x02/H\x02';
     try{ text=text.replace(re,rep); }catch(e){}
   }
   return text;
+}
+/* 替换产物像不像HTML面板（fenced ```html 的除外——那个走代码块预览的路） */
+const rxLooksHtml=rep=>!String(rep).trimStart().startsWith('```')&&/<(div|span|table|section|style|center|p|h[1-6]|details|img|ul|ol|blockquote)\b/i.test(rep);
+/* 净化：去 script/iframe/事件属性/javascript: 链接，样式保留（美化卡靠它） */
+function sanitizeHtml(html){
+  const t=document.createElement('template');
+  t.innerHTML=String(html);
+  t.content.querySelectorAll('script,iframe,object,embed,form,link,meta,base,audio,video').forEach(n=>n.remove());
+  t.content.querySelectorAll('*').forEach(el=>{
+    for(const a of [...el.attributes]){
+      const n=a.name.toLowerCase();
+      if(n.startsWith('on')||((n==='href'||n==='src'||n==='xlink:href'||n==='action')&&/^\s*(javascript|data:text\/html)/i.test(a.value))) el.removeAttribute(a.name);
+    }
+  });
+  return t.innerHTML;
 }
 /* 酒馆正则脚本 → Serenade格式（findRegex 可能是 /xx/gi 也可能是裸串；placement 1=用户 2=AI） */
 function stRegexToLocal(s,charId){
@@ -9878,7 +9900,7 @@ function stRegexToLocal(s,charId){
   const target=pl.includes(2)&&pl.includes(1)?'both':pl.includes(1)?'me':'ta';
   const affect=s.markdownOnly?'display':s.promptOnly?'prompt':'both';
   try{ new RegExp(find,flags); }catch(e){ return null; }
-  return { id:rid('rx'), name:String(s.scriptName||s.name||'导入的正则').slice(0,30), find, flags, replace:rep, target, affect, chars:charId?[charId]:[], on:s.disabled!==true };
+  return { id:rid('rx'), name:String(s.scriptName||s.name||'导入的正则').slice(0,30), find, flags, replace:rep, target, affect, chars:charId?[charId]:[], on:s.disabled!==true, htmlRep:rxLooksHtml(rep) };
 }
 /* —— 正则设置面板 —— */
 let editingRx=null, rxTgt='ta', rxAff='both', rxCharsSel=new Set();
@@ -9927,7 +9949,7 @@ $('saveRx').onclick=()=>{
   if(!find){ toast('「查找」不能空着'); return; }
   const flags=($('rxFlags').value.trim()||'g').replace(/[^gimsuy]/g,'')||'g';
   try{ new RegExp(find,flags); }catch(e){ toast('这个正则写得不对：'+String(e.message).slice(0,50)); return; }
-  const data={ name:$('rxName').value.trim()||'未命名', find, flags, replace:$('rxRep').value, target:rxTgt, affect:rxAff, chars:[...rxCharsSel] };
+  const data={ name:$('rxName').value.trim()||'未命名', find, flags, replace:$('rxRep').value, target:rxTgt, affect:rxAff, chars:[...rxCharsSel], htmlRep:rxLooksHtml($('rxRep').value) };
   if(editingRx) Object.assign(editingRx,data);
   else regexScripts.push({id:rid('rx'),on:true,...data});
   _rxCache.clear(); persistAll(); closeSheet('rxEditSheet'); renderRx(); rerenderChat(); toast('存好啦');
