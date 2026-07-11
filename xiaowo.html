@@ -5402,8 +5402,14 @@ async function callStream(api,body,bub,area,out){
   /* 非流式：一次性拿完整 JSON，解析出文本和用量，渲染一次 */
   if(!stream){
     const data=await res.json();
-    out.acc=isOA ? (data.choices?.[0]?.message?.content||'')
-                 : ((data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join(''));
+    if(isOA){
+      const m=data.choices?.[0]?.message||{};
+      let ct=m.content;
+      if(Array.isArray(ct)) ct=ct.map(p=>p?.text||p?.content||'').join('');   // 分块数组形态
+      const rt=(typeof m.reasoning_content==='string'&&m.reasoning_content)||(typeof m.reasoning==='string'&&m.reasoning)||'';
+      out.acc=(rt?'<think>'+rt+'</think>':'')+(ct||'');   // 思考装进思维链，光想不说也至少能看到TA想了啥
+      out.finish=data.choices?.[0]?.finish_reason;
+    }else out.acc=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
     const u=data.usage||{};
     out.usage=out.usage||{};
     if(isOA){
@@ -5435,9 +5441,22 @@ async function callStream(api,body,bub,area,out){
       if(!payload||payload==='[DONE]') continue;
       try{
         const ev=JSON.parse(payload);
-        const piece=isOA ? ev.choices?.[0]?.delta?.content
-                         : (ev.type==='content_block_delta'?ev.delta?.text:null);
+        const ch0=isOA?ev.choices?.[0]:null;
+        if(ch0&&ch0.finish_reason) out.finish=ch0.finish_reason;   // 记住结束原因，空回复时给人话解释
+        /* Gemini/DeepSeek 思考型经中转：思考在 delta.reasoning_content(或reasoning)里、正文可能迟到甚至不来。
+           把思考流进 <think> 走现成的思维链折叠——不接住的话"光想不说"就成了空回复，后台却照扣钱 */
+        const rp=isOA?(ch0?.delta?.reasoning_content??ch0?.delta?.reasoning):null;
+        if(typeof rp==='string'&&rp){
+          if(!out.inThink){ out.acc+='<think>'; out.inThink=true; }
+          out.acc+=rp;
+          if(out.render) out.render(); else bub.innerHTML=fmtAssistant(out.acc);
+          area.scrollTop=area.scrollHeight;
+        }
+        let piece=isOA ? ch0?.delta?.content
+                       : (ev.type==='content_block_delta'?ev.delta?.text:null);
+        if(Array.isArray(piece)) piece=piece.map(p=>p?.text||'').join('');   // 有的中转把content发成分块数组
         if(piece){
+          if(out.inThink){ out.acc+='</think>'; out.inThink=false; }
           out.acc+=piece;
           if(out.render) out.render(); else bub.innerHTML=fmtAssistant(out.acc);
           area.scrollTop=area.scrollHeight;
@@ -5461,6 +5480,7 @@ async function callStream(api,body,bub,area,out){
       }catch(e){ if(e instanceof SyntaxError) continue; throw e; }
     }
   }
+  if(out.inThink){ out.acc+='</think>'; out.inThink=false; }   // 只想没说的，把思考标签收口
   }finally{ clearTimeout(stall); }
 }
 
@@ -5663,6 +5683,11 @@ async function runReply(c,api,body,ch){
       renderChat();
     else if(stats&&showStats()&&c.id===currentId) holder.after(statsEl(stats));
   };
+  const retry=()=>{
+    if(streaming) return;
+    holder.remove();
+    generateReply(c,(c.members&&c.members.length&&ch)?ch.id:null);
+  };
   try{
     /* 线上模式：先「正在输入…」一会儿，更像真人 */
     if(isOnline){
@@ -5673,14 +5698,18 @@ async function runReply(c,api,body,ch){
     out.t0=Date.now();
     await callStream(api,body,bub,area,out);
     if(out.acc) saveMsg();
-    else bub.innerHTML='<i>（空回复）</i>';
+    else{
+      /* 空回复不再干巴巴——按结束原因给人话解释（token 已在中转侧消耗，让用户知道钱去哪了） */
+      const fr=String(out.finish||'');
+      const why=/content_filter|safety|prohibited|recitation|blocklist/i.test(fr)?'被安全过滤拦下了——Gemini 对亲密/敏感内容手比较紧，换个说法或换模型再试'
+        :/length|max_tokens/i.test(fr)?'到长度上限就停了（思考型模型可能全花在思考上没吐正文）——把最大回复长度调大试试'
+        :'模型一个字都没吐——常见于中转站截断或安全过滤；这次的消耗是输入和思考产生的';
+      bub.classList.add('err');
+      bub.innerHTML='<i>（空回复：'+why+(fr?'；finish_reason='+esc(fr):'')+'，点我重试）</i>';
+      bub.onclick=retry;
+    }
     return true;
   }catch(e){
-    const retry=()=>{
-      if(streaming) return;
-      holder.remove();
-      generateReply(c,(c.members&&c.members.length&&ch)?ch.id:null);
-    };
     if(out.stalled){
       /* 超过 1 分钟没回应主动断的：有写到一半的就先存住别丢，没动静的给重试提示 */
       if(out.acc) saveMsg();
@@ -5694,7 +5723,10 @@ async function runReply(c,api,body,ch){
       else holder.remove();
     }else{
       bub.classList.add('err');
-      bub.textContent='出错了：'+e.message+'（点我重试）';
+      const em=String(e.message||'');
+      bub.textContent='出错了：'+(/failed to fetch|networkerror|load failed/i.test(em)
+        ?'网络半路断了或响应被跨域拦下（Failed to fetch）——注意中转站那头可能已收到请求照常计费；手机切网/梯子抖动最常见，缓两秒再试'
+        :em)+'（点我重试）';
       bub.onclick=retry;
     }
     return false;
