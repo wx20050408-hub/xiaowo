@@ -4972,10 +4972,10 @@ refreshWeather();
 setInterval(refreshWeather,10*60e3);
 
 /* ===== TA的感知（无服务器版 always-here）：电量 + 作息，全本地零成本 ===== */
-let batteryInfo=null;
+let batteryInfo=null,batteryNagAt=null;   // batteryNagAt=上次提醒时的电量；插上电就清零，下次没电再提
 if(navigator.getBattery){
   navigator.getBattery().then(b=>{
-    const up=()=>{ batteryInfo={level:Math.round(b.level*100),charging:b.charging}; };
+    const up=()=>{ batteryInfo={level:Math.round(b.level*100),charging:b.charging}; if(b.charging) batteryNagAt=null; };
     up();
     b.addEventListener('levelchange',up);
     b.addEventListener('chargingchange',up);
@@ -4998,8 +4998,11 @@ function usualSleepHour(){
 }
 function senseNotes(timeAware){
   const parts=[];
-  if(batteryInfo&&!batteryInfo.charging&&batteryInfo.level<=25)
-    parts.push(`【感知】${userName()}的手机电量只剩 ${batteryInfo.level}% 了，还没插电。合适的时候提醒一句去充电。`);
+  /* 低电量只在跌破线时提醒一次；之后每再掉 5% 才允许再提一次，插电复位（防TA整个低电量期间条条念叨） */
+  if(batteryInfo&&!batteryInfo.charging&&batteryInfo.level<=19&&(batteryNagAt===null||batteryInfo.level<=batteryNagAt-5)){
+    batteryNagAt=batteryInfo.level;
+    parts.push(`【感知】${userName()}的手机电量只剩 ${batteryInfo.level}% 了，还没插电。提醒一句去充电就好，说过就翻篇，别反复念叨。`);
+  }
   if(timeAware===false) return parts;   // 时间感知关了：熬夜/深夜这类时间推导的心疼不再提
   const now=new Date();
   let h=now.getHours()+now.getMinutes()/60;
