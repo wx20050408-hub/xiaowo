@@ -115,9 +115,12 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 #msgArea{
   flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior-x:none;-webkit-overflow-scrolling:touch;
   overflow-anchor:none;   /* 关掉浏览器自动挪滚动位置，别跟我们的"钉底"打架(治一闪一闪) */
+  touch-action:pan-y;     /* 从消息上起手只许竖着滚——WebView(App壳)会把斜滑的横向分量喂给外层翻页器，页面就左右乱晃；浏览器自己会锁轴所以网页端从没这毛病 */
   padding:18px 14px 10px;
   display:flex;flex-direction:column;gap:14px;
 }
+/* 气泡里本来就能横滑的东西（代码块/公式/正则HTML卡）放行，不然代码看不了后半截 */
+#msgArea .codePre,#msgArea .katex-display,#msgArea .rxHtml{touch-action:auto}
 .msg{display:flex;flex-direction:column;max-width:86%;animation:rise .25s ease both}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.msg{animation:none}}
@@ -11040,11 +11043,16 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   window.openApps=()=>snap(appsPage,true);
   snap(chatPage,false);                                  // 默认停在聊天页（中间）
   window.addEventListener('load',()=>snap(chatPage,false));
-  pager.addEventListener('scroll',()=>{                  // 到两端时各自淡出对应把手
+  let pageIdx=1;                                         // 0桌面 1聊天 2应用
+  pager.addEventListener('scroll',()=>{                  // 到两端时各自淡出对应把手 + 记住停在哪页
     const w=pager.clientWidth,x=pager.scrollLeft;
+    if(w) pageIdx=Math.round(x/w);
     if(handle) handle.style.opacity = x < w*0.5 ? '0' : '';
     if(rhandle) rhandle.style.opacity = x > w*1.5 ? '0' : '';
   },{passive:true});
+  /* App壳里键盘弹收/浏览器地址栏伸缩都会改页宽，scroll-snap按旧像素重对齐会横向乱晃——
+     resize时立刻按记住的页码硬对齐，不给它自作主张的机会 */
+  window.addEventListener('resize',()=>{ pager.scrollTo({left:pageIdx*pager.clientWidth,behavior:'auto'}); });
   if(handle) handle.onclick=()=>window.openDesktop();
   if(rhandle) rhandle.onclick=()=>window.openApps();
   { const b=(id,fn)=>{ const e=document.getElementById(id); if(e) e.onclick=fn; };
