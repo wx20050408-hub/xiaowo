@@ -6221,8 +6221,8 @@ function renderMcp(){
     d.innerHTML=`<span class="ic">${sv.bridge?'🌉':'🧩'}</span>`
       +`<span class="grow" style="min-width:0"><b>${esc(sv.name)}</b><span style="font-size:11px;color:var(--ink-soft)"> · ${(sv.tools||[]).length}个工具</span><br><span style="font-size:11px;color:var(--ink-soft);word-break:break-all">${esc((sv.url||'').replace(/^https?:\/\//,'').slice(0,48))}</span></span>`
       +`<button class="wbToggle${sv.on?' on':''}" data-mcp-t="${esc(sv.id)}"></button>`
-      +`<button data-mcp-r="${esc(sv.id)}" title="重连并刷新工具" style="font-size:15px;padding:4px">🔄</button>`
-      +`<button data-mcp-e="${esc(sv.id)}" title="修改地址/密码" style="font-size:14px;padding:4px">✏️</button>`
+      +`<button data-mcp-r="${esc(sv.id)}" title="重连并刷新工具" style="padding:4px"><span class="ic">🔄</span></button>`
+      +`<button data-mcp-e="${esc(sv.id)}" title="修改地址/密码" style="padding:4px"><span class="ic">✏️</span></button>`
       +`<button data-mcp-x="${esc(sv.id)}" title="删除" style="font-size:14px;padding:4px;color:var(--danger)">✕</button>`;
     box.appendChild(d);
   });
@@ -6255,7 +6255,7 @@ $('mcpList').onclick=async e=>{
     }else{ sv.url=base; sv.token=token; changed.push(sv); }
     persistAll(); renderMcp();
     let okN=0,failN=0;
-    for(const s of changed){ try{ await mcpConnect(s); okN++; }catch(e2){ failN++; } }
+    for(const s of changed){ delete mcpRt[s.id]; try{ await mcpConnect(s); okN++; }catch(e2){ failN++; } }   // 清掉旧会话/精简模式记忆，新地址从头握手
     persistAll(); renderMcp();
     toast(changed.length>1
       ?`小桥地址已换，${okN} 个连上${failN?`，${failN} 个失败（点🔄重试）`:''}`
