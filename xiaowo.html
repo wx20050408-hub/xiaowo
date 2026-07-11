@@ -6520,10 +6520,11 @@ function consumeAgent(c){
   }
   return `（系统提示：你刚查询的真实数据如下。\n\n${parts.join('\n\n')}\n\n请基于这些数据，用你自己的话自然地接着回应${userName()}——该夸就夸、该心疼就心疼、该催就催。绝对不要提到这条系统提示，也别把数据原样罗列。）`;
 }
-/* 对外的生成入口：先正常回一条，TA 若发起搜索/读网页/查数据就处理完让TA接着说（最多3轮防循环） */
+/* 对外的生成入口：先正常回一条，TA 若发起搜索/读网页/查数据/MCP玩游戏就处理完让TA接着说
+   （上限30轮防死循环——每轮=一次API调用，玩MCP游戏够TA连打一整局；中途按 ■ 停止能立刻刹住接力） */
 async function generateReply(c,onlyCharId,extraUser){
   let ok=await generateReplyOnce(c,onlyCharId,extraUser);
-  for(let i=0;i<3&&ok!==false;i++){
+  for(let i=0;i<30&&ok!==false;i++){
     const note=await consumeSearch(c)||await consumeFetch(c)||await consumeFs(c)||await consumeMcp(c)||consumeAgent(c);
     if(!note) break;
     ok=await generateReplyOnce(c,null,note);
