@@ -1148,6 +1148,7 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 .appsGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px 8px}
 .gApp{display:flex;flex-direction:column;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:0}
 .gApp .gIco{width:66px;height:66px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:32px;transition:transform .12s}
+.gApp .gIco svg{width:32px;height:32px;color:var(--accent-deep)}
 .gApp:active .gIco{transform:scale(.9)}
 .gApp .gLbl{font-size:11px;color:var(--ink);text-shadow:0 1px 5px rgba(0,0,0,.12)}
 #appsHandle{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:25;width:20px;height:64px;border-radius:15px 0 0 15px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:-2px 2px 8px rgba(0,0,0,.22);opacity:.9;transition:opacity .25s,transform .12s;cursor:pointer}
@@ -1251,9 +1252,9 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
   <div class="appsHome">
     <div class="appsTtl">应用</div>
     <div class="appsGrid">
-      <button class="gApp" id="gaArcade"><span class="gIco glassD">🎮</span><span class="gLbl">游戏厅</span></button>
-      <button class="gApp" id="gaAlbum"><span class="gIco glassD">🖼</span><span class="gLbl">相册</span></button>
-      <button class="gApp" id="gaHome"><span class="gIco glassD">💗</span><span class="gLbl">恋爱主页</span></button>
+      <button class="gApp" id="gaArcade"><span class="gIco glassD"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7.5h10a4.5 4.5 0 014.4 5.4l-.7 3.6a2.8 2.8 0 01-4.9 1.2L14 16h-4l-1.8 1.7a2.8 2.8 0 01-4.9-1.2l-.7-3.6A4.5 4.5 0 017 7.5z"/><path d="M8.5 10.8v3.4M6.8 12.5h3.4M15.3 11.2h.01M17.6 13.6h.01"/></svg></span><span class="gLbl">游戏厅</span></button>
+      <button class="gApp" id="gaAlbum"><span class="gIco glassD"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="8.6" cy="9.5" r="1.5"/><path d="M21 15l-4.5-4.5L7 20"/></svg></span><span class="gLbl">相册</span></button>
+      <button class="gApp" id="gaHome"><span class="gIco glassD"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20.5S3.5 15.5 3.5 9.5C3.5 6.7 5.6 5 7.8 5c1.7 0 3.2.9 4.2 2.3C13 5.9 14.5 5 16.2 5c2.2 0 4.3 1.7 4.3 4.5 0 6-8.5 11-8.5 11z"/></svg></span><span class="gLbl">恋爱主页</span></button>
     </div>
   </div>
 </section>
@@ -1556,66 +1557,9 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
   </div>
 </div>
 
-<!-- 生图设置 -->
-<div class="sheetScrim" id="imgGenSheet">
-  <div class="sheet">
-    <div class="sheetTitle">生图<button class="close" data-close="imgGenSheet">✕</button></div>
-    <div class="boxRow"><span class="ic">🎨</span><span class="grow">开启生图</span><button class="wbToggle" id="igOn"></button></div>
-    <div class="field"><label>接口格式</label><select id="igFmt"><option value="openai">OpenAI 兼容（中转站生图）</option><option value="novelai">NovelAI（二次元，浏览器直连）</option><option value="pixai">PixAI（走小桥转发）</option></select></div>
-    <div class="field" id="igUrlField"><label>接口地址（OpenAI 兼容，/v1/images/generations 自动补）</label><input id="igUrl" placeholder="https://api.某站.com"></div>
-    <div class="field"><label>API Key</label><input id="igKey" type="password" placeholder="sk-… / PixAI 的 API Key"></div>
-    <div class="field"><label>模型名 / PixAI 的 modelId</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页的数字 ID"></div>
-    <div class="field"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x768</option><option>768x512</option><option>512x512</option></select></div>
-    <div class="field"><label>风格附加词（拼在每次提示词最前面，可空）</label><input id="igStyle" placeholder="比如：anime style, masterpiece, soft lighting"></div>
-    <div class="boxRow"><span class="ic">🪄</span><span class="grow">提示词扩写（TA的短描述先扩成详细英文prompt再生图，每张多一次小额文本调用，效果好很多）</span><button class="wbToggle on" id="igExpand"></button></div>
-    <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
-    <button class="ghostBtn" id="igTest">🖼 试画一张（会花一次生图钱）</button>
-    <div id="igPreview" style="text-align:center"></div>
-    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。⚠️ 生图按张/按积分计费，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
-  </div>
-</div>
 
-<!-- 云同步设置 -->
-<div class="sheetScrim" id="cloudSheet">
-  <div class="sheet">
-    <div class="sheetTitle">☁️ 云同步<button class="close" data-close="cloudSheet">✕</button></div>
-    <div class="field"><label>私有仓库（账号名/仓库名）</label><input id="csRepo" placeholder="比如：wx20050408-hub/serenade-cloud"></div>
-    <div class="field"><label>GitHub 细粒度令牌（只授权上面这一个仓库）</label><input id="csToken" type="password" placeholder="github_pat_…"></div>
-    <div class="field"><label>加密密码（上传前本地加密，云上只有密文）</label><input id="csPass" type="password" placeholder="自己定一个，各设备要填一样的"></div>
-    <div style="display:flex;gap:8px;margin-top:4px">
-      <button class="primaryBtn" id="csPush" style="flex:1;margin:0">⬆️ 推上云</button>
-      <button class="ghostBtn" id="csPull" style="flex:1;margin:0">⬇️ 从云拉</button>
-    </div>
-    <div id="csStatus" class="hintText" style="text-align:center;min-height:16px"></div>
-    <div class="hintText"><b>令牌怎么弄</b>：GitHub → Settings → Developer settings → Fine-grained tokens → Generate：Repository access 选 <b>Only select repositories</b>（先建一个空的私有仓库专门放备份）→ Permissions 里 Contents 给 <b>Read and write</b> → 生成后复制过来。<br><b>用法纪律</b>：这是快照接力不是实时同步——<b>换设备聊之前先「拉」，聊完记得「推」</b>；别两台同时聊，互推会以后推的为准。密码忘了云端备份就谁也解不开了，记牢。令牌和密码不进备份文件。</div>
-  </div>
-</div>
 
-<!-- 电脑文件桥设置 -->
-<div class="sheetScrim" id="fsBridgeSheet">
-  <div class="sheet">
-    <div class="sheetTitle">电脑文件桥<button class="close" data-close="fsBridgeSheet">✕</button></div>
-    <div class="boxRow"><span class="ic">💻</span><span class="grow">让 TA 能读你电脑的文件</span><button class="wbToggle" id="fsOn"></button></div>
-    <div class="field"><label>小桥网址（启动小桥后黑窗口里的 trycloudflare 网址）</label><input id="fsUrl" placeholder="https://xxx.trycloudflare.com"></div>
-    <div class="field"><label>小桥密码（token，黑窗口里那串）</label><input id="fsToken" type="password" placeholder="密码"></div>
-    <button class="ghostBtn" id="fsTest">🔌 测试连接</button>
-    <div class="hintText">开了之后跟 TA 说「看看我电脑里 D:\xiaowo 有什么」「读一下那个 xx.md」就行。<b>只读</b>，不能写不能删；TA 只能看到电脑上「文件桥可见目录.txt」列出的文件夹（默认只有 D:\xiaowo，改完重启小桥生效）。⚠️ 读到的内容会随聊天发给你正在用的 API（中转站看得到），私密文件夹别加进白名单。要电脑开着、小桥开着才能用；小桥每次重启网址会变，记得回来改。</div>
-  </div>
-</div>
 
-<!-- MCP 工具 -->
-<div class="sheetScrim" id="mcpSheet">
-  <div class="sheet">
-    <div class="sheetTitle">MCP 工具<button class="close" data-close="mcpSheet">✕</button></div>
-    <div class="hintText" style="margin:0 2px 10px">给 TA 接外部工具（MCP 服务器）。<b>网址型</b>直接填服务器地址；<b>命令型(stdio)</b>先在电脑上小桥的「MCP服务器配置.json」里配好，这里填小桥网址+小桥密码，会自动把小桥上配的全部接进来。</div>
-    <div id="mcpList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
-    <div class="field"><label>名字（TA 按这个名字叫它，别带点号）</label><input id="mcpName" placeholder="比如：查天气（走小桥可留空）"></div>
-    <div class="field"><label>服务器地址（MCP 网址，或小桥网址）</label><input id="mcpUrl" placeholder="https://…/mcp 或 https://xxx.trycloudflare.com"></div>
-    <div class="field"><label>密钥（服务器要求才填；走小桥＝小桥密码）</label><input id="mcpToken" type="password" placeholder="选填"></div>
-    <button id="mcpAdd" style="width:100%;padding:12px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600">➕ 添加并连接</button>
-    <div class="hintText" style="margin-top:8px">⚠️ 网页直连的服务器必须支持跨域(CORS)，连不上就走小桥转发。工具结果会随聊天发给你用的 API。</div>
-  </div>
-</div>
 
 <!-- 自习目标与考试倒计时 -->
 <div class="sheetScrim" id="studyGoalSheet">
@@ -1659,16 +1603,6 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
   </div>
 </div>
 
-<!-- 时光机弹层 -->
-<div class="sheetScrim" id="timeSheet">
-  <div class="sheet">
-    <div class="sheetTitle">时光机<button class="close" data-close="timeSheet">✕</button></div>
-    <div id="timeCard"></div>
-    <button class="ghostBtn" id="timeAgain">🎲 再转一次</button>
-    <button class="primaryBtn" id="timeGo">去看看那天</button>
-    <div class="hintText">随机翻出一段三天以前的聊天。回忆这东西，攒得越久越好喝。</div>
-  </div>
-</div>
 
 <!-- 发动态弹层 -->
 <div class="sheetScrim" id="postSheet">
@@ -1946,21 +1880,6 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
   </div>
 </div>
 
-<!-- 渲染设置弹层 -->
-<div class="sheetScrim" id="renderSheet">
-  <div class="sheet" style="max-height:88vh;overflow-y:auto">
-    <div class="sheetTitle">渲染设置<button class="close" data-close="renderSheet">✕</button></div>
-    <div class="boxRow"><span class="ic">💬</span><span class="grow">助手消息 Markdown 渲染</span><button class="wbToggle" id="mdAssistantToggle"></button></div>
-    <div class="boxRow"><span class="ic">🧑</span><span class="grow">用户消息 Markdown 渲染</span><button class="wbToggle" id="mdUserToggle"></button></div>
-    <div class="boxRow"><span class="ic">💭</span><span class="grow">思维链 Markdown 渲染</span><button class="wbToggle" id="mdThinkToggle"></button></div>
-    <div class="hintText" style="margin:0 2px 10px">关掉某项 → 那类消息按纯文本原样显示（**、#、- 这些符号不再变样式）。默认都开。</div>
-    <div class="boxRow"><span class="ic">🧮</span><span class="grow">数学公式渲染（$…$ / $$…$$）</span><button class="wbToggle" id="mathRenderToggle"></button></div>
-    <div class="hintText" style="margin:0 2px 10px">用 KaTeX 渲染 LaTeX 数学公式，首次开启会联网加载一次字体库（约几百 KB，离线时不生效）。平时聊天用不到可以关着。</div>
-    <div class="boxRow"><span class="ic">📦</span><span class="grow">自动折叠长代码块</span><button class="wbToggle" id="codeCollapseToggle"></button></div>
-    <div class="boxRow"><span class="ic">↩️</span><span class="grow">代码块移动端自动换行</span><button class="wbToggle" id="codeWrapToggle"></button></div>
-    <div class="hintText" style="margin:0 2px 6px">超过 14 行的代码块会折叠成一条，点开再看；自动换行后手机上不用左右拖代码。</div>
-  </div>
-</div>
 
 <!-- 百宝箱弹层 -->
 <div class="sheetScrim" id="boxSheet">
@@ -2084,6 +2003,89 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
       <button class="wbToggle" id="backupRemindToggle"></button>
     </div>
     <div class="hintText">以后想到什么小玩意儿，都往对应分组里塞。</div>
+  </div>
+</div>
+
+<!-- 生图设置 -->
+<div class="sheetScrim" id="imgGenSheet">
+  <div class="sheet">
+    <div class="sheetTitle">生图<button class="close" data-close="imgGenSheet">✕</button></div>
+    <div class="boxRow"><span class="ic">🎨</span><span class="grow">开启生图</span><button class="wbToggle" id="igOn"></button></div>
+    <div class="field"><label>接口格式</label><select id="igFmt"><option value="openai">OpenAI 兼容（中转站生图）</option><option value="novelai">NovelAI（二次元，浏览器直连）</option><option value="pixai">PixAI（走小桥转发）</option></select></div>
+    <div class="field" id="igUrlField"><label>接口地址（OpenAI 兼容，/v1/images/generations 自动补）</label><input id="igUrl" placeholder="https://api.某站.com"></div>
+    <div class="field"><label>API Key</label><input id="igKey" type="password" placeholder="sk-… / PixAI 的 API Key"></div>
+    <div class="field"><label>模型名 / PixAI 的 modelId</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页的数字 ID"></div>
+    <div class="field"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x768</option><option>768x512</option><option>512x512</option></select></div>
+    <div class="field"><label>风格附加词（拼在每次提示词最前面，可空）</label><input id="igStyle" placeholder="比如：anime style, masterpiece, soft lighting"></div>
+    <div class="boxRow"><span class="ic">🪄</span><span class="grow">提示词扩写（TA的短描述先扩成详细英文prompt再生图，每张多一次小额文本调用，效果好很多）</span><button class="wbToggle on" id="igExpand"></button></div>
+    <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
+    <button class="ghostBtn" id="igTest">🖼 试画一张（会花一次生图钱）</button>
+    <div id="igPreview" style="text-align:center"></div>
+    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。⚠️ 生图按张/按积分计费，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
+  </div>
+</div>
+<!-- 云同步设置 -->
+<div class="sheetScrim" id="cloudSheet">
+  <div class="sheet">
+    <div class="sheetTitle">☁️ 云同步<button class="close" data-close="cloudSheet">✕</button></div>
+    <div class="field"><label>私有仓库（账号名/仓库名）</label><input id="csRepo" placeholder="比如：wx20050408-hub/serenade-cloud"></div>
+    <div class="field"><label>GitHub 细粒度令牌（只授权上面这一个仓库）</label><input id="csToken" type="password" placeholder="github_pat_…"></div>
+    <div class="field"><label>加密密码（上传前本地加密，云上只有密文）</label><input id="csPass" type="password" placeholder="自己定一个，各设备要填一样的"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="primaryBtn" id="csPush" style="flex:1;margin:0">⬆️ 推上云</button>
+      <button class="ghostBtn" id="csPull" style="flex:1;margin:0">⬇️ 从云拉</button>
+    </div>
+    <div id="csStatus" class="hintText" style="text-align:center;min-height:16px"></div>
+    <div class="hintText"><b>令牌怎么弄</b>：GitHub → Settings → Developer settings → Fine-grained tokens → Generate：Repository access 选 <b>Only select repositories</b>（先建一个空的私有仓库专门放备份）→ Permissions 里 Contents 给 <b>Read and write</b> → 生成后复制过来。<br><b>用法纪律</b>：这是快照接力不是实时同步——<b>换设备聊之前先「拉」，聊完记得「推」</b>；别两台同时聊，互推会以后推的为准。密码忘了云端备份就谁也解不开了，记牢。令牌和密码不进备份文件。</div>
+  </div>
+</div>
+<!-- 电脑文件桥设置 -->
+<div class="sheetScrim" id="fsBridgeSheet">
+  <div class="sheet">
+    <div class="sheetTitle">电脑文件桥<button class="close" data-close="fsBridgeSheet">✕</button></div>
+    <div class="boxRow"><span class="ic">💻</span><span class="grow">让 TA 能读你电脑的文件</span><button class="wbToggle" id="fsOn"></button></div>
+    <div class="field"><label>小桥网址（启动小桥后黑窗口里的 trycloudflare 网址）</label><input id="fsUrl" placeholder="https://xxx.trycloudflare.com"></div>
+    <div class="field"><label>小桥密码（token，黑窗口里那串）</label><input id="fsToken" type="password" placeholder="密码"></div>
+    <button class="ghostBtn" id="fsTest">🔌 测试连接</button>
+    <div class="hintText">开了之后跟 TA 说「看看我电脑里 D:\xiaowo 有什么」「读一下那个 xx.md」就行。<b>只读</b>，不能写不能删；TA 只能看到电脑上「文件桥可见目录.txt」列出的文件夹（默认只有 D:\xiaowo，改完重启小桥生效）。⚠️ 读到的内容会随聊天发给你正在用的 API（中转站看得到），私密文件夹别加进白名单。要电脑开着、小桥开着才能用；小桥每次重启网址会变，记得回来改。</div>
+  </div>
+</div>
+<!-- MCP 工具 -->
+<div class="sheetScrim" id="mcpSheet">
+  <div class="sheet">
+    <div class="sheetTitle">MCP 工具<button class="close" data-close="mcpSheet">✕</button></div>
+    <div class="hintText" style="margin:0 2px 10px">给 TA 接外部工具（MCP 服务器）。<b>网址型</b>直接填服务器地址；<b>命令型(stdio)</b>先在电脑上小桥的「MCP服务器配置.json」里配好，这里填小桥网址+小桥密码，会自动把小桥上配的全部接进来。</div>
+    <div id="mcpList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+    <div class="field"><label>名字（TA 按这个名字叫它，别带点号）</label><input id="mcpName" placeholder="比如：查天气（走小桥可留空）"></div>
+    <div class="field"><label>服务器地址（MCP 网址，或小桥网址）</label><input id="mcpUrl" placeholder="https://…/mcp 或 https://xxx.trycloudflare.com"></div>
+    <div class="field"><label>密钥（服务器要求才填；走小桥＝小桥密码）</label><input id="mcpToken" type="password" placeholder="选填"></div>
+    <button id="mcpAdd" style="width:100%;padding:12px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600">➕ 添加并连接</button>
+    <div class="hintText" style="margin-top:8px">⚠️ 网页直连的服务器必须支持跨域(CORS)，连不上就走小桥转发。工具结果会随聊天发给你用的 API。</div>
+  </div>
+</div>
+<!-- 时光机弹层 -->
+<div class="sheetScrim" id="timeSheet">
+  <div class="sheet">
+    <div class="sheetTitle">时光机<button class="close" data-close="timeSheet">✕</button></div>
+    <div id="timeCard"></div>
+    <button class="ghostBtn" id="timeAgain">🎲 再转一次</button>
+    <button class="primaryBtn" id="timeGo">去看看那天</button>
+    <div class="hintText">随机翻出一段三天以前的聊天。回忆这东西，攒得越久越好喝。</div>
+  </div>
+</div>
+<!-- 渲染设置弹层 -->
+<div class="sheetScrim" id="renderSheet">
+  <div class="sheet" style="max-height:88vh;overflow-y:auto">
+    <div class="sheetTitle">渲染设置<button class="close" data-close="renderSheet">✕</button></div>
+    <div class="boxRow"><span class="ic">💬</span><span class="grow">助手消息 Markdown 渲染</span><button class="wbToggle" id="mdAssistantToggle"></button></div>
+    <div class="boxRow"><span class="ic">🧑</span><span class="grow">用户消息 Markdown 渲染</span><button class="wbToggle" id="mdUserToggle"></button></div>
+    <div class="boxRow"><span class="ic">💭</span><span class="grow">思维链 Markdown 渲染</span><button class="wbToggle" id="mdThinkToggle"></button></div>
+    <div class="hintText" style="margin:0 2px 10px">关掉某项 → 那类消息按纯文本原样显示（**、#、- 这些符号不再变样式）。默认都开。</div>
+    <div class="boxRow"><span class="ic">🧮</span><span class="grow">数学公式渲染（$…$ / $$…$$）</span><button class="wbToggle" id="mathRenderToggle"></button></div>
+    <div class="hintText" style="margin:0 2px 10px">用 KaTeX 渲染 LaTeX 数学公式，首次开启会联网加载一次字体库（约几百 KB，离线时不生效）。平时聊天用不到可以关着。</div>
+    <div class="boxRow"><span class="ic">📦</span><span class="grow">自动折叠长代码块</span><button class="wbToggle" id="codeCollapseToggle"></button></div>
+    <div class="boxRow"><span class="ic">↩️</span><span class="grow">代码块移动端自动换行</span><button class="wbToggle" id="codeWrapToggle"></button></div>
+    <div class="hintText" style="margin:0 2px 6px">超过 14 行的代码块会折叠成一条，点开再看；自动换行后手机上不用左右拖代码。</div>
   </div>
 </div>
 
@@ -3991,6 +3993,14 @@ const LINE_ICONS={
   '📁':LI('<path d="M3 7a2 2 0 012-2h4l2 2.5h8a2 2 0 012 2V17a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>'),
   '🧰':LI('<rect x="3.5" y="8" width="17" height="12" rx="2.5"/><path d="M9 8V6.2A2.2 2.2 0 0111.2 4h1.6A2.2 2.2 0 0115 6.2V8M3.5 13.5h17"/>'),
   '➕':LI('<path d="M12 5v14M5 12h14"/>'),
+  '💻':LI('<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8.5 20.5h7M12 16.5v4"/>'),
+  '🧩':LI('<path d="M9.2 5.6a2.1 2.1 0 114.2 0h3.1A1.5 1.5 0 0118 7.1v3.1a2.1 2.1 0 100 4.2v3.2a1.5 1.5 0 01-1.5 1.5H7A1.5 1.5 0 015.5 17.1V7.1A1.5 1.5 0 017 5.6z"/>'),
+  '🌉':LI('<path d="M3 16c3-4.2 15-4.2 18 0"/><path d="M2.5 19.5h19M6.2 19.5v-4.6M12 19.5v-6.6M17.8 19.5v-4.6"/>'),
+  '🔣':LI('<circle cx="6.5" cy="17.5" r="1.4" fill="currentColor" stroke="none"/><path d="M15 6v7M12 7.7l6 3.6M12 11.3l6-3.6"/>'),
+  '🪄':LI('<path d="M3.5 20.5L13.5 10.5"/><path d="M16.5 3.5v4M14.5 5.5h4"/><path d="M19.5 10.5v3M18 12h3"/>'),
+  '🪟':LI('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 4v16M4 12h16"/>'),
+  '☁':LI('<path d="M17.8 18.5H7a4.5 4.5 0 01-.6-9A6 6 0 0118 9.5a4.5 4.5 0 01-.2 9z"/>'),
+  '🎁':LI('<rect x="3.5" y="7.8" width="17" height="4.2" rx="1"/><path d="M5.2 12v6.5A1.5 1.5 0 006.7 20h10.6a1.5 1.5 0 001.5-1.5V12M12 7.8V20"/><path d="M12 7.8c-2.4 0-4.2-1.1-4.2-2.4 0-1 .8-1.8 1.9-1.8 1.7 0 2.3 2 2.3 4.2 0-2.2.6-4.2 2.3-4.2 1.1 0 1.9.8 1.9 1.8 0 1.3-1.8 2.4-4.2 2.4z"/>'),
 };
 function swapIc(el){
   const k=(el.textContent||'').trim().replace(/[️⃣]/g,'');
