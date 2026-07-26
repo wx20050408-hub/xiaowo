@@ -2079,7 +2079,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
 /* 模型选择固定：TA 不挑、代码也没给TA切换的口子——固定用你在这里填的这个，画风稳定 */
     <div class="field" id="igLoraField" style="display:none"><label>自定义风格编码（PixAI：网页「自定義」里创作者风格的编号，填了挂进生图，可多个逗号隔开）</label><input id="igLora" placeholder="比如：1598504735551829169"></div>
     <div class="field"><label>模型名 / PixAI 的模型ID</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页网址最后那串数字"></div>
-    <div class="hintText" id="igModelHint" style="display:none;margin-top:-6px">模型ID 在 PixAI 模型页网址里：网页上点开你想用的那个模型，看浏览器地址栏，网址最后那串数字就是（比如 <code>pixai.art/zh/model/1648918125777240131</code> 就填 <code>1648918125777240131</code>）。⚠️ <b>别拿别人分享/示例里的 ID</b>——用过一个别的 ID 会被服务器降级成 moonbeam（同价但丑）。填好几套后可以「存成一套」，以后点一下就换，不用重抄。</div>
+    <div class="hintText" id="igModelHint" style="display:none;margin-top:-6px">⚠️ <b>要填的是「版本ID」，不是页面网址里那串</b>——填页面ID服务器不报错，会偷偷退回默认模型（同价照扣，画出来却是别的模型）。版本ID两个拿法：①点上面「🔄 拉一下可用模型列表」，列出模型+版本ID，点编号直接填 ②网页 F12 抓 listGenerationModels 的 Response，找你要的模型的 <code>latestAvailableVersion.id</code>。填好几套后可以「存成一套」，以后点一下就换。</div>
     <div class="field" id="igSizeField"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x768</option><option>768x512</option><option>512x512</option></select></div>
     <div class="field" id="igPxField" style="display:none"><label>长宽比 / 解析度（PixAI 和网页版一套）</label>
       <select id="igPxSize">
@@ -2121,7 +2121,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
     <button class="ghostBtn" id="igTest">🖼 试画一批（PixAI/部分中转一次出四张给你挑，会花对应张数的钱）</button>
     <div id="igPreview" style="text-align:center"></div>
-    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。<b>固定多张（x4）翻着挑，留下最好看的那张</b>，和网页版「生成數量：多張(x4)」一个意思，不喜欢还能「换一批」重画。⚠️ 按张计费，一批四张＝四张的点数，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key/Cookie 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。模型ID 在 PixAI 模型页网址里：网页上点开你想用的那个模型，看浏览器地址栏，网址最后那串数字就是（比如 <code>pixai.art/zh/model/1648918125777240131</code> 就填 <code>1648918125777240131</code>）。⚠️ <b>别拿别人分享/示例里的 ID</b>——用过一个别的 ID 会被服务器降级成 moonbeam（同价但丑）。填好几套后可以「存成一套」，以后点一下就换，不用重抄。<b>长宽比/解析度/模式（轻量·标准）都和网页版一档一档对应</b>——默认就是网页同款「3:5·M·轻量·多張(x4)」，极致要会员不做。<br><b>没会员？用 Cookie 登录</b>：PixAI 的内测 API Key 要会员才给，但网页账号本身能免费出图——在<b>电脑</b>浏览器登录 PixAI，按键盘上的 <b>F12 键</b>——没反应或变成截图的话，说明你的笔记本功能键被占用了，改按 <b>Fn+F12</b>，或者干脆在网页空白处<b>点鼠标右键 → 选「检查」</b>，效果一样：右边会弹出一个全是英文代码的「开发者工具」面板：点上面的 <b>Network</b>（网络）标签 → 按 F5 刷新网页 → 下面列表里随便点一条 <code>pixai.art</code> 的请求 → 右边找 <b>Headers → Request Headers</b>，里面有一行 <code>Cookie:</code> 开头、后面跟着很长一串的——把那串完整复制下来，粘到上面的「登录 Cookie」框。小桥会拿着它冒充你的浏览器去画，走的还是你账号的免费额度。⚠️ 等于把你账号的通行证存在了本地：只存这台手机、不进备份，但别分享截图；Cookie 大概能用几星期，过期（一直报登录失败）就重新复制一段。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
+    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。<b>固定多张（x4）翻着挑，留下最好看的那张</b>，和网页版「生成數量：多張(x4)」一个意思，不喜欢还能「换一批」重画。⚠️ 按张计费，一批四张＝四张的点数，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key/Cookie 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。模型ID 在 PixAI 模型页网址里：网页上点开你想用的那个模型，看浏览器地址栏，网址最后那串数字就是（比如 <code>pixai.art/zh/model/1648918125777240131</code> 就填 <code>1648918125777240131</code>）——⚠️ <b>错！那是页面ID，填了会被偷偷退回默认模型</b>。要填「版本ID」：点上面「🔄 拉一下可用模型列表」直接挑，版本ID都给你挖好了。填好几套后可以「存成一套」，以后点一下就换，不用重抄。<b>长宽比/解析度/模式（轻量·标准）都和网页版一档一档对应</b>——默认就是网页同款「3:5·M·轻量·多張(x4)」，极致要会员不做。<br><b>没会员？用 Cookie 登录</b>：PixAI 的内测 API Key 要会员才给，但网页账号本身能免费出图——在<b>电脑</b>浏览器登录 PixAI，按键盘上的 <b>F12 键</b>——没反应或变成截图的话，说明你的笔记本功能键被占用了，改按 <b>Fn+F12</b>，或者干脆在网页空白处<b>点鼠标右键 → 选「检查」</b>，效果一样：右边会弹出一个全是英文代码的「开发者工具」面板：点上面的 <b>Network</b>（网络）标签 → 按 F5 刷新网页 → 下面列表里随便点一条 <code>pixai.art</code> 的请求 → 右边找 <b>Headers → Request Headers</b>，里面有一行 <code>Cookie:</code> 开头、后面跟着很长一串的——把那串完整复制下来，粘到上面的「登录 Cookie」框。小桥会拿着它冒充你的浏览器去画，走的还是你账号的免费额度。⚠️ 等于把你账号的通行证存在了本地：只存这台手机、不进备份，但别分享截图；Cookie 大概能用几星期，过期（一直报登录失败）就重新复制一段。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
   </div>
 </div>
 <!-- 云同步设置 -->
@@ -6349,23 +6349,25 @@ $('igPxFetch').onclick=async()=>{
     if((g.key||'').trim()) headers['x-pixai-key']=g.key.trim(); else headers['x-pixai-cookie']=(g.cookie||'').trim();
     const tryQ=async(q)=>{ const r=await fetch(base+'/pixai/graphql',{method:'POST',headers,body:JSON.stringify({query:q,variables:{}})}); const j=await r.json(); if(j.errors&&j.errors.length) throw new Error(String(j.errors[0].message||'').slice(0,80)); return j.data; };
     let models=[];
-    /* 先探大模型（MMDIT26A_MODEL），再探 LoRA/风格（MULTI_LORA 和 LORA，网页「風格庫/自定义风格」本质就是它们） */
-    for(const q of [
-      {s:'query{ generationModels(first: 40, type: MMDIT26A_MODEL) { edges { node { id title type } } } }',tag:''},
-      {s:'query{ generationModels(first: 60, type: MULTI_LORA) { edges { node { id title type } } } }',tag:'（风格LoRA）'},
-      {s:'query{ generationModels(first: 60, type: LORA) { edges { node { id title type } } } }',tag:'（自定义风格）'},
-    ]){
+    /* 拉模型+版本ID：大模型（MMDIT26A/DIT7B/SDXL/SD_V1）逐个带 latestAvailableVersion——
+       填进生图的要【版本ID】（version.id），填页面ID会被静默退回默认模型（溪溪踩过的坑） */
+    const TYPES=[['MMDIT26A_MODEL',''],['DIT7B_MODEL',''],['SDXL_MODEL',''],['SD_V1_MODEL','']];
+    for(const [type,tag] of TYPES){
       try{
-        const d=await tryQ(q.s);
+        const d=await tryQ(`query{ generationModels(first: 30, type: ${type}) { edges { node { id title latestAvailableVersion { id name } } } } }`);
         const arr=((d||{}).generationModels||{}).edges||[];
-        arr.forEach(e=>{ if(e.node&&e.node.id!=null) models.push({id:String(e.node.id),name:(e.node.title||'未命名')+q.tag}); });
+        arr.forEach(e=>{
+          const n=e.node; if(!n||n.id==null) return;
+          const ver=n.latestAvailableVersion;
+          models.push({id:String(ver&&ver.id||n.id),name:(n.title||'未命名')+(ver&&ver.name?'·'+ver.name:'')+tag,pageId:String(n.id)});
+        });
       }catch(_){}
     }
     if(!models.length) throw new Error('模型列表的接口名我没猜中——不过生图能不能用跟它没关系，直接试画一批，报错了点小 toast 复制给我');
-    const menu=models.slice(0,60).map((m,i)=>`${i+1}. ${m.name||'未命名'}（ID ${m.id}）`).join('\n');
-    const pick=(prompt('点编号填入对应 模型ID（带「风格LoRA」的是风格插件，先选大模型当底模）：\n\n'+menu)||'').trim();
+    const menu=models.slice(0,80).map((m,i)=>`${i+1}. ${m.name||'未命名'}（版本ID ${m.id}）`).join('\n');
+    const pick=(prompt('点编号填入对应【版本ID】（注意：是版本ID不是页面ID，填页面ID会被偷偷换成默认模型）：\n\n'+menu)||'').trim();
     const n=parseInt(pick,10);
-    if(n>=1&&n<=Math.min(60,models.length)){ $('igModel').value=String(models[n-1].id); saveImgGen(); renderIgPxList(); toast('填好啦：'+String(models[n-1].name||'').slice(0,20)); }
+    if(n>=1&&n<=Math.min(80,models.length)){ $('igModel').value=String(models[n-1].id); saveImgGen(); renderIgPxList(); toast('填好啦：'+String(models[n-1].name||'').slice(0,26)); }
   }catch(e){ toast((e.message||'拉取失败').slice(0,90)); }
   btn.disabled=false; btn.textContent='🔄 拉一下可用模型列表';
 };
@@ -11541,7 +11543,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v112';
+const XW_BUILD='v113';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
