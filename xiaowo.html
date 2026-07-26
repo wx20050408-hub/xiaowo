@@ -1574,7 +1574,10 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div class="field"><label>每日自习目标（分钟，0 或留空＝不设）</label><input id="sgGoal" type="number" min="0" max="960" placeholder="比如：120"></div>
     <div class="field"><label>考试名称</label><input id="sgExamName" maxlength="12" placeholder="比如：考研"></div>
     <div class="field"><label>考试日期</label><input id="sgExamDate" type="date"></div>
-    <button class="primaryBtn" id="sgSave">保存</button>
+    <div style="display:flex;gap:8px">
+      <button class="primaryBtn" id="sgSave" style="margin-top:0">保存</button>
+      <button class="ghostBtn" id="sgClear" style="margin-top:0;flex:1">清空目标</button>
+    </div>
     <div class="hintText">设好之后：自习室和这里都会显示 🔥 连续达标和倒计日；TA 也知道你的目标和考试日子。手动补记、改记录都去「📊 自习统计」页。</div>
   </div>
 </div>
@@ -1605,7 +1608,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div id="ssReadout" style="text-align:center;font-size:12px;color:var(--ink-soft);min-height:16px;margin-bottom:2px"></div>
     <div id="ssChart"></div>
     <div id="ssTasks" style="margin-top:14px"></div>
-    <div style="font-size:12px;color:var(--ink-soft);margin:16px 0 6px">自习记录（可改可删）</div>
+    <div style="font-size:12px;color:var(--ink-soft);margin:16px 0 6px">自习记录（点一条就能改/删）</div>
     <div id="ssLogs"></div>
     <button class="ghostBtn" id="ssAddBtn" style="font-size:13px">＋ 手动补一次自习</button>
     <div class="hintText" style="margin-top:10px">点柱子能看那天 / 那段的具体数字；任务分布统计的是图里这一段时间。记录列表只管最近 60 次，更老的改不了——但统计里一直都在。</div>
@@ -1620,6 +1623,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div class="field"><label>时长（分钟）</label><input id="sleMin" type="number" min="1" max="960" placeholder="比如：25"></div>
     <div class="field"><label>任务（可不填）</label><input id="sleTask" maxlength="30" placeholder="比如：背单词"></div>
     <button class="primaryBtn" id="sleSave">保存</button>
+    <button class="ghostBtn" id="sleDelete" style="display:none">🗑 删掉这条记录</button>
     <div class="hintText">改完立刻生效：连续打卡、目标进度、统计图表都会跟着重算，TA 看到的数字也是新的。</div>
   </div>
 </div>
@@ -7288,24 +7292,17 @@ function renderStudyLogList(){
   items.forEach(l=>{ (byDate[l.date]=byDate[l.date]||[]).push(l); });
   const row=l=>{
     const ch=charOf(l.charId), task=(l.task||'').trim()||'（没写任务）';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--line);font-size:13px">
+    return `<div class="ssLogRow" data-e="${l.id}" style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid var(--line);font-size:13px;cursor:pointer;border-radius:8px">
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(task)}${ch?` <span style="color:var(--ink-soft);font-size:11px">· ${esc(ch.name||'')}</span>`:''}</span>
       <span style="color:var(--ink-soft);font-variant-numeric:tabular-nums;flex:0 0 auto">${ssFmtMin(l.min)}</span>
-      <button class="durChip" data-e="${l.id}" title="编辑" style="padding:2px 10px;font-size:11px;border-radius:9px;flex:0 0 auto">✏️</button>
-      <button class="durChip" data-d="${l.id}" title="删除" style="padding:2px 10px;font-size:11px;border-radius:9px;flex:0 0 auto">🗑</button>
+      <span style="color:var(--ink-soft);flex:0 0 auto;font-size:13px">›</span>
     </div>`;
   };
   box.innerHTML=Object.keys(byDate).sort().reverse().map(d=>{
     const tot=byDate[d].reduce((a,l)=>a+l.min,0);
     return `<div style="font-size:11px;color:var(--ink-soft);margin:10px 0 2px">${+d.slice(5,7)}月${+d.slice(8)}日 · 共${ssFmtMin(tot)}</div>`+byDate[d].map(row).join('');
   }).join('');
-  box.querySelectorAll('button[data-e]').forEach(b=>b.onclick=()=>openStudyLogEdit(b.dataset.e));
-  box.querySelectorAll('button[data-d]').forEach(b=>b.onclick=()=>{
-    const l=studyLog.find(x=>x.id===b.dataset.d); if(!l) return;
-    if(!confirm(`删掉这条自习记录？\n${l.date} · ${l.min}分钟${l.task?` · ${l.task}`:''}`)) return;
-    studyLog=studyLog.filter(x=>x.id!==l.id);
-    afterStudyLogChange('删掉啦');
-  });
+  box.querySelectorAll('.ssLogRow[data-e]').forEach(b=>b.onclick=()=>openStudyLogEdit(b.dataset.e));
 }
 function openStudyLogEdit(id){
   sleId=id||null;
@@ -7314,6 +7311,7 @@ function openStudyLogEdit(id){
   $('sleDate').value=l?l.date:todayStr();
   $('sleMin').value=l?l.min:'';
   $('sleTask').value=l?(l.task||''):'';
+  $('sleDelete').style.display=l?'':'none';
   openSheet('studyLogEditSheet');
 }
 $('sleSave').onclick=()=>{
@@ -7329,6 +7327,13 @@ $('sleSave').onclick=()=>{
   }
   closeSheet('studyLogEditSheet');
   afterStudyLogChange('记好啦 ✓');
+};
+$('sleDelete').onclick=()=>{
+  const l=studyLog.find(x=>x.id===sleId); if(!l){ closeSheet('studyLogEditSheet'); return; }
+  if(!confirm(`删掉这条自习记录？\n${l.date} · ${l.min}分钟${l.task?` · ${l.task}`:''}`)) return;
+  studyLog=studyLog.filter(x=>x.id!==l.id);
+  closeSheet('studyLogEditSheet');
+  afterStudyLogChange('删掉啦');
 };
 function examDaysLeft(){
   if(!settings.examDate||!/^\d{4}-\d{2}-\d{2}$/.test(settings.examDate)) return null;
@@ -7346,12 +7351,15 @@ function studyStreak(){
 function renderStudyGoalLine(){
   const bits=[], g=+settings.studyGoal||0, td=studyTodayMin();
   if(g>0) bits.push(`今日 ${td}/${g} 分钟${td>=g?' ✓':''}`);
-  const stk=studyStreak(); if(stk>0) bits.push(`🔥 连续 ${stk} 天`);
+  const stk=studyStreak(); if(g>0&&stk>0) bits.push(`🔥 连续 ${stk} 天`);
   const ed=examDaysLeft();
   if(ed!=null&&ed>0) bits.push(`距${settings.examName||'考试'}还有 ${ed} 天`);
   else if(ed===0) bits.push(`${settings.examName||'考试'}就是今天，加油！🌟`);
   $('studyGoalLine').textContent=bits.join(' · ');
+  $('studyGoalLine').style.display=bits.length?'':'none';
 }
+/* 目标行可点：点一下就改目标/删目标 */
+$('studyGoalLine').onclick=()=>$('studyGoalBtn').click();
 $('studyGoalBtn').onclick=()=>{
   $('sgGoal').value=settings.studyGoal||'';
   $('sgExamName').value=settings.examName||'';
@@ -7363,6 +7371,11 @@ $('sgSave').onclick=()=>{
   settings.examName=$('sgExamName').value.trim().slice(0,12);
   settings.examDate=$('sgExamDate').value||'';
   persistAll(); closeSheet('studyGoalSheet'); renderStudyGoalLine(); toast('记好啦 🎯');
+};
+$('sgClear').onclick=()=>{
+  if(!confirm('把每日目标、考试名、考试日期都清掉？连续打卡的 🔥 也一起没啦（记录本身都在）。')) return;
+  settings.studyGoal=0; settings.examName=''; settings.examDate='';
+  persistAll(); closeSheet('studyGoalSheet'); renderStudyGoalLine(); toast('清空啦，想设了再来');
 };
 
 /* ===== 白噪音：Web Audio 本地生成，零外部资源（雨=粉噪低通 / 篝火=棕噪+噼啪 / 海浪=棕噪呼吸） ===== */
