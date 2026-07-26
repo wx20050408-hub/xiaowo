@@ -440,6 +440,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .ofPickIdx{position:absolute;top:8px;right:8px;font-size:10px;color:#fff;background:rgba(0,0,0,.38);border-radius:9px;padding:2px 8px;z-index:2}
 .ofPickBar{display:flex;gap:8px;padding:10px 16px 0}
 .ofPickBar button{flex:1;padding:8px 0;border-radius:12px;font-size:12.5px;font-weight:600}
+.ofGenTag{position:absolute;left:10px;bottom:10px;z-index:2;font-size:11px;color:#fff;background:rgba(0,0,0,.42);border-radius:10px;padding:4px 10px;backdrop-filter:blur(4px)}
 .ofActs{display:flex;align-items:center;gap:20px;padding:9px 16px 12px;color:var(--ink-soft);font-size:13px}
 .ofActs button{color:var(--ink-soft);font-weight:600;transition:transform .12s}
 .ofActs button:active{transform:scale(1.15)}
@@ -3007,6 +3008,16 @@ function pvReroll(id){
   const ph=photos.find(p=>p.id===id); if(!ph) return;
   delete ph.imgs; delete ph.pv; retryGen(id);
 }
+/* 画图计时：每秒刷新「已画 X分X秒」（聊天宝丽来 + OF卡片都有），超过2分钟大概率卡了，给出重画口子 */
+function genElapsed(entry){
+  const s=Math.max(0,Math.floor((Date.now()-(entry.gen||Date.now()))/1000));
+  return { txt:s>=60?`${Math.floor(s/60)}分${s%60?String(s%60).padStart(2,'0')+'秒':''}`:`${s}秒`, long:s>=120 };
+}
+setInterval(()=>{
+  if(streaming) return;
+  if(photos.some(p=>p.gen)) renderChat();
+  if($('privPage').classList.contains('show')&&privPosts.some(p=>p.gen)) renderPrivFeed();
+},1000);
 function photoHtml(text,msg){
   let h=0; for(const ch of text) h=(h*31+ch.codePointAt(0))%997;
   const d=msg&&msg.ts?new Date(msg.ts):new Date();
@@ -3020,11 +3031,18 @@ function photoHtml(text,msg){
     inner=`<div class="pImg" style="padding:0;overflow:hidden;min-height:0">${pvGalleryHtml(entry)}</div>`;
     capR='<span style="color:var(--accent-deep)">左滑挑一张最好看的 ❤</span>';
   }else if(entry&&entry.gen){
+    const el=genElapsed(entry);
     inner=`<div class="pImg genPulse" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]}">${fmt(text)}</div>`;
-    capR='<span class="genPulse">🎨 正在画，画好自动换…</span>';
+    capR=el.long
+      ?`<span style="color:var(--danger);cursor:pointer" onclick="retryGen('${esc(entry.id)}')">🎨 画了 ${el.txt} 还没好？点我重画</span>`
+      :`<span class="genPulse">🎨 正在画 · 已画 ${el.txt}</span>`;
   }else if(entry&&entry.genFail){
     inner=`<div class="pImg" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]};cursor:pointer" onclick="retryGen('${esc(entry.id)}')">${fmt(text)}</div>`;
     capR=`<span style="color:var(--danger);cursor:pointer" onclick="retryGen('${esc(entry.id)}')">⚠️ 没画成 · 点我重试</span>`;
+  }else if(entry&&!entry.img&&imgGenOn()&&(Date.now()-entry.ts>5*60e3)){
+    /* 老照片：当年没开生图/没画上的，给个原地补画入口 */
+    inner=`<div class="pImg" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]};cursor:pointer" onclick="retryGen('${esc(entry.id)}')">${fmt(text)}</div>`;
+    capR=`<span style="color:var(--accent-deep);cursor:pointer" onclick="retryGen('${esc(entry.id)}')">🎨 没画过 · 点我补画四张</span>`;
   }else{
     inner=`<div class="pImg" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]}">${fmt(text)}</div>`;
   }
@@ -9998,6 +10016,13 @@ function ofCard(p){
     ? `<div class="ofPhoto ofPick" data-pid="${p.id}"><img class="ofPickImg" src="${safeUrl(p.imgs[Math.min(p.pv||0,p.imgs.length-1)])}" style="width:100%;display:block" alt=""><span class="ofPickIdx">${Math.min(p.pv||0,p.imgs.length-1)+1}/${p.imgs.length}</span><button class="pvNav l" data-d="-1">‹</button><button class="pvNav r" data-d="1">›</button></div>
     <div class="ofPickBar"><button class="pvKeep ofKeep">❤ 留这张</button><button class="pvReroll ofReroll">🎲 换一批</button></div>
     <div class="ofCap">${fmt(p.caption||'')}</div>`
+    : p.gen
+    ? `<div class="ofPhoto" style="background:${stageGrad(p.photo)}"><span class="pt genPulse">${fmt(p.photo)}</span><span class="ofGenTag genPulse">🎨 画真图中 · 已画 ${Math.max(1,Math.floor((Date.now()-p.gen)/1000))}秒</span></div>
+    <div class="ofCap">${fmt(p.caption||'')}</div>`
+    : p.genFail
+    ? `<div class="ofPhoto" style="background:${stageGrad(p.photo)}"><span class="pt">${fmt(p.photo)}</span><span class="ofGenTag" style="background:rgba(180,40,40,.55)">⚠️ 没画成 · 点「🎲换一批」重画</span></div>
+    <div class="ofPickBar"><button class="pvReroll ofReroll" style="flex:1">🎲 重画一批</button></div>
+    <div class="ofCap">${fmt(p.caption||'')}</div>`
     : `<div class="ofPhoto ${locked?'locked':''}" style="${p.img?'':'background:'+stageGrad(p.photo)}">
       ${photoInner}
       ${locked?'<div class="ofLock">🔒<button class="unlock">解锁这张</button></div>':''}
@@ -10034,8 +10059,26 @@ function ofCard(p){
     card.querySelector('.ofReroll').onclick=async()=>{
       if(!imgGenOn()){ toast('生图没配好'); return; }
       toast('重画中，画好自动换…');
+      p.gen=Date.now(); delete p.genFail; persistAll(); renderPrivFeed();
       const res=await genImageBatchQuiet(await expandImgPrompt(p.photo.slice(0,300),ofPostChar(p),'of'),4);
-      if(res&&res.length){ p.imgs=res.slice(0,4); p.pv=0; persistAll(); renderPrivFeed(); }
+      delete p.gen;
+      if(res&&res.length){ p.imgs=res.slice(0,4); p.pv=0; }
+      else p.genFail=1;
+      persistAll(); renderPrivFeed();
+    };
+  }
+  /* genFail 卡片的重画按钮（没有 imgs 的旧失败卡） */
+  const loneReroll=card.querySelector('.ofReroll');
+  if(loneReroll&&!pickBox){
+    loneReroll.onclick=async()=>{
+      if(!imgGenOn()){ toast('生图没配好'); return; }
+      toast('重画中，画好自动换…');
+      p.gen=Date.now(); delete p.genFail; persistAll(); renderPrivFeed();
+      const res=await genImageBatchQuiet(await expandImgPrompt(p.photo.slice(0,300),ofPostChar(p),'of'),4);
+      delete p.gen;
+      if(res&&res.length){ p.imgs=res.slice(0,4); p.pv=0; }
+      else p.genFail=1;
+      persistAll(); renderPrivFeed();
     };
   }
   const unlock=card.querySelector('.unlock');
@@ -10127,10 +10170,12 @@ $('privGenPost').onclick=async()=>{
   genFanComments(np,4);   // 一群粉丝来评论起哄
   /* 开了生图 → 后台把[图]描述画成真图（一次性四张翻着挑，切去聊天也不耽误）；画好自动刷新 */
   if(imgGenOn()&&np.photo) (async()=>{
+    np.gen=Date.now(); persistAll(); if($('privPage').classList.contains('show')) renderPrivFeed();
     const res=await genImageBatchQuiet(await expandImgPrompt(np.photo.slice(0,300),ch,'of'),4);
+    delete np.gen;
     if(res&&res.length>1){ np.imgs=res.slice(0,4); np.pv=0; }
     else if(res&&res.length){ np.img=res[0]; }
-    else return;
+    else np.genFail=1;
     persistAll(); if($('privPage').classList.contains('show')) renderPrivFeed();
   })();
 };
@@ -11410,7 +11455,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v100';
+const XW_BUILD='v101';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
