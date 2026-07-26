@@ -6307,19 +6307,22 @@ $('igPxFetch').onclick=async()=>{
     if((g.key||'').trim()) headers['x-pixai-key']=g.key.trim(); else headers['x-pixai-cookie']=(g.cookie||'').trim();
     const tryQ=async(q)=>{ const r=await fetch(base+'/pixai/graphql',{method:'POST',headers,body:JSON.stringify({query:q,variables:{}})}); const j=await r.json(); if(j.errors&&j.errors.length) throw new Error(String(j.errors[0].message||'').slice(0,80)); return j.data; };
     let models=[];
+    /* 先探大模型（MMDIT26A_MODEL），再探 LoRA/风格（MULTI_LORA，网页「風格庫」本质就是它） */
     for(const q of [
-      'query{ models{ id name } }',
-      'query{ listModels{ id name } }',
-      'query{ generationModels{ id name } }',
-      'query{ modelList{ id name } }',
+      'query{ generationModels(first: 40, type: MMDIT26A_MODEL) { edges { node { id title type } } } }',
+      'query{ generationModels(first: 60, type: MULTI_LORA) { edges { node { id title type } } } }',
     ]){
-      try{ const d=await tryQ(q); const arr=Object.values(d||{})[0]; if(Array.isArray(arr)&&arr.length&&arr[0]&&arr[0].id!=null){ models=arr; break; } }catch(_){}
+      try{
+        const d=await tryQ(q);
+        const arr=((d||{}).generationModels||{}).edges||[];
+        arr.forEach(e=>{ if(e.node&&e.node.id!=null) models.push({id:String(e.node.id),name:(e.node.title||'未命名')+(e.node.type==='MULTI_LORA'?'（风格LoRA）':'')}); });
+      }catch(_){}
     }
     if(!models.length) throw new Error('模型列表的接口名我没猜中——不过生图能不能用跟它没关系，直接试画一批，报错了点小 toast 复制给我');
-    const menu=models.slice(0,40).map((m,i)=>`${i+1}. ${m.name||'未命名'}（ID ${m.id}）`).join('\n');
-    const pick=(prompt('点编号填入对应 modelId：\n\n'+menu)||'').trim();
+    const menu=models.slice(0,60).map((m,i)=>`${i+1}. ${m.name||'未命名'}（ID ${m.id}）`).join('\n');
+    const pick=(prompt('点编号填入对应 模型ID（带「风格LoRA」的是风格插件，先选大模型当底模）：\n\n'+menu)||'').trim();
     const n=parseInt(pick,10);
-    if(n>=1&&n<=Math.min(40,models.length)){ $('igModel').value=String(models[n-1].id); saveImgGen(); renderIgPxList(); toast('填好啦：'+String(models[n-1].name||'').slice(0,20)); }
+    if(n>=1&&n<=Math.min(60,models.length)){ $('igModel').value=String(models[n-1].id); saveImgGen(); renderIgPxList(); toast('填好啦：'+String(models[n-1].name||'').slice(0,20)); }
   }catch(e){ toast((e.message||'拉取失败').slice(0,90)); }
   btn.disabled=false; btn.textContent='🔄 拉一下可用模型列表';
 };
@@ -11476,7 +11479,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v102';
+const XW_BUILD='v103';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
