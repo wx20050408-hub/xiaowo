@@ -2115,6 +2115,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
       <div class="hintText" style="margin-top:6px">选中后自动拼进「风格附加词」，想自己再改就在下面那栏接着写；这些是提示词预设，PixAI 网页的「风格」本质也是往提示词里塞词。</div>
     </div>
     <div class="boxRow"><span class="ic">🪄</span><span class="grow">提示词扩写（TA的短描述先扩成详细英文prompt再生图，每张多一次小额文本调用，效果好很多）</span><button class="wbToggle on" id="igExpand"></button></div>
+    <div class="field" id="igExpandModelRow" style="margin-top:-6px"><label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:12.5px;color:var(--ink-soft)"><input type="checkbox" id="igExpandUseSec" style="width:auto;margin:0;accent-color:var(--accent)"> 扩写走次要API/模型（连接设置里配的那个，敢写涩涩的概率更高；不勾＝用主模型）</label></div>
     <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
     <button class="ghostBtn" id="igTest">🖼 试画一批（PixAI/部分中转一次出四张给你挑，会花对应张数的钱）</button>
     <div id="igPreview" style="text-align:center"></div>
@@ -6227,12 +6228,15 @@ async function expandImgPrompt(desc,ch,mode){
   const g=imgGen();
   if(g.expand===false) return desc;                // 设置里可关
   try{
-    const api=getApi(); if(!api) return desc;
+    /* 走哪个脑子：勾了就次要（便宜且可能更放得开），没勾就主；都没有就原样返回 */
+    const useSec=!!g.expandUseSec;
+    const api=useSec?getApi2():getApi(); if(!api) return desc;
+    const mdl=useSec?secModel():undefined;   // undefined=quickGen 里用 settings.model
     const sys='你是图像提示词工程师。把用户给的简短画面描述，扩写成一段高质量英文 image prompt：具体写出主体外观、动作姿态、环境细节、光线氛围、构图视角、画面风格，60~100 个英文单词，只输出提示词本身，不要引号不要解释。'
       +(mode==='photo'?'\n这是一张随手拍的真实生活照片：写实摄影风格（candid photo, natural light, phone camera aesthetic）。':'')
       +(mode==='of'?'\n这是一张私房写真：氛围感、暧昧光影、构图大胆。':'')
       +(ch&&ch.prompt&&ch.prompt.trim()?`\n若画面涉及「${ch.name}」本人，按这个设定描述TA的外观：\n${ch.prompt.trim().slice(0,600)}`:'');
-    const out=await quickGen(api,sys,desc,300);
+    const out=await quickGen(api,sys,desc,300,mdl);
     const cleaned=(out||'').replace(/^["'\s]+|["'\s]+$/g,'').slice(0,800);
     /* 文本模型拒写（"I'm not able to…"这类免责腔）→ 退回你的原描述，别把拒信画进去 */
     if(!cleaned||/not able to|cannot (generate|create|assist)|can't (generate|create)|I don't create|我无法|不能生成|无法生成/i.test(cleaned)) return desc;
@@ -6241,10 +6245,11 @@ async function expandImgPrompt(desc,ch,mode){
 }
 /* 设置面板 */
 function saveImgGen(){
-  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),cookie:$('igCookie').value.trim(),model:$('igModel').value.trim(),size:$('igFmt').value==='pixai'?$('igPxSize').value:$('igSize').value,pxMode:$('igMode').value,pxPri:$('igPri').classList.contains('on'),style:$('igStyle').value.trim(),stylePreset:$('igPreset').value,neg:$('igNeg').value.trim(),expand:$('igExpand').classList.contains('on')};
+  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),cookie:$('igCookie').value.trim(),model:$('igModel').value.trim(),size:$('igFmt').value==='pixai'?$('igPxSize').value:$('igSize').value,pxMode:$('igMode').value,pxPri:$('igPri').classList.contains('on'),style:$('igStyle').value.trim(),stylePreset:$('igPreset').value,neg:$('igNeg').value.trim(),expand:$('igExpand').classList.contains('on'),expandUseSec:$('igExpandUseSec').checked};
   persistAll();
 }
 $('igExpand').onclick=()=>{ $('igExpand').classList.toggle('on'); saveImgGen(); };
+$('igExpandUseSec').onchange=saveImgGen;
 function igFmtUI(){
   const f=$('igFmt').value;
   $('igUrlField').style.display=f==='openai'?'block':'none';       // NAI/PixAI 端点固定，不用填地址
@@ -6348,6 +6353,7 @@ $('imgGenBtn').onclick=()=>{
   /* 风格预设回填：现在的style正好是某个预设就选上，不然选「无风格」 */
   $('igPreset').value=[...$('igPreset').options].some(o=>o.value&&o.value===(g.style||'').trim())?g.style.trim():'';
   $('igExpand').classList.toggle('on',g.expand!==false);
+  $('igExpandUseSec').checked=!!g.expandUseSec;
   $('igPreview').innerHTML=''; igFmtUI();
   openSheet('imgGenSheet');
 };
@@ -11505,7 +11511,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v106';
+const XW_BUILD='v107';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
