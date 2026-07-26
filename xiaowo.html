@@ -1441,7 +1441,11 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <button id="privMyPhotoBtn" style="width:100%;padding:10px;border-radius:12px;background:var(--bg-soft);color:var(--ink);font-size:14px;margin-bottom:10px">📷 选张照片（可选）</button>
     <textarea id="privMyDesc" class="privField" rows="2" placeholder="不传照片的话，写一句画面描述（你在哪、什么样子…）"></textarea>
     <textarea id="privMyCap" class="privField" rows="2" placeholder="配文，撩TA一下～"></textarea>
-    <button id="privMyPostOk" style="width:100%;padding:12px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600">发布</button>
+    <div style="display:flex;gap:8px">
+      <button id="privMyPostOk" style="flex:1;padding:12px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600">发布</button>
+      <button id="privMyGenBtn" title="把描述当提示词直接画真图（测试/网页同款对照）" style="flex:1;padding:12px;border-radius:14px;background:linear-gradient(135deg,#d06aa8,#e0245e);color:#fff;font-weight:600">🎨 画成图再发</button>
+    </div>
+    <div class="hintText" style="margin-top:6px">「🎨 画成图再发」：把上面描述原样当提示词画四张给你挑（你在 PixAI 网页写的提示词可以原样粘来对照效果），留下一张连描述一起发出去。</div>
   </div>
 </div>
 
@@ -10245,6 +10249,23 @@ $('privMyPostOk').onclick=async()=>{
   privTaReactMyPost(p);
   genFanComments(p,4);   // 你的粉丝也来舔屏起哄
 };
+/* 🎨 画成图再发：你的描述【原样】当提示词（跳过AI扩写——测试/网页对照就要一字不差），四选一后发帖 */
+$('privMyGenBtn').onclick=async()=>{
+  const desc=$('privMyDesc').value.trim(), cap=$('privMyCap').value.trim();
+  if(!desc){ toast('先写一句画面描述当提示词'); return; }
+  if(!imgGenOn()){ toast('先去 百宝箱→🎨生图 配好 PixAI'); return; }
+  closeSheet('privMyPostSheet');
+  const p={id:'of'+Date.now(),charId:'me',photo:desc.slice(0,200),caption:cap.slice(0,300),locked:false,unlocked:true,likes:[],comments:[],fans:[],ts:Date.now(),gen:Date.now()};
+  privPosts.push(p); persistAll(); renderPrivFeed();
+  toast('照你写的原样画四张，画好挑一张 ❤');
+  const res=await genImageBatchQuiet((imgGen().style?imgGen().style+', ':'')+desc,4);   // 只拼风格词，不扩写——和网页同一起跑线
+  delete p.gen;
+  if(res&&res.length>1){ p.imgs=res.slice(0,4); p.pv=0; }
+  else if(res&&res.length){ p.img=res[0]; }
+  else { p.genFail=1; }
+  persistAll(); renderPrivFeed();
+  if(res&&res.length){ privTaReactMyPost(p); genFanComments(p,4); }
+};
 /* —— 联动预告：你公开预告要和谁联动，粉丝起哄，直播时TA也会知道 —— */
 $('privCollabBtn').onclick=()=>{
   if(!privHost()){ toast('先选个出演的角色'); return; }
@@ -11481,7 +11502,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v104';
+const XW_BUILD='v105';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
