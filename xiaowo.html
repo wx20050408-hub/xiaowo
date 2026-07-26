@@ -2061,13 +2061,29 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div class="field" id="igCookieField" style="display:none"><label>或者：登录 Cookie（PixAI 没会员也能用）</label><textarea id="igCookie" style="min-height:64px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px" placeholder="PixAI 网页登录后 F12 → Network → 找任意 pixai.art 请求 → 复制整段 Cookie"></textarea></div>
 /* 模型选择固定：TA 不挑、代码也没给TA切换的口子——固定用你在这里填的这个，画风稳定 */
     <div class="field"><label>模型名 / PixAI 的 modelId</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页的数字 ID"></div>
-    <div class="field"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x768</option><option>768x512</option><option>512x512</option></select></div>
+    <div class="field" id="igSizeField"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x768</option><option>768x512</option><option>512x512</option></select></div>
+    <div class="field" id="igPxField" style="display:none"><label>长宽比 / 解析度（PixAI 和网页版一套）</label>
+      <select id="igPxSize">
+        <option value="768x1280">3:5 · M（768×1280）竖图，网页同款默认</option>
+        <option value="1024x1024">1:1 · M（1024×1024）方图</option>
+        <option value="720x1280">9:16 · M（720×1280）长条竖图</option>
+        <option value="912x1536">3:5 · L（912×1536）竖图·更高清（更贵）</option>
+        <option value="1536x912">5:3 · L（1536×912）横图·更高清（更贵）</option>
+        <option value="1536x1024">3:2 · L（1536×1024）横图·更高清（更贵）</option>
+      </select>
+    </div>
+    <div class="field" id="igModeField" style="display:none"><label>模式（PixAI：和网页的 轻量/标准 一档一档对应，极速/专业要会员没给）</label>
+      <select id="igMode">
+        <option value="light">轻量（便宜快，网页免费档默认）</option>
+        <option value="standard">标准（更精细一些，也更贵）</option>
+      </select>
+    </div>
     <div class="field"><label>风格附加词（拼在每次提示词最前面，可空）</label><input id="igStyle" placeholder="比如：anime style, masterpiece, soft lighting"></div>
     <div class="boxRow"><span class="ic">🪄</span><span class="grow">提示词扩写（TA的短描述先扩成详细英文prompt再生图，每张多一次小额文本调用，效果好很多）</span><button class="wbToggle on" id="igExpand"></button></div>
     <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
     <button class="ghostBtn" id="igTest">🖼 试画一批（PixAI/部分中转一次出四张给你挑，会花对应张数的钱）</button>
     <div id="igPreview" style="text-align:center"></div>
-    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。<b>一次出一批（最多四张）翻着挑，留下最好看的那张</b>，不喜欢还能「换一批」重画。⚠️ 按张计费，一批四张＝四张的钱，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key/Cookie 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。<br><b>没会员？用 Cookie 登录</b>：PixAI 的内测 API Key 要会员才给，但网页账号本身能免费出图——在电脑浏览器登录 PixAI，按 F12 → Network → 刷新，随便点一个 <code>pixai.art</code> 的请求，把请求头里<b>整段 Cookie</b> 复制到上面的「登录 Cookie」框，小桥会拿着它冒充你的浏览器去画，走的还是你账号的免费额度。⚠️ 等于把你账号的通行证存在了本地：只存这台手机、不进备份，但别分享截图；Cookie 大概能用几星期，过期（一直报登录失败）就重新复制一段。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
+    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。<b>固定多张（x4）翻着挑，留下最好看的那张</b>，和网页版「生成數量：多張(x4)」一个意思，不喜欢还能「换一批」重画。⚠️ 按张计费，一批四张＝四张的点数，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key/Cookie 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。<b>长宽比/解析度/模式（轻量·标准）都和网页版一档一档对应</b>——默认就是网页同款「3:5·M·轻量·多張(x4)」，极速/专业档要会员这里没给。<br><b>没会员？用 Cookie 登录</b>：PixAI 的内测 API Key 要会员才给，但网页账号本身能免费出图——在电脑浏览器登录 PixAI，按 F12 → Network → 刷新，随便点一个 <code>pixai.art</code> 的请求，把请求头里<b>整段 Cookie</b> 复制到上面的「登录 Cookie」框，小桥会拿着它冒充你的浏览器去画，走的还是你账号的免费额度。⚠️ 等于把你账号的通行证存在了本地：只存这台手机、不进备份，但别分享截图；Cookie 大概能用几星期，过期（一直报登录失败）就重新复制一段。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
   </div>
 </div>
 <!-- 云同步设置 -->
@@ -6009,11 +6025,14 @@ async function genImagePixai(g,prompt,count){
     }
     return j.data;
   };
-  const [w,h]=(g.size||'1024x1024').split('x').map(n=>parseInt(n,10));
+  const [w,h]=(g.size||'768x1280').split('x').map(n=>parseInt(n,10));
   const style=(g.style||'').trim();
-  const N=Math.max(1,Math.min(4,count||4));          // 一次画四张挑一张；接口不认就只出一张
-  const parameters={prompts:(style?style+', ':'')+prompt,width:w||1024,height:h||1024,modelId:g.model.trim()};
+  const N=Math.max(1,Math.min(4,count||4));          // 固定多张（x4），和网页「多張(x4)」一个意思
+  const mode=(g.pxMode||'light');                    // 轻量/标准，跟网页模式一档一档对应
+  const parameters={prompts:(style?style+', ':'')+prompt,width:w||768,height:h||1280,modelId:g.model.trim()};
   parameters.batchSize=N; parameters.n=N; parameters.count=N; parameters.numImages=N;
+  /* 模式参数：网页的 轻量/标准/專業/極速 在 GraphQL 里叫法不一，多塞几个键，服务端认哪个用哪个 */
+  parameters.mode=mode; parameters.quality=mode; parameters.genMode=mode; parameters.speed=mode;
   if((g.neg||'').trim()) parameters.negativePrompts=g.neg.trim();
   const cd=await gql('mutation createGenerationTask($parameters: JSONObject!){ createGenerationTask(parameters: $parameters){ id status } }',{parameters});
   const tid=cd&&cd.createGenerationTask&&cd.createGenerationTask.id;
@@ -6144,7 +6163,7 @@ async function expandImgPrompt(desc,ch,mode){
 }
 /* 设置面板 */
 function saveImgGen(){
-  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),cookie:$('igCookie').value.trim(),model:$('igModel').value.trim(),size:$('igSize').value,style:$('igStyle').value.trim(),neg:$('igNeg').value.trim(),expand:$('igExpand').classList.contains('on')};
+  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),cookie:$('igCookie').value.trim(),model:$('igModel').value.trim(),size:$('igFmt').value==='pixai'?$('igPxSize').value:$('igSize').value,pxMode:$('igMode').value,style:$('igStyle').value.trim(),neg:$('igNeg').value.trim(),expand:$('igExpand').classList.contains('on')};
   persistAll();
 }
 $('igExpand').onclick=()=>{ $('igExpand').classList.toggle('on'); saveImgGen(); };
@@ -6153,19 +6172,25 @@ function igFmtUI(){
   $('igUrlField').style.display=f==='openai'?'block':'none';       // NAI/PixAI 端点固定，不用填地址
   $('igNegField').style.display=f==='openai'?'none':'block';       // 负面词：NAI/PixAI 都吃
   $('igCookieField').style.display=f==='pixai'?'block':'none';     // Cookie 登录只有 PixAI 用得上
+  $('igSizeField').style.display=f==='pixai'?'none':'block';       // PixAI 用网页同款「长宽比/解析度」下拉
+  $('igPxField').style.display=f==='pixai'?'block':'none';
+  $('igModeField').style.display=f==='pixai'?'block':'none';
 }
 $('imgGenBtn').onclick=()=>{
   const g=imgGen();
   $('igOn').classList.toggle('on',!!g.on);
   $('igFmt').value=g.fmt||'openai';
   $('igUrl').value=g.url||''; $('igKey').value=g.key||''; $('igCookie').value=g.cookie||''; $('igModel').value=g.model||'';
-  $('igSize').value=g.size||'1024x1024'; $('igStyle').value=g.style||''; $('igNeg').value=g.neg||'';
+  $('igSize').value=g.size||'1024x1024';
+  $('igPxSize').value=(g.fmt==='pixai'&&g.size&&$('igPxSize').querySelector(`option[value="${g.size}"]`))?g.size:'768x1280';
+  $('igMode').value=g.pxMode||'light';
+  $('igStyle').value=g.style||''; $('igNeg').value=g.neg||'';
   $('igExpand').classList.toggle('on',g.expand!==false);
   $('igPreview').innerHTML=''; igFmtUI();
   openSheet('imgGenSheet');
 };
 $('igOn').onclick=()=>{ $('igOn').classList.toggle('on'); saveImgGen(); };
-['igUrl','igKey','igCookie','igModel','igSize','igStyle','igNeg'].forEach(id=>$(id).onchange=saveImgGen);
+['igUrl','igKey','igCookie','igModel','igSize','igPxSize','igMode','igStyle','igNeg'].forEach(id=>$(id).onchange=saveImgGen);
 $('igFmt').onchange=()=>{ igFmtUI(); saveImgGen(); };
 $('igTest').onclick=async()=>{
   saveImgGen();
