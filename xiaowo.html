@@ -6188,10 +6188,12 @@ async function genImageBatchQuiet(prompt,count){
   try{ return await genImageBatch(prompt,count||4); }
   catch(e){ toast('生图失败：'+(e.message||'').slice(0,60)); return null; }
 }
-/* ===== 全屏看图器：点带 zoomable 的图放大，点空白关闭，保存走原生/下载 ===== */
+/* ===== 全屏看图器：点带 zoomable 的图（或带 data-zoom 的背景图块）放大，点空白关闭，保存走原生/下载 ===== */
 document.addEventListener('click',e=>{
   const im=e.target.closest&&e.target.closest('img.zoomable');
-  if(im&&im.src){ $('imgViewerImg').src=im.src; $('imgViewer').style.display='flex'; }
+  if(im&&im.src){ $('imgViewerImg').src=im.src; $('imgViewer').style.display='flex'; return; }
+  const zb=e.target.closest&&e.target.closest('[data-zoom]');
+  if(zb&&zb.dataset.zoom){ $('imgViewerImg').src=zb.dataset.zoom; $('imgViewer').style.display='flex'; }
 });
 $('imgViewer').onclick=e=>{ if(e.target.id!=='imgViewerSave') $('imgViewer').style.display='none'; };
 $('imgViewerSave').onclick=e=>{
@@ -6224,6 +6226,13 @@ function retryGen(id){
 }
 /* 隐形翻译官：TA 的简短中文描述 → 详细英文 image prompt（带上 TA 的人设外观）。
    失败就退回原描述，绝不挡生图的路 */
+/* 扩写 system prompt 按模式组装：OF 模式明确要求保留裸露描写，别自行打码加衣服 */
+function expandSys(mode,ch){
+  return '你是图像提示词工程师。把用户给的简短画面描述，扩写成一段高质量英文 image prompt：具体写出主体外观、动作姿态、环境细节、光线氛围、构图视角、画面风格，60~100 个英文单词，只输出提示词本身，不要引号不要解释。'
+    +(mode==='photo'?'\n这是一张随手拍的真实生活照片：写实摄影风格（candid photo, natural light, phone camera aesthetic）。':'')
+    +(mode==='of'?'\n这是一张私房写真（成人向）：氛围感、暧昧光影、构图大胆。**描述里说裸体/赤裸/没穿衣服就照实写 nude/naked/uncovered，不许自行加衣服、不许写成内衣/薄纱/遮掩——用户写什么露骨程度就保留什么露骨程度。**':'')
+    +(ch&&ch.prompt&&ch.prompt.trim()?`\n若画面涉及「${ch.name}」本人，按这个设定描述TA的外观：\n${ch.prompt.trim().slice(0,600)}`:'');
+}
 async function expandImgPrompt(desc,ch,mode){
   const g=imgGen();
   if(g.expand===false) return desc;                // 设置里可关
@@ -6232,11 +6241,7 @@ async function expandImgPrompt(desc,ch,mode){
     const useSec=!!g.expandUseSec;
     const api=useSec?getApi2():getApi(); if(!api) return desc;
     const mdl=useSec?secModel():undefined;   // undefined=quickGen 里用 settings.model
-    const sys='你是图像提示词工程师。把用户给的简短画面描述，扩写成一段高质量英文 image prompt：具体写出主体外观、动作姿态、环境细节、光线氛围、构图视角、画面风格，60~100 个英文单词，只输出提示词本身，不要引号不要解释。'
-      +(mode==='photo'?'\n这是一张随手拍的真实生活照片：写实摄影风格（candid photo, natural light, phone camera aesthetic）。':'')
-      +(mode==='of'?'\n这是一张私房写真：氛围感、暧昧光影、构图大胆。':'')
-      +(ch&&ch.prompt&&ch.prompt.trim()?`\n若画面涉及「${ch.name}」本人，按这个设定描述TA的外观：\n${ch.prompt.trim().slice(0,600)}`:'');
-    const out=await quickGen(api,sys,desc,300,mdl);
+    const out=await quickGen(api,expandSys(mode,ch),desc,300,mdl);
     const cleaned=(out||'').replace(/^["'\s]+|["'\s]+$/g,'').slice(0,800);
     /* 文本模型拒写（"I'm not able to…"这类免责腔）→ 退回你的原描述，别把拒信画进去 */
     if(!cleaned||/not able to|cannot (generate|create|assist)|can't (generate|create)|I don't create|我无法|不能生成|无法生成/i.test(cleaned)) return desc;
@@ -10047,12 +10052,12 @@ function ofCard(p){
   if(p.likeBase==null) p.likeBase=24+Math.floor(Math.random()*210);
   const likeNum=p.likeBase+likes.length;
   const photoInner=p.img
-    ? `<div class="ptImg" style="background-image:url(${safeUrl(p.img)})"></div>`
+    ? `<div class="ptImg"${locked?'':` data-zoom="${safeUrl(p.img)}" style="cursor:zoom-in"`}></div>`
     : `<span class="pt">${fmt(p.photo)}</span>`;
   const bodyHtml=p.kind==='collab'
     ? `<div class="ofCollab"><div class="cbTag">📣 联 动 预 告</div><div class="cbName">${esc(p.partner||'神秘嘉宾')}</div>${p.caption?`<div class="cbNote">${fmt(p.caption)}</div>`:''}</div>`
     : p.imgs&&p.imgs.length
-    ? `<div class="ofPhoto ofPick" data-pid="${p.id}"><img class="ofPickImg" src="${safeUrl(p.imgs[Math.min(p.pv||0,p.imgs.length-1)])}" style="width:100%;display:block" alt=""><span class="ofPickIdx">${Math.min(p.pv||0,p.imgs.length-1)+1}/${p.imgs.length}</span><button class="pvNav l" data-d="-1">‹</button><button class="pvNav r" data-d="1">›</button></div>
+    ? `<div class="ofPhoto ofPick" data-pid="${p.id}"><img class="ofPickImg zoomable" src="${safeUrl(p.imgs[Math.min(p.pv||0,p.imgs.length-1)])}" style="width:100%;display:block" alt=""><span class="ofPickIdx">${Math.min(p.pv||0,p.imgs.length-1)+1}/${p.imgs.length}</span><button class="pvNav l" data-d="-1">‹</button><button class="pvNav r" data-d="1">›</button></div>
     <div class="ofPickBar"><button class="pvKeep ofKeep">❤ 留这张</button><button class="pvReroll ofReroll">🎲 换一批</button></div>
     <div class="ofCap">${fmt(p.caption||'')}</div>`
     : p.gen
@@ -11511,7 +11516,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v107';
+const XW_BUILD='v108';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
