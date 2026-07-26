@@ -1572,7 +1572,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div class="field"><label>考试名称</label><input id="sgExamName" maxlength="12" placeholder="比如：考研"></div>
     <div class="field"><label>考试日期</label><input id="sgExamDate" type="date"></div>
     <button class="primaryBtn" id="sgSave">保存</button>
-    <div class="hintText">设好之后：自习室和这里都会显示 🔥 连续达标和倒计日；TA 也会知道你的目标、今天学没学够、离考试还有几天——催你、夸你、心疼你都更有数。</div>
+    <div class="hintText">设好之后：自习室和这里都会显示 🔥 连续达标和倒计日；TA 也知道你的目标和考试日子。手动补记、改记录都去「📊 自习统计」页。</div>
   </div>
 </div>
 
@@ -1602,7 +1602,22 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div id="ssReadout" style="text-align:center;font-size:12px;color:var(--ink-soft);min-height:16px;margin-bottom:2px"></div>
     <div id="ssChart"></div>
     <div id="ssTasks" style="margin-top:14px"></div>
-    <div class="hintText">点柱子能看那天 / 那段的具体数字；任务分布统计的是图里这一段时间。</div>
+    <div style="font-size:12px;color:var(--ink-soft);margin:16px 0 6px">自习记录（可改可删）</div>
+    <div id="ssLogs"></div>
+    <button class="ghostBtn" id="ssAddBtn" style="font-size:13px">＋ 手动补一次自习</button>
+    <div class="hintText" style="margin-top:10px">点柱子能看那天 / 那段的具体数字；任务分布统计的是图里这一段时间。记录列表只管最近 60 次，更老的改不了——但统计里一直都在。</div>
+  </div>
+</div>
+
+<!-- 自习记录编辑弹层 -->
+<div class="sheetScrim" id="studyLogEditSheet">
+  <div class="sheet">
+    <div class="sheetTitle" id="sleTitle">编辑自习记录<button class="close" data-close="studyLogEditSheet">✕</button></div>
+    <div class="field"><label>日期</label><input id="sleDate" type="date"></div>
+    <div class="field"><label>时长（分钟）</label><input id="sleMin" type="number" min="1" max="960" placeholder="比如：25"></div>
+    <div class="field"><label>任务（可不填）</label><input id="sleTask" maxlength="30" placeholder="比如：背单词"></div>
+    <button class="primaryBtn" id="sleSave">保存</button>
+    <div class="hintText">改完立刻生效：连续打卡、目标进度、统计图表都会跟着重算，TA 看到的数字也是新的。</div>
   </div>
 </div>
 
@@ -5067,15 +5082,14 @@ function buildDynamic(c,ch){
   /* 自习时间跑来聊天 → TA 知道该催你回去学习 */
   if(studySt&&(studySt.mode==='up'||Date.now()<studySt.start+studySt.min*60e3))
     parts.push(`【自习中】${userName()}本来正在自习${studySt.task?`「${studySt.task}」`:''}（${studySt.mode==='up'?`已经专注了${Math.floor((Date.now()-studySt.start)/60000)}分钟`:`还剩${Math.ceil((studySt.start+studySt.min*60e3-Date.now())/60000)}分钟`}），现在却来找你聊天——多半是分心了。回应TA，但温柔地催TA回去专注。`);
-  /* 备考：TA 知道你的目标、今天学没学够、离考试还有几天 */
+  /* 备考：TA 知道你的目标和考试倒计时——自习记录常靠手动补，今天学没学TA别计较（想聊TA自己会查） */
   {
     const ed=examDaysLeft(), g=+settings.studyGoal||0;
     if((ed!=null&&ed>=0)||g>0){
-      const td=studyTodayMin(), bits=[];
+      const bits=[];
       if(ed!=null&&ed>=0) bits.push(ed===0?`今天就是${settings.examName||'考试'}的日子`:`距离${settings.examName||'考试'}还有${ed}天`);
-      if(g>0) bits.push(`TA给自己定的目标是每天自习${g}分钟，今天学了${td}分钟${td>=g?'（已达标）':''}`);
-      const stk=studyStreak(); if(stk>1) bits.push(`已经连续达标${stk}天`);
-      parts.push(`【备考】${bits.join('；')}。你都看在眼里：合适的时候给TA打气、心疼TA的辛苦，TA达标了替TA开心；今天还没学够又在闲聊，可以温柔提一嘴，但别唠叨、别扫兴。`);
+      if(g>0) bits.push(`TA给自己定的目标是每天自习${g}分钟`);
+      parts.push(`【备考】${bits.join('；')}。不过TA现在大多手动补记自习，今天学了多久你不清楚、也别过问过问打卡进度；合适的时候给TA打打气就好，别催、别唠叨。TA聊起学习时你可以用 <查自习> 拿真实记录。`);
     }
   }
   /* 手机使用感知（仅 App 壳里 & 已授权 & 这个窗口开了「📱手机使用感知」）：TA 看得到你今天刷了多久。
@@ -5087,7 +5101,7 @@ function buildDynamic(c,ch){
         const j=JSON.parse(na.getUsageStats());
         if(j&&j.ok&&j.totalMin>30){
           const top=(j.apps||[])[0];
-          parts.push(`【手机使用】${userName()}今天屏幕总时长约${Math.floor(j.totalMin/60)}小时${j.totalMin%60}分${top?`，用得最久的是「${top.name}」（${top.min}分钟）`:''}。刷太久时可以自然地心疼TA的眼睛、备考期温柔催TA收心——但别变成监工，别每次都提。`);
+          parts.push(`【手机使用】${userName()}今天屏幕总时长约${Math.floor(j.totalMin/60)}小时${j.totalMin%60}分${top?`，用得最久的是「${top.name}」（${top.min}分钟）`:''}。刷太久时可以自然地心疼TA的眼睛——但别变成监工，别每次都提。`);
         }
       }catch(_){}
     }
@@ -6495,7 +6509,7 @@ function agentNote(){
 · 记纪念日：<纪念日:名字:YYYY-MM-DD>
 · 加心愿单：<心愿:想一起做的事>
 · 记购物清单：<购物:东西:价格>（价格不知道可省略）
-· 查TA的自习情况：单独写一行 <查自习> 然后结束本条回复，系统会把真实数据发给你，你再接着说。聊到学习进度、想夸TA或催TA时用它，绝不凭空编数据。
+· 查TA的自习情况：单独写一行 <查自习> 然后结束本条回复，系统会把真实数据发给你，你再接着说。TA主动聊起学习进度、或你想夸TA时用；注意TA常手动补记，没聊到时别主动查也别过问打卡。
 · 查TA的日历：<查日历>，会拿到接下来一个月的备忘和最近的纪念日。
 ${imgGenOn()?`· 画画：${userName()}让你画点什么时，单独占一行写 <画图:画面描述>——会真的生成一张图发出去。描述写具体些（主体、风格、氛围），中英文都行；画完自然说一句就好。\n`:''}${(()=>{ const na=nativeApp(); if(!na) return '';
   let ex='';
@@ -7169,7 +7183,7 @@ function endStudy(done){
   if(studySt.lock){ const na=nativeApp(); try{ na&&na.unlockApp&&na.unlockApp(); }catch(_){} }
   const keepMin=isUp?1:5;                     // 正计时满1分钟就记，倒计时提前跑路要满5分钟
   if(done||min>=keepMin){
-    studyLog.push({date:todayStr(),min:Math.max(1,min),charId,task});
+    studyLog.push({id:rid('sl'),date:todayStr(),min:Math.max(1,min),charId,task});
     const g=+settings.studyGoal||0, td=studyTodayMin();
     if(g>0&&td>=g&&td-Math.max(1,min)<g) setTimeout(()=>toast(`今日目标 ${g} 分钟达成 🎯 连续 ${studyStreak()} 天`),700);
   }
@@ -7255,6 +7269,64 @@ $('studyTask').value=load('xw_study_task','');   // 打开就填上上次的任�
 
 /* ===== 每日目标 · 连续打卡 · 考试倒计时 ===== */
 function studyTodayMin(){ const t=todayStr(); return studyLog.filter(l=>l.date===t).reduce((a,l)=>a+l.min,0); }
+/* 自习记录可改可删：改日期/时长/任务会直接影响打卡、目标和统计 */
+let sleId=null;   // null＝手动补记；否则是那条记录的 id
+function afterStudyLogChange(msg){
+  save('xw_study_log',studyLog);
+  renderStudyGoalLine(); updateStudyUI();
+  if($('studyStatSheet').classList.contains('show')){ renderStudyStats(); renderStudyLogList(); }
+  toast(msg);
+}
+function renderStudyLogList(){
+  const box=$('ssLogs'); if(!box) return;
+  const items=studyLog.slice(-60).reverse();   // 只管最近 60 次，老记录改不了但统计一直在
+  if(!items.length){ box.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:8px 0">还没有自习记录——可以点下面按钮手动补一次 ✏️</div>'; return; }
+  const byDate={};
+  items.forEach(l=>{ (byDate[l.date]=byDate[l.date]||[]).push(l); });
+  const row=l=>{
+    const ch=charOf(l.charId), task=(l.task||'').trim()||'（没写任务）';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 2px;border-bottom:1px solid var(--line);font-size:13px">
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(task)}${ch?` <span style="color:var(--ink-soft);font-size:11px">· ${esc(ch.name||'')}</span>`:''}</span>
+      <span style="color:var(--ink-soft);font-variant-numeric:tabular-nums;flex:0 0 auto">${ssFmtMin(l.min)}</span>
+      <button class="durChip" data-e="${l.id}" title="编辑" style="padding:2px 10px;font-size:11px;border-radius:9px;flex:0 0 auto">✏️</button>
+      <button class="durChip" data-d="${l.id}" title="删除" style="padding:2px 10px;font-size:11px;border-radius:9px;flex:0 0 auto">🗑</button>
+    </div>`;
+  };
+  box.innerHTML=Object.keys(byDate).sort().reverse().map(d=>{
+    const tot=byDate[d].reduce((a,l)=>a+l.min,0);
+    return `<div style="font-size:11px;color:var(--ink-soft);margin:10px 0 2px">${+d.slice(5,7)}月${+d.slice(8)}日 · 共${ssFmtMin(tot)}</div>`+byDate[d].map(row).join('');
+  }).join('');
+  box.querySelectorAll('button[data-e]').forEach(b=>b.onclick=()=>openStudyLogEdit(b.dataset.e));
+  box.querySelectorAll('button[data-d]').forEach(b=>b.onclick=()=>{
+    const l=studyLog.find(x=>x.id===b.dataset.d); if(!l) return;
+    if(!confirm(`删掉这条自习记录？\n${l.date} · ${l.min}分钟${l.task?` · ${l.task}`:''}`)) return;
+    studyLog=studyLog.filter(x=>x.id!==l.id);
+    afterStudyLogChange('删掉啦');
+  });
+}
+function openStudyLogEdit(id){
+  sleId=id||null;
+  const l=sleId?studyLog.find(x=>x.id===sleId):null;
+  $('sleTitle').textContent=l?'编辑自习记录':'手动补一次自习';
+  $('sleDate').value=l?l.date:todayStr();
+  $('sleMin').value=l?l.min:'';
+  $('sleTask').value=l?(l.task||''):'';
+  openSheet('studyLogEditSheet');
+}
+$('sleSave').onclick=()=>{
+  const date=$('sleDate').value, min=Math.round(+$('sleMin').value||0), task=$('sleTask').value.trim().slice(0,30);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){ toast('日期没选好'); return; }
+  if(!(min>=1&&min<=960)){ toast('时长填 1~960 分钟'); return; }
+  if(sleId){
+    const l=studyLog.find(x=>x.id===sleId); if(!l){ closeSheet('studyLogEditSheet'); return; }
+    l.date=date; l.min=min; l.task=task;
+  }else{
+    const ch=curChar(curChat());
+    studyLog.push({id:rid('sl'),date,min,charId:ch?.id,task});
+  }
+  closeSheet('studyLogEditSheet');
+  afterStudyLogChange('记好啦 ✓');
+};
 function examDaysLeft(){
   if(!settings.examDate||!/^\d{4}-\d{2}-\d{2}$/.test(settings.examDate)) return null;
   return Math.ceil((new Date(settings.examDate+'T00:00:00')-new Date().setHours(0,0,0,0))/86400e3);
@@ -7449,7 +7521,8 @@ function renderStudyStats(){
     $('ssTasks').innerHTML='<div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px">任务分布</div>'+rows.map(([t,m])=>
       `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="flex:0 0 92px;font-size:12px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t)}</div><div style="flex:1"><div style="height:9px;width:${Math.max(2,Math.round(m/tmax*100))}%;background:${SS_BAR};border-radius:0 4px 4px 0;opacity:.75"></div></div><div style="flex:0 0 auto;font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums">${ssFmtMin(m)}</div></div>`).join('');
 }
-$('studyStatBtn').onclick=()=>{ ssSel=-1; renderStudyStats(); openSheet('studyStatSheet'); };
+$('studyStatBtn').onclick=()=>{ ssSel=-1; renderStudyStats(); renderStudyLogList(); openSheet('studyStatSheet'); };
+$('ssAddBtn').onclick=()=>openStudyLogEdit(null);
 $('ssTabs').querySelectorAll('.durChip').forEach(b=>b.onclick=()=>{
   ssRange=b.dataset.range; ssSel=-1;
   $('ssTabs').querySelectorAll('.durChip').forEach(x=>x.classList.toggle('on',x===b));
@@ -10815,6 +10888,7 @@ function replaceImport(data){
   if(data.stickers){ stickers=data.stickers; persistStickers(); }
   if(data.diaries) diaries=data.diaries;
   if(data.studyLog) studyLog=data.studyLog;
+  if(studyLog.some(l=>l.id==null)) studyLog.forEach(l=>{ if(l.id==null) l.id=rid('sl'); });
   if(data.calNotes) calNotes=data.calNotes;
   if(data.periods) periods=data.periods;
   if(data.periodMeta) periodMeta=data.periodMeta;
@@ -10912,6 +10986,8 @@ function renderAppIconDots(){
 }
 
 /* ================= 启动 ================= */
+/* 老自习记录没有 id，补上才能编辑/删除（备份导入那边也补了一次） */
+if(studyLog.some(l=>l.id==null)){ studyLog.forEach(l=>{ if(l.id==null) l.id=rid('sl'); }); save('xw_study_log',studyLog); }
 renderThemeDots();
 applyTheme();
 applyAppIcon();
