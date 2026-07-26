@@ -6233,7 +6233,10 @@ async function expandImgPrompt(desc,ch,mode){
       +(mode==='of'?'\n这是一张私房写真：氛围感、暧昧光影、构图大胆。':'')
       +(ch&&ch.prompt&&ch.prompt.trim()?`\n若画面涉及「${ch.name}」本人，按这个设定描述TA的外观：\n${ch.prompt.trim().slice(0,600)}`:'');
     const out=await quickGen(api,sys,desc,300);
-    return (out||desc).replace(/^["'\s]+|["'\s]+$/g,'').slice(0,800)||desc;
+    const cleaned=(out||'').replace(/^["'\s]+|["'\s]+$/g,'').slice(0,800);
+    /* 文本模型拒写（"I'm not able to…"这类免责腔）→ 退回你的原描述，别把拒信画进去 */
+    if(!cleaned||/not able to|cannot (generate|create|assist)|can't (generate|create)|I don't create|我无法|不能生成|无法生成/i.test(cleaned)) return desc;
+    return cleaned;
   }catch(_){ return desc; }
 }
 /* 设置面板 */
@@ -11502,7 +11505,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v105';
+const XW_BUILD='v106';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
