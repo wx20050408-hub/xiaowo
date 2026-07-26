@@ -6117,7 +6117,9 @@ async function genImagePixai(g,prompt,count){
   const style=(g.style||'').trim();
   const N=Math.max(1,Math.min(4,count||4));          // 固定多张（x4），和网页「多張(x4)」一个意思
   const mode=(g.pxMode||'light');                    // 轻量/标准，跟网页模式一档一档对应
-  const parameters={prompts:(style?style+', ':'')+prompt,width:w||768,height:h||1280,modelVersionId:g.model.trim()};
+  const parameters={prompts:(style?style+', ':'')+prompt,width:w||768,height:h||1280,modelId:g.model.trim()};
+  /* ⚠️ 键名是 modelId 不是 modelVersionId——后者服务器不报错但静默退回默认模型（溪溪被坑一整天实测：
+     同发 versionId=1983308862240288769(Tsubaki.2)，modelVersionId 键→moonbeam，modelId 键→真 Tsubaki.2） */
   parameters.batchSize=N;   // 实测认这个：一次四张在 outputs.batch 里
   parameters.mode=mode; parameters.quality=mode; parameters.genMode=mode; parameters.speed=mode;   // 服务器吞掉不认识的键，无害
   /* 自定义风格编码：网页「自定義」里创作者风格的 LoRA 编号，两种键都塞（实测服务器都收），逗号可填多个 */
@@ -11573,7 +11575,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v114';
+const XW_BUILD='v115';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
