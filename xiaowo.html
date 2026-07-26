@@ -6085,6 +6085,8 @@ async function genImagePixai(g,prompt,count){
     if(j.errors&&j.errors.length){
       const em=String(j.errors[0].message||'GraphQL出错');
       if(!g.key&&/login|auth|unauth|登录|token/i.test(em)) throw new Error('Cookie 好像过期了，去 PixAI 网页重新复制一段');
+      if(/against.*policy|policy violation|content.*policy/i.test(em))
+        throw new Error('这段描述被 PixAI 的内容审核拦了——多数情况换几个写法就过（同一个意思，露骨词换含蓄点的说法，或去掉真名/未成年相关词）。网页能画是因为网页常自动改写，这里发的是原文');
       if(/turbo|priority/i.test(em)&&/member|会员/i.test(em))
         throw new Error('高优先权被服务器拒了——把小桥重启一下（新版会自动降级成普通排队），或先关掉「⚡高优先权」再画');
       if(/modelId|model id|invalid model/i.test(em))
@@ -11479,7 +11481,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v103';
+const XW_BUILD='v104';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
