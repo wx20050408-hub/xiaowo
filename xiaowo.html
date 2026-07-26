@@ -2058,6 +2058,13 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div class="field"><label>接口格式</label><select id="igFmt"><option value="openai">OpenAI 兼容（中转站生图）</option><option value="novelai">NovelAI（二次元，浏览器直连）</option><option value="pixai">PixAI（走小桥转发，Key要会员/Cookie免费）</option></select></div>
     <div class="field" id="igUrlField"><label>接口地址（OpenAI 兼容，/v1/images/generations 自动补）</label><input id="igUrl" placeholder="https://api.某站.com"></div>
     <div class="field"><label>API Key</label><input id="igKey" type="password" placeholder="sk-… / PixAI 的 API Key"></div>
+    <div class="field" id="igPxProfilesField" style="display:none"><label>PixAI 配置（存好几套，点一下就换，像 Key 列表一样）</label>
+      <div id="igPxList"></div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="ghostBtn" id="igPxSave" style="margin-top:0;flex:1;font-size:13px">💾 把当前填的存成一套</button>
+        <button class="ghostBtn" id="igPxFetch" style="margin-top:0;flex:1;font-size:13px">🔄 拉一下可用模型列表</button>
+      </div>
+    </div>
     <div class="field" id="igCookieField" style="display:none"><label>或者：登录 Cookie（PixAI 没会员也能用）</label><textarea id="igCookie" style="min-height:64px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px" placeholder="PixAI 网页登录后 F12 → Network → 找任意 pixai.art 请求 → 复制整段 Cookie"></textarea></div>
 /* 模型选择固定：TA 不挑、代码也没给TA切换的口子——固定用你在这里填的这个，画风稳定 */
     <div class="field"><label>模型名 / PixAI 的 modelId</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页的数字 ID"></div>
@@ -2083,7 +2090,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
     <button class="ghostBtn" id="igTest">🖼 试画一批（PixAI/部分中转一次出四张给你挑，会花对应张数的钱）</button>
     <div id="igPreview" style="text-align:center"></div>
-    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。<b>固定多张（x4）翻着挑，留下最好看的那张</b>，和网页版「生成數量：多張(x4)」一个意思，不喜欢还能「换一批」重画。⚠️ 按张计费，一批四张＝四张的点数，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key/Cookie 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。<b>长宽比/解析度/模式（轻量·标准）都和网页版一档一档对应</b>——默认就是网页同款「3:5·M·轻量·多張(x4)」，极速/专业档要会员这里没给。<br><b>没会员？用 Cookie 登录</b>：PixAI 的内测 API Key 要会员才给，但网页账号本身能免费出图——在<b>电脑</b>浏览器登录 PixAI，按键盘上的 <b>F12 键</b>——没反应或变成截图的话，说明你的笔记本功能键被占用了，改按 <b>Fn+F12</b>，或者干脆在网页空白处<b>点鼠标右键 → 选「检查」</b>，效果一样：右边会弹出一个全是英文代码的「开发者工具」面板：点上面的 <b>Network</b>（网络）标签 → 按 F5 刷新网页 → 下面列表里随便点一条 <code>pixai.art</code> 的请求 → 右边找 <b>Headers → Request Headers</b>，里面有一行 <code>Cookie:</code> 开头、后面跟着很长一串的——把那串完整复制下来，粘到上面的「登录 Cookie」框。小桥会拿着它冒充你的浏览器去画，走的还是你账号的免费额度。⚠️ 等于把你账号的通行证存在了本地：只存这台手机、不进备份，但别分享截图；Cookie 大概能用几星期，过期（一直报登录失败）就重新复制一段。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
+    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。<b>固定多张（x4）翻着挑，留下最好看的那张</b>，和网页版「生成數量：多張(x4)」一个意思，不喜欢还能「换一批」重画。⚠️ 按张计费，一批四张＝四张的点数，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key/Cookie 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里：网页上点开你想用的那个模型，看浏览器地址栏，网址最后那串数字就是（比如 <code>pixai.art/zh/model/1234567890</code> 就填 <code>1234567890</code>）。填好几套后可以「存成一套」，以后点一下就换，不用重抄。<b>长宽比/解析度/模式（轻量·标准）都和网页版一档一档对应</b>——默认就是网页同款「3:5·M·轻量·多張(x4)」，极速/专业档要会员这里没给。<br><b>没会员？用 Cookie 登录</b>：PixAI 的内测 API Key 要会员才给，但网页账号本身能免费出图——在<b>电脑</b>浏览器登录 PixAI，按键盘上的 <b>F12 键</b>——没反应或变成截图的话，说明你的笔记本功能键被占用了，改按 <b>Fn+F12</b>，或者干脆在网页空白处<b>点鼠标右键 → 选「检查」</b>，效果一样：右边会弹出一个全是英文代码的「开发者工具」面板：点上面的 <b>Network</b>（网络）标签 → 按 F5 刷新网页 → 下面列表里随便点一条 <code>pixai.art</code> 的请求 → 右边找 <b>Headers → Request Headers</b>，里面有一行 <code>Cookie:</code> 开头、后面跟着很长一串的——把那串完整复制下来，粘到上面的「登录 Cookie」框。小桥会拿着它冒充你的浏览器去画，走的还是你账号的免费额度。⚠️ 等于把你账号的通行证存在了本地：只存这台手机、不进备份，但别分享截图；Cookie 大概能用几星期，过期（一直报登录失败）就重新复制一段。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
   </div>
 </div>
 <!-- 云同步设置 -->
@@ -6021,6 +6028,8 @@ async function genImagePixai(g,prompt,count){
     if(j.errors&&j.errors.length){
       const em=String(j.errors[0].message||'GraphQL出错');
       if(!g.key&&/login|auth|unauth|登录|token/i.test(em)) throw new Error('Cookie 好像过期了，去 PixAI 网页重新复制一段');
+      if(/modelId|model id|model\b/i.test(em)&&/invalid|not found|不存在|错误/i.test(em))
+        throw new Error('modelId 不对：去 PixAI 网页点开你想用的模型，看地址栏网址最后那串数字才是它的 ID');
       throw new Error(em.slice(0,100));
     }
     return j.data;
@@ -6175,7 +6184,81 @@ function igFmtUI(){
   $('igSizeField').style.display=f==='pixai'?'none':'block';       // PixAI 用网页同款「长宽比/解析度」下拉
   $('igPxField').style.display=f==='pixai'?'block':'none';
   $('igModeField').style.display=f==='pixai'?'block':'none';
+  $('igPxProfilesField').style.display=f==='pixai'?'block':'none';
+  if(f==='pixai') renderIgPxList();
 }
+/* ===== PixAI 配置存档：名字+modelId+尺寸+模式（Cookie 是全局通行证不进存档） ===== */
+function pxProfiles(){ return settings.pxProfiles||[]; }
+function savePxProfiles(list){ settings.pxProfiles=list; persistAll(); }
+function maskCookie(c){ c=(c||'').trim(); return c.length>12?c.slice(0,8)+'…'+c.slice(-4):(c?'已填':'没填'); }
+function renderIgPxList(){
+  const box=$('igPxList'); if(!box) return;
+  const list=pxProfiles();
+  const curModel=$('igModel').value.trim();
+  if(!list.length){ box.innerHTML='<div style="font-size:12.5px;color:var(--ink-soft);padding:4px 2px 8px">还没有存档——填好下面那堆后点「存成一套」，以后换模型点一下就切</div>'; return; }
+  box.innerHTML='';
+  list.forEach(p=>{
+    const it=document.createElement('div');
+    it.className='keyItem'+(p.model===curModel&&curModel?' sel':'');
+    it.style.marginBottom='6px';
+    const sizeLbl=({'768x1280':'3:5·M','1024x1024':'1:1·M','720x1280':'9:16·M','912x1536':'3:5·L','1536x912':'5:3·L','1536x1024':'3:2·L'})[p.size]||p.size||'3:5·M';
+    it.innerHTML=`<div class="selMark">${p.model===curModel&&curModel?'✓':''}</div>
+      <div class="keyInfo">
+        <div class="keyLabel">${esc(p.name||'未命名')}</div>
+        <div class="keyPreview" style="font-size:11px;color:var(--ink-soft)">ID ${esc(p.model||'?')} · ${sizeLbl} · ${p.pxMode==='standard'?'标准':'轻量'}${p.hasCookie?' · 用当前Cookie':''}</div>
+      </div>
+      <button class="delKey kUse" style="color:var(--accent-deep);font-weight:600">✎ 换这套</button>
+      <button class="delKey kDel">✕ 删</button>`;
+    it.querySelector('.kUse').onclick=()=>{
+      $('igModel').value=p.model||'';
+      if(p.size&&$('igPxSize').querySelector(`option[value="${p.size}"]`)) $('igPxSize').value=p.size;
+      $('igMode').value=p.pxMode||'light';
+      saveImgGen(); renderIgPxList(); toast(`切成「${p.name||'未命名'}」啦`);
+    };
+    it.querySelector('.kDel').onclick=()=>{
+      if(!confirm(`删掉存档「${p.name||'未命名'}」？（只是删快捷方式，不影响设置）`)) return;
+      savePxProfiles(pxProfiles().filter(x=>x.id!==p.id)); renderIgPxList();
+    };
+    box.appendChild(it);
+  });
+}
+$('igPxSave').onclick=()=>{
+  const model=$('igModel').value.trim();
+  if(!model){ toast('先填 modelId 再存'); return; }
+  const name=(prompt('给这套配置起个名字（比如：二次元·竖图）', $('igPxSize').selectedOptions[0]?.textContent.split('（')[0]||'我的模型')||'').trim().slice(0,20);
+  if(name==null) return;
+  const list=pxProfiles().filter(x=>!(x.model===model&&x.size===$('igPxSize').value));   // 同模型同尺寸的旧档盖掉
+  list.push({id:rid('px'),name:name||'未命名',model,size:$('igPxSize').value,pxMode:$('igMode').value,hasCookie:!!$('igCookie').value.trim()});
+  savePxProfiles(list); renderIgPxList(); toast('存好啦 💾');
+};
+/* 拉可用模型列表：cookie/key 问 GraphQL，把名字+id 摆出来直接点 */
+$('igPxFetch').onclick=async()=>{
+  const g=imgGen(), f=fsBridge();
+  if(!((f.url||'').trim()&&(f.token||'').trim())){ toast('先去「电脑文件桥」填小桥网址和密码'); return; }
+  if(!(g.key||'').trim()&&!(g.cookie||'').trim()){ toast('先填 PixAI 的 Key 或登录 Cookie'); return; }
+  const btn=$('igPxFetch'); btn.disabled=true; btn.textContent='拉取中…';
+  try{
+    const base=f.url.trim().replace(/\/+$/,'');
+    const headers={'content-type':'application/json',authorization:'Bearer '+f.token.trim()};
+    if((g.key||'').trim()) headers['x-pixai-key']=g.key.trim(); else headers['x-pixai-cookie']=(g.cookie||'').trim();
+    const tryQ=async(q)=>{ const r=await fetch(base+'/pixai/graphql',{method:'POST',headers,body:JSON.stringify({query:q,variables:{}})}); const j=await r.json(); if(j.errors&&j.errors.length) throw new Error(String(j.errors[0].message||'').slice(0,80)); return j.data; };
+    let models=[];
+    for(const q of [
+      'query{ models{ id name } }',
+      'query{ listModels{ id name } }',
+      'query{ generationModels{ id name } }',
+      'query{ modelList{ id name } }',
+    ]){
+      try{ const d=await tryQ(q); const arr=Object.values(d||{})[0]; if(Array.isArray(arr)&&arr.length&&arr[0]&&arr[0].id!=null){ models=arr; break; } }catch(_){}
+    }
+    if(!models.length) throw new Error('没探到模型列表接口——先去网页随便画一张，抓 createGenerationTask 的 Payload 给我看看');
+    const menu=models.slice(0,40).map((m,i)=>`${i+1}. ${m.name||'未命名'}（ID ${m.id}）`).join('\n');
+    const pick=(prompt('点编号填入对应 modelId：\n\n'+menu)||'').trim();
+    const n=parseInt(pick,10);
+    if(n>=1&&n<=Math.min(40,models.length)){ $('igModel').value=String(models[n-1].id); saveImgGen(); renderIgPxList(); toast('填好啦：'+String(models[n-1].name||'').slice(0,20)); }
+  }catch(e){ toast((e.message||'拉取失败').slice(0,90)); }
+  btn.disabled=false; btn.textContent='🔄 拉一下可用模型列表';
+};
 $('imgGenBtn').onclick=()=>{
   const g=imgGen();
   $('igOn').classList.toggle('on',!!g.on);
