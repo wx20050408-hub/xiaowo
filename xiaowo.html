@@ -2077,6 +2077,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     </div>
     <div class="field" id="igCookieField" style="display:none"><label>或者：登录 Cookie（PixAI 没会员也能用）</label><textarea id="igCookie" style="min-height:64px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px" placeholder="PixAI 网页登录后 F12 → Network → 找任意 pixai.art 请求 → 复制整段 Cookie"></textarea></div>
 /* 模型选择固定：TA 不挑、代码也没给TA切换的口子——固定用你在这里填的这个，画风稳定 */
+    <div class="field" id="igLoraField" style="display:none"><label>自定义风格编码（PixAI：网页「自定義」里创作者风格的编号，填了挂进生图，可多个逗号隔开）</label><input id="igLora" placeholder="比如：1598504735551829169"></div>
     <div class="field"><label>模型名 / PixAI 的模型ID</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页网址最后那串数字"></div>
     <div class="field" id="igSizeField"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x768</option><option>768x512</option><option>512x512</option></select></div>
     <div class="field" id="igPxField" style="display:none"><label>长宽比 / 解析度（PixAI 和网页版一套）</label>
@@ -6107,6 +6108,9 @@ async function genImagePixai(g,prompt,count){
   const parameters={prompts:(style?style+', ':'')+prompt,width:w||768,height:h||1280,modelVersionId:g.model.trim()};
   parameters.batchSize=N;   // 实测认这个：一次四张在 outputs.batch 里
   parameters.mode=mode; parameters.quality=mode; parameters.genMode=mode; parameters.speed=mode;   // 服务器吞掉不认识的键，无害
+  /* 自定义风格编码：网页「自定義」里创作者风格的 LoRA 编号，两种键都塞（实测服务器都收），逗号可填多个 */
+  const loras=(g.lora||'').split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean);
+  if(loras.length){ parameters.loraIds=loras; parameters.loras=loras.map(id=>({id,weight:0.8})); }
   /* 高优先权：服务器原话"type must be integer"，给整数1；免费账号开了会被拒（turbo要会员），报错时会提示关掉 */
   if(g.pxPri){ parameters.priority=1; parameters.highPriority=true; parameters.prioritized=true; }
   if((g.neg||'').trim()) parameters.negativePrompts=g.neg.trim();
@@ -6250,7 +6254,7 @@ async function expandImgPrompt(desc,ch,mode){
 }
 /* 设置面板 */
 function saveImgGen(){
-  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),cookie:$('igCookie').value.trim(),model:$('igModel').value.trim(),size:$('igFmt').value==='pixai'?$('igPxSize').value:$('igSize').value,pxMode:$('igMode').value,pxPri:$('igPri').classList.contains('on'),style:$('igStyle').value.trim(),stylePreset:$('igPreset').value,neg:$('igNeg').value.trim(),expand:$('igExpand').classList.contains('on'),expandUseSec:$('igExpandUseSec').checked};
+  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),cookie:$('igCookie').value.trim(),model:$('igModel').value.trim(),size:$('igFmt').value==='pixai'?$('igPxSize').value:$('igSize').value,pxMode:$('igMode').value,pxPri:$('igPri').classList.contains('on'),style:$('igStyle').value.trim(),stylePreset:$('igPreset').value,lora:$('igLora').value.trim(),neg:$('igNeg').value.trim(),expand:$('igExpand').classList.contains('on'),expandUseSec:$('igExpandUseSec').checked};
   persistAll();
 }
 $('igExpand').onclick=()=>{ $('igExpand').classList.toggle('on'); saveImgGen(); };
@@ -6264,6 +6268,7 @@ function igFmtUI(){
   $('igPxField').style.display=f==='pixai'?'block':'none';
   $('igModeField').style.display=f==='pixai'?'block':'none';
   $('igPriRow').style.display=f==='pixai'?'flex':'none';
+  $('igLoraField').style.display=f==='pixai'?'block':'none';      // 自定义风格编码只有 PixAI 用得上
   $('igPresetField').style.display=f==='pixai'?'block':'none';     // 风格预设只有 PixAI 用得上
   $('igPxProfilesField').style.display=f==='pixai'?'block':'none';
   if(f==='pixai') renderIgPxList();
@@ -6296,6 +6301,7 @@ function renderIgPxList(){
       $('igMode').value=p.pxMode||'light';
       $('igPri').classList.toggle('on',!!p.pxPri);
       if(p.style!=null){ $('igStyle').value=p.style; $('igPreset').value=[...$('igPreset').options].some(o=>o.value&&o.value===p.style)?p.style:''; }
+      if(p.lora!=null) $('igLora').value=p.lora;
       saveImgGen(); renderIgPxList(); toast(`切成「${p.name||'未命名'}」啦`);
     };
     it.querySelector('.kDel').onclick=()=>{
@@ -6311,7 +6317,7 @@ $('igPxSave').onclick=()=>{
   const name=(prompt('给这套配置起个名字（比如：二次元·竖图）', $('igPxSize').selectedOptions[0]?.textContent.split('（')[0]||'我的模型')||'').trim().slice(0,20);
   if(name==null) return;
   const list=pxProfiles().filter(x=>!(x.model===model&&x.size===$('igPxSize').value));   // 同模型同尺寸的旧档盖掉
-  list.push({id:rid('px'),name:name||'未命名',model,size:$('igPxSize').value,pxMode:$('igMode').value,pxPri:$('igPri').classList.contains('on'),style:$('igStyle').value.trim(),hasCookie:!!$('igCookie').value.trim()});
+  list.push({id:rid('px'),name:name||'未命名',model,size:$('igPxSize').value,pxMode:$('igMode').value,pxPri:$('igPri').classList.contains('on'),style:$('igStyle').value.trim(),lora:$('igLora').value.trim(),hasCookie:!!$('igCookie').value.trim()});
   savePxProfiles(list); renderIgPxList(); toast('存好啦 💾');
 };
 /* 拉可用模型列表：cookie/key 问 GraphQL，把名字+id 摆出来直接点 */
@@ -6326,15 +6332,16 @@ $('igPxFetch').onclick=async()=>{
     if((g.key||'').trim()) headers['x-pixai-key']=g.key.trim(); else headers['x-pixai-cookie']=(g.cookie||'').trim();
     const tryQ=async(q)=>{ const r=await fetch(base+'/pixai/graphql',{method:'POST',headers,body:JSON.stringify({query:q,variables:{}})}); const j=await r.json(); if(j.errors&&j.errors.length) throw new Error(String(j.errors[0].message||'').slice(0,80)); return j.data; };
     let models=[];
-    /* 先探大模型（MMDIT26A_MODEL），再探 LoRA/风格（MULTI_LORA，网页「風格庫」本质就是它） */
+    /* 先探大模型（MMDIT26A_MODEL），再探 LoRA/风格（MULTI_LORA 和 LORA，网页「風格庫/自定义风格」本质就是它们） */
     for(const q of [
-      'query{ generationModels(first: 40, type: MMDIT26A_MODEL) { edges { node { id title type } } } }',
-      'query{ generationModels(first: 60, type: MULTI_LORA) { edges { node { id title type } } } }',
+      {s:'query{ generationModels(first: 40, type: MMDIT26A_MODEL) { edges { node { id title type } } } }',tag:''},
+      {s:'query{ generationModels(first: 60, type: MULTI_LORA) { edges { node { id title type } } } }',tag:'（风格LoRA）'},
+      {s:'query{ generationModels(first: 60, type: LORA) { edges { node { id title type } } } }',tag:'（自定义风格）'},
     ]){
       try{
-        const d=await tryQ(q);
+        const d=await tryQ(q.s);
         const arr=((d||{}).generationModels||{}).edges||[];
-        arr.forEach(e=>{ if(e.node&&e.node.id!=null) models.push({id:String(e.node.id),name:(e.node.title||'未命名')+(e.node.type==='MULTI_LORA'?'（风格LoRA）':'')}); });
+        arr.forEach(e=>{ if(e.node&&e.node.id!=null) models.push({id:String(e.node.id),name:(e.node.title||'未命名')+q.tag}); });
       }catch(_){}
     }
     if(!models.length) throw new Error('模型列表的接口名我没猜中——不过生图能不能用跟它没关系，直接试画一批，报错了点小 toast 复制给我');
@@ -6354,7 +6361,7 @@ $('imgGenBtn').onclick=()=>{
   $('igPxSize').value=(g.fmt==='pixai'&&g.size&&$('igPxSize').querySelector(`option[value="${g.size}"]`))?g.size:'768x1280';
   $('igMode').value=g.pxMode||'light';
   $('igPri').classList.toggle('on',!!g.pxPri);
-  $('igStyle').value=g.style||''; $('igNeg').value=g.neg||'';
+  $('igStyle').value=g.style||''; $('igNeg').value=g.neg||''; $('igLora').value=g.lora||'';
   /* 风格预设回填：现在的style正好是某个预设就选上，不然选「无风格」 */
   $('igPreset').value=[...$('igPreset').options].some(o=>o.value&&o.value===(g.style||'').trim())?g.style.trim():'';
   $('igExpand').classList.toggle('on',g.expand!==false);
@@ -6365,7 +6372,7 @@ $('imgGenBtn').onclick=()=>{
 $('igOn').onclick=()=>{ $('igOn').classList.toggle('on'); saveImgGen(); };
 $('igPri').onclick=()=>{ $('igPri').classList.toggle('on'); saveImgGen(); };
 $('igPreset').onchange=()=>{ if($('igPreset').value) $('igStyle').value=$('igPreset').value; saveImgGen(); };
-['igUrl','igKey','igCookie','igModel','igSize','igPxSize','igMode','igStyle','igNeg'].forEach(id=>$(id).onchange=saveImgGen);
+['igUrl','igKey','igCookie','igModel','igSize','igPxSize','igMode','igStyle','igLora','igNeg'].forEach(id=>$(id).onchange=saveImgGen);
 $('igFmt').onchange=()=>{ igFmtUI(); saveImgGen(); };
 $('igTest').onclick=async()=>{
   saveImgGen();
@@ -11516,7 +11523,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v108';
+const XW_BUILD='v109';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
