@@ -6073,6 +6073,7 @@ async function shrinkImg(src){
   }catch(_){ return typeof src==='string'?src:null; }
 }
 /* PixAI：GraphQL 建任务 → 轮询 → 取图。浏览器直连被 CORS 拦，全程经小桥转发（复用文件桥的网址+密码） */
+let lastPixaiModel=load('xw_pixai_lastmodel','');   // 上次服务器实际用的模型名（抓"降级"用）
 async function genImagePixai(g,prompt,count){
   const f=fsBridge();
   if(!((f.url||'').trim()&&(f.token||'').trim())) throw new Error('PixAI 要经小桥转发：先去「电脑文件桥」填小桥网址和密码');
@@ -6117,15 +6118,19 @@ async function genImagePixai(g,prompt,count){
   const cd=await gql('mutation createGenerationTask($parameters: JSONObject!){ createGenerationTask(parameters: $parameters){ id status } }',{parameters}).catch(e=>{ e.message+='（'+String(parameters.modelId).slice(0,22)+'）'; throw e; });
   const tid=cd&&cd.createGenerationTask&&cd.createGenerationTask.id;
   if(!tid) throw new Error('PixAI 没接活（没返回任务ID）');
-  let task=null;
+  let task=null, gotModel='';
   for(let i=0;i<45;i++){                       // 轮询最多 90 秒
     await new Promise(r=>setTimeout(r,2000));
-    const td=await gql('query getTaskById($id: ID!){ task(id: $id){ id status outputs } }',{id:tid});
-    task=td&&td.task; const st=String(task&&task.status||'').toLowerCase();
+    const td=await gql('query getTaskById($id: ID!){ task(id: $id){ id status outputs model { title } } }',{id:tid}).catch(()=>null)
+      || await gql('query getTaskById($id: ID!){ task(id: $id){ id status outputs } }',{id:tid});
+    task=td&&td.task;
+    if(task&&task.model&&task.model.title) gotModel=String(task.model.title);
+    const st=String(task&&task.status||'').toLowerCase();
     if(st==='completed') break;
     if(/error|fail|cancel/.test(st)) throw new Error('PixAI 任务失败：'+task.status);
   }
   if(String(task&&task.status||'').toLowerCase()!=='completed') throw new Error('生成超时（90秒）——排队太久，稍后再试');
+  if(gotModel){ lastPixaiModel=gotModel; save('xw_pixai_lastmodel',gotModel); }   // 服务器实际用的模型，设置面板顶部会显示
   /* outputs 里可能藏着好几张：把 mediaId 全抠出来（去重），挨个取链接 */
   const mids=[];
   const collect=o=>{ if(!o||typeof o!=='object') return; if(o.mediaId&&mids.length<8){ const s=String(o.mediaId); if(!mids.includes(s)) mids.push(s); }
@@ -6383,7 +6388,8 @@ $('igTest').onclick=async()=>{
     const t0=Date.now();
     const res=await genImageBatch('一只趴在窗台晒太阳的橘猫，温馨治愈',4);
     if(res&&res.length){
-      $('igPreview').innerHTML=res.map(u=>`<img src="${safeUrl(u)}" style="max-width:44%;border-radius:14px;box-shadow:var(--shadow);margin:4px">`).join('');
+      $('igPreview').innerHTML=res.map(u=>`<img src="${safeUrl(u)}" style="max-width:44%;border-radius:14px;box-shadow:var(--shadow);margin:4px">`).join('')
+        +(lastPixaiModel?`<div style="font-size:12px;color:var(--ink-soft);margin-top:6px">服务器实际用的模型：<b style="color:var(--accent-deep)">${esc(lastPixaiModel)}</b>${lastPixaiModel.toLowerCase().includes('moonbeam')?'（⚠️ 不是你选的那个！这个ID可能被服务器降级了，回网页确认下你的模型名）':''}</div>`:'');
       toast(`画好啦 ✓ 出了 ${res.length} 张，用了 ${Math.round((Date.now()-t0)/1000)} 秒`);
     }
   }catch(e){ toast('生图失败：'+(e.message||'').slice(0,60)); }
@@ -11523,7 +11529,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v109';
+const XW_BUILD='v110';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
