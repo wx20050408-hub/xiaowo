@@ -435,6 +435,11 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .ofLock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;background:radial-gradient(ellipse at center,rgba(20,10,24,.18),rgba(20,10,24,.55));text-shadow:0 1px 4px rgba(0,0,0,.5);font-size:26px;z-index:2}
 .ofLock button{padding:10px 22px;border-radius:24px;background:rgba(255,255,255,.94);color:#c2275b;font-weight:700;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.22)}
 .ofCap{padding:12px 16px 2px;font-size:14px;line-height:1.65}
+/* OF 四选一：翻页挑一张留 */
+.ofPhoto.ofPick{position:relative;padding:0;min-height:0}
+.ofPickIdx{position:absolute;top:8px;right:8px;font-size:10px;color:#fff;background:rgba(0,0,0,.38);border-radius:9px;padding:2px 8px;z-index:2}
+.ofPickBar{display:flex;gap:8px;padding:10px 16px 0}
+.ofPickBar button{flex:1;padding:8px 0;border-radius:12px;font-size:12.5px;font-weight:600}
 .ofActs{display:flex;align-items:center;gap:20px;padding:9px 16px 12px;color:var(--ink-soft);font-size:13px}
 .ofActs button{color:var(--ink-soft);font-weight:600;transition:transform .12s}
 .ofActs button:active{transform:scale(1.15)}
@@ -9989,6 +9994,10 @@ function ofCard(p){
     : `<span class="pt">${fmt(p.photo)}</span>`;
   const bodyHtml=p.kind==='collab'
     ? `<div class="ofCollab"><div class="cbTag">📣 联 动 预 告</div><div class="cbName">${esc(p.partner||'神秘嘉宾')}</div>${p.caption?`<div class="cbNote">${fmt(p.caption)}</div>`:''}</div>`
+    : p.imgs&&p.imgs.length
+    ? `<div class="ofPhoto ofPick" data-pid="${p.id}"><img class="ofPickImg" src="${safeUrl(p.imgs[Math.min(p.pv||0,p.imgs.length-1)])}" style="width:100%;display:block" alt=""><span class="ofPickIdx">${Math.min(p.pv||0,p.imgs.length-1)+1}/${p.imgs.length}</span><button class="pvNav l" data-d="-1">‹</button><button class="pvNav r" data-d="1">›</button></div>
+    <div class="ofPickBar"><button class="pvKeep ofKeep">❤ 留这张</button><button class="pvReroll ofReroll">🎲 换一批</button></div>
+    <div class="ofCap">${fmt(p.caption||'')}</div>`
     : `<div class="ofPhoto ${locked?'locked':''}" style="${p.img?'':'background:'+stageGrad(p.photo)}">
       ${photoInner}
       ${locked?'<div class="ofLock">🔒<button class="unlock">解锁这张</button></div>':''}
@@ -10009,6 +10018,26 @@ function ofCard(p){
     ${cmts.length?`<div class="ofThread">${cmts.map(c=>`<div class="ln"><b>${esc(ofName(c.by))}</b>：${fmt(c.text)}</div>`).join('')}</div>`:''}
     <div class="ofDmRow" style="display:none"><input placeholder="给TA发条私信…" maxlength="400"><button>发送</button></div>`;
   card.querySelector('.del').onclick=()=>{ if(confirm('删掉这条？')){ privPosts=privPosts.filter(x=>x.id!==p.id); persistAll(); renderPrivFeed(); } };
+  /* 四选一：翻页 / 留这张 / 换一批 */
+  const pickBox=card.querySelector('.ofPick');
+  if(pickBox){
+    pickBox.querySelectorAll('.pvNav').forEach(b=>b.onclick=ev=>{
+      ev.stopPropagation();
+      const n=(p.imgs||[]).length; if(n<2) return;
+      p.pv=((p.pv||0)+(+b.dataset.d)+n)%n; persistAll(); renderPrivFeed();
+    });
+    card.querySelector('.ofKeep').onclick=()=>{
+      p.img=p.imgs[Math.min(p.pv||0,p.imgs.length-1)];
+      delete p.imgs; delete p.pv;
+      persistAll(); renderPrivFeed(); toast('留下这张啦 ❤');
+    };
+    card.querySelector('.ofReroll').onclick=async()=>{
+      if(!imgGenOn()){ toast('生图没配好'); return; }
+      toast('重画中，画好自动换…');
+      const res=await genImageBatchQuiet(await expandImgPrompt(p.photo.slice(0,300),ofPostChar(p),'of'),4);
+      if(res&&res.length){ p.imgs=res.slice(0,4); p.pv=0; persistAll(); renderPrivFeed(); }
+    };
+  }
   const unlock=card.querySelector('.unlock');
   if(unlock){
     if(p.unlockCost==null) p.unlockCost=20+Math.floor(Math.random()*50);
@@ -10096,10 +10125,13 @@ $('privGenPost').onclick=async()=>{
   privPosts.push(np);
   persistAll(); renderPrivFeed(); toast(`${ch.name}更新了一条💗`);
   genFanComments(np,4);   // 一群粉丝来评论起哄
-  /* 开了生图 → 后台把[图]描述画成真图，画好自动刷新（锁定的照样打码模糊） */
+  /* 开了生图 → 后台把[图]描述画成真图（一次性四张翻着挑，切去聊天也不耽误）；画好自动刷新 */
   if(imgGenOn()&&np.photo) (async()=>{
-    const img=await genImageQuiet(await expandImgPrompt(np.photo.slice(0,300),ch,'of'));
-    if(img){ np.img=img; persistAll(); if($('privPage').classList.contains('show')) renderPrivFeed(); }
+    const res=await genImageBatchQuiet(await expandImgPrompt(np.photo.slice(0,300),ch,'of'),4);
+    if(res&&res.length>1){ np.imgs=res.slice(0,4); np.pv=0; }
+    else if(res&&res.length){ np.img=res[0]; }
+    else return;
+    persistAll(); if($('privPage').classList.contains('show')) renderPrivFeed();
   })();
 };
 async function ofDM(p,text){
@@ -11378,7 +11410,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v99';
+const XW_BUILD='v100';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
