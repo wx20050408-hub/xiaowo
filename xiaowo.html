@@ -1657,6 +1657,16 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
   </div>
 </div>
 
+<!-- PixAI 模型挑选弹层（可滚动可搜索，填的是版本ID） -->
+<div class="sheetScrim" id="igModelSheet">
+  <div class="sheet">
+    <div class="sheetTitle">选模型（填的是版本ID）<button class="close" data-close="igModelSheet">✕</button></div>
+    <input id="igModelSearch" placeholder="搜名字或ID…" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font-size:14px;box-sizing:border-box;margin-bottom:10px">
+    <div id="igModelList" style="max-height:56vh;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+    <div class="hintText" style="margin-top:8px">点一下就填进「模型ID」。⚠️ 这里显示的是<b>版本ID</b>（latestAvailableVersion.id），不是模型页面网址里那串——填页面ID会被服务器偷偷退回默认模型。</div>
+  </div>
+</div>
+
 
 <!-- 发动态弹层 -->
 <div class="sheetScrim" id="postSheet">
@@ -2077,7 +2087,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     </div>
     <div class="field" id="igCookieField" style="display:none"><label>或者：登录 Cookie（PixAI 没会员也能用）</label><textarea id="igCookie" style="min-height:64px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px" placeholder="PixAI 网页登录后 F12 → Network → 找任意 pixai.art 请求 → 复制整段 Cookie"></textarea></div>
 /* 模型选择固定：TA 不挑、代码也没给TA切换的口子——固定用你在这里填的这个，画风稳定 */
-    <div class="field" id="igLoraField" style="display:none"><label>自定义风格编码（PixAI：网页「自定義」里创作者风格的编号，填了挂进生图，可多个逗号隔开）</label><input id="igLora" placeholder="比如：1598504735551829169"></div>
+    <div class="field" id="igLoraField" style="display:none"><label>自定义风格编码（PixAI 風格/LoRA 的<strong>版本ID</strong>，和模型一样要版本ID不是页面ID，可多个逗号隔开）</label><input id="igLora" placeholder="比如：1598504735551829169"></div>
     <div class="field"><label>模型名 / PixAI 的模型ID</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页网址最后那串数字"></div>
     <div class="hintText" id="igModelHint" style="display:none;margin-top:-6px">⚠️ <b>要填的是「版本ID」，不是页面网址里那串</b>——填页面ID服务器不报错，会偷偷退回默认模型（同价照扣，画出来却是别的模型）。版本ID两个拿法：①点上面「🔄 拉一下可用模型列表」，列出模型+版本ID，点编号直接填 ②网页 F12 抓 listGenerationModels 的 Response，找你要的模型的 <code>latestAvailableVersion.id</code>。填好几套后可以「存成一套」，以后点一下就换。</div>
     <div class="field" id="igSizeField"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x768</option><option>768x512</option><option>512x512</option></select></div>
@@ -6120,8 +6130,9 @@ async function genImagePixai(g,prompt,count){
   const tid=cd&&cd.createGenerationTask&&cd.createGenerationTask.id;
   if(!tid) throw new Error('PixAI 没接活（没返回任务ID）');
   let task=null, gotModel='';
-  /* 读服务器实际用的模型名：model 是 GenerationModelVersion 类型，title 不认，挨个试常见字段 */
-  const MODEL_FIELDS=['model { name }','model { displayName }','model { versionName }','model { model { title } }','model { id }'];
+  /* 读服务器实际用的模型：model 是 GenerationModelVersion，只有 id/name——
+     name 是版本名（v1.0），显示时拼上「版本id 前6位」，父模型名另查（id 对不上 version 表就显示版本名） */
+  const MODEL_FIELDS=['model { id name }'];
   for(let i=0;i<45;i++){                       // 轮询最多 90 秒
     await new Promise(r=>setTimeout(r,2000));
     let td=null;
@@ -6134,7 +6145,9 @@ async function genImagePixai(g,prompt,count){
     task=td&&td.task;
     if(task&&task.model){
       const m=task.model;
-      gotModel=String(m.name||m.displayName||m.versionName||(m.model&&m.model.title)||m.id||'');
+      /* 服务器实际用的版本 id 和名字；id 和你填的对上了=没被偷换，对不上=被降级 */
+      const vid=String(m.id||'');
+      gotModel=vid?`${m.name||'?'}（版本 …${vid.slice(-6)}${vid===String(g.model).trim()?' ✓和你选的一致':' ⚠️和你选的不一致'}）`:String(m.name||'');
     }
     const st=String(task&&task.status||'').toLowerCase();
     if(st==='completed') break;
@@ -6364,10 +6377,27 @@ $('igPxFetch').onclick=async()=>{
       }catch(_){}
     }
     if(!models.length) throw new Error('模型列表的接口名我没猜中——不过生图能不能用跟它没关系，直接试画一批，报错了点小 toast 复制给我');
-    const menu=models.slice(0,80).map((m,i)=>`${i+1}. ${m.name||'未命名'}（版本ID ${m.id}）`).join('\n');
-    const pick=(prompt('点编号填入对应【版本ID】（注意：是版本ID不是页面ID，填页面ID会被偷偷换成默认模型）：\n\n'+menu)||'').trim();
-    const n=parseInt(pick,10);
-    if(n>=1&&n<=Math.min(80,models.length)){ $('igModel').value=String(models[n-1].id); saveImgGen(); renderIgPxList(); toast('填好啦：'+String(models[n-1].name||'').slice(0,26)); }
+    /* 弹层列表（可滚动可搜索，告别 prompt 不能滑） */
+    const win=$('igModelSheet'), list=$('igModelList'), search=$('igModelSearch');
+    const paint=()=>{
+      const kw=(search.value||'').trim().toLowerCase();
+      list.innerHTML='';
+      models.filter(m=>!kw||m.name.toLowerCase().includes(kw)||m.id.includes(kw)).slice(0,120).forEach(m=>{
+        const it=document.createElement('div');
+        it.className='keyItem'+(m.id===$('igModel').value.trim()?' sel':'');
+        it.style.marginBottom='6px'; it.style.cursor='pointer';
+        it.innerHTML=`<div class="selMark">${m.id===$('igModel').value.trim()?'✓':''}</div>
+          <div class="keyInfo">
+            <div class="keyLabel" style="font-size:13.5px">${esc(m.name)}</div>
+            <div class="keyPreview" style="font-size:11px;color:var(--ink-soft);font-family:ui-monospace,Consolas,monospace">版本ID ${esc(m.id)}</div>
+          </div>`;
+        it.onclick=()=>{ $('igModel').value=m.id; saveImgGen(); renderIgPxList(); closeSheet('igModelSheet'); toast('填好啦：'+m.name.slice(0,26)); };
+        list.appendChild(it);
+      });
+      if(!list.children.length) list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:14px">没搜到</div>';
+    };
+    search.value=''; search.oninput=paint; paint();
+    openSheet('igModelSheet');
   }catch(e){ toast((e.message||'拉取失败').slice(0,90)); }
   btn.disabled=false; btn.textContent='🔄 拉一下可用模型列表';
 };
@@ -11543,7 +11573,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v113';
+const XW_BUILD='v114';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
