@@ -548,10 +548,10 @@ span.ic{display:inline-flex;align-items:center;justify-content:center;vertical-a
 .toast{
   position:fixed;left:50%;bottom:90px;transform:translateX(-50%);
   background:var(--ink);color:var(--bg);padding:9px 18px;border-radius:20px;
-  font-size:13px;z-index:99;opacity:0;transition:opacity .25s;pointer-events:none;
-  white-space:nowrap;
+  font-size:13px;z-index:99;opacity:0;transition:opacity .25s;
+  max-width:min(92vw,520px);white-space:normal;word-break:break-all;line-height:1.5;text-align:center;
 }
-.toast.show{opacity:.92}
+.toast.show{opacity:.92;pointer-events:auto;cursor:pointer}
 
 /* Key 列表 */
 .keyItem{
@@ -3142,7 +3142,23 @@ const contentHtml = (ct,md) => typeof ct==='string' ? fmtFiles(ct,md) :
     return '';
   }).join('');
 
-function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1800); }
+/* toast：短消息照常一闪而过；长消息（报错原话）多停几秒，点一下直接复制全文 */
+let toastTimer=null;
+function toast(t){
+  const el=$('toast');
+  const s=String(t);
+  el.textContent=s.length>70?s+'（点我复制）':s;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),s.length>70?5200:1800);
+}
+$('toast').onclick=()=>{
+  const raw=$('toast').textContent.replace(/（点我复制）$/,'');
+  (navigator.clipboard?navigator.clipboard.writeText(raw):Promise.reject()).then(()=>{
+    $('toast').textContent='复制好啦 ✓';
+    setTimeout(()=>$('toast').classList.remove('show'),900);
+  },()=>{});
+};
 const userName = ()=> (settings.myName||'').trim()||'user';
 /* 聊天和角色（带图，体积大）住 IndexedDB；其余小数据住 localStorage */
 const persistAll = ()=>{
