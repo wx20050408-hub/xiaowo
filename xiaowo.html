@@ -121,7 +121,8 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 }
 /* 气泡里本来就能横滑的东西（代码块/公式/正则HTML卡）放行，不然代码看不了后半截 */
 #msgArea .codePre,#msgArea .katex-display,#msgArea .rxHtml{touch-action:auto}
-.msg{display:flex;flex-direction:column;max-width:86%;animation:rise .25s ease both}
+/* 整条消息链不许比聊天区宽：flex 子项 min-width:auto 会被超长内容顶开（代码块、长URL），每层都钉死 */
+.msg{display:flex;flex-direction:column;max-width:86%;min-width:0;animation:rise .25s ease both}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.msg{animation:none}}
 .msg.me{align-self:flex-end;align-items:flex-end}
@@ -129,6 +130,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .bubble{
   padding:11px 15px;border-radius:var(--bubble-radius,var(--radius));
   word-break:break-word;white-space:pre-wrap;
+  max-width:100%;min-width:0;   /* 气泡自己也钉一道，里面的宽内容去滚动而不是顶开 */
   box-shadow:var(--shadow);
 }
 .msg.me .bubble{background:var(--bubble-me);color:var(--bubble-me-text,inherit);border-bottom-right-radius:var(--bubble-tail,8px)}
@@ -150,14 +152,14 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
 .mdCodeWrap .codePre{overflow-x:visible}
 .mdCodeWrap .codePre code{white-space:pre-wrap;word-break:break-word}
 .katex{font-size:1.05em}
-.katex-display{margin:6px 0;overflow-x:auto;overflow-y:hidden}
+.katex-display{margin:6px 0;overflow-x:auto;overflow-y:hidden;max-width:100%}
 .msg.hlFlash .bubble{animation:hlpulse 1.6s ease}
 @keyframes hlpulse{0%,100%{box-shadow:var(--shadow)}25%,55%{box-shadow:0 0 0 3px var(--accent)}}
 /* 美化正则渲染出的HTML面板：白空格恢复正常，别被气泡的pre-wrap撑出大缝 */
 .rxHtml{white-space:normal;max-width:100%;overflow-x:auto;margin:4px 0}
 .rxHtml *{max-width:100%}
 /* 代码块 */
-.codeBox{margin:8px 0;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.codeBox{margin:8px 0;border-radius:12px;overflow:hidden;border:1px solid var(--line);max-width:100%;min-width:0}
 .codeBar{display:flex;align-items:center;justify-content:space-between;padding:5px 10px;background:var(--bg-soft);border-bottom:1px solid var(--line)}
 .codeLang{font-size:11px;color:var(--ink-soft);font-family:ui-monospace,Consolas,monospace}
 .codeBtn{font-size:12px;color:var(--accent-deep);font-weight:600;padding:2px 8px;border-radius:8px}
@@ -188,6 +190,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--ink);outlin
   margin:4px 0;border-left:3px solid var(--line);
   background:var(--bg-soft);border-radius:10px;
   padding:6px 10px;font-size:13px;color:var(--ink-soft);
+  max-width:100%;min-width:0;
 }
 .thinkBlock summary{cursor:pointer;user-select:none;font-size:12px;list-style:none}
 .thinkBlock summary::-webkit-details-marker{display:none}
