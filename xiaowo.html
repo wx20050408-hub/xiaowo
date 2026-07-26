@@ -6047,7 +6047,7 @@ async function genImagePixai(g,prompt,count){
       const em=String(j.errors[0].message||'GraphQL出错');
       if(!g.key&&/login|auth|unauth|登录|token/i.test(em)) throw new Error('Cookie 好像过期了，去 PixAI 网页重新复制一段');
       if(/modelId|model id|invalid model/i.test(em))
-        throw new Error(`modelId「${(g.model||'').trim()}」被退回来了——确认是模型页网址最后那串数字（不是名字也不是版本号）。小桥的 pixai-last.log 里有服务器原话，不会看就截给我`);
+        throw new Error(`modelId「${(g.model||'').trim()}」被退回来了——它可能不认网页的模型ID。小桥的 pixai-last.log 里有服务器原话，整段截给我（日志里Cookie已打码）`);
       throw new Error(em.slice(0,100));
     }
     return j.data;
@@ -6273,7 +6273,7 @@ $('igPxFetch').onclick=async()=>{
     ]){
       try{ const d=await tryQ(q); const arr=Object.values(d||{})[0]; if(Array.isArray(arr)&&arr.length&&arr[0]&&arr[0].id!=null){ models=arr; break; } }catch(_){}
     }
-    if(!models.length) throw new Error('没探到模型列表接口——先去网页随便画一张，抓 createGenerationTask 的 Payload 给我看看');
+    if(!models.length) throw new Error('模型列表的接口名我没猜中——不过生图能不能用跟它没关系，直接试画一批，报错了点小 toast 复制给我');
     const menu=models.slice(0,40).map((m,i)=>`${i+1}. ${m.name||'未命名'}（ID ${m.id}）`).join('\n');
     const pick=(prompt('点编号填入对应 modelId：\n\n'+menu)||'').trim();
     const n=parseInt(pick,10);
