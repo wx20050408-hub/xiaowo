@@ -6060,8 +6060,8 @@ async function genImagePixai(g,prompt,count){
   parameters.batchSize=N; parameters.n=N; parameters.count=N; parameters.numImages=N;
   /* 模式参数：网页的 轻量/标准/專業/極速 在 GraphQL 里叫法不一，多塞几个键，服务端认哪个用哪个 */
   parameters.mode=mode; parameters.quality=mode; parameters.genMode=mode; parameters.speed=mode;
-  /* 高优先权：网页那个勾，插队快出图多花一点；参数名多塞几个，认哪个用哪个 */
-  if(g.pxPri){ parameters.priority='high'; parameters.highPriority=true; parameters.prioritized=true; }
+  /* 高优先权：网页那个勾，插队快出图多花一点。服务器要求 priority 是整数（报错原话"type must be integer"），给 1 */
+  if(g.pxPri){ parameters.priority=1; parameters.highPriority=true; parameters.prioritized=true; }
   if((g.neg||'').trim()) parameters.negativePrompts=g.neg.trim();
   const cd=await gql('mutation createGenerationTask($parameters: JSONObject!){ createGenerationTask(parameters: $parameters){ id status } }',{parameters}).catch(e=>{ e.message+='（'+String(parameters.modelId).slice(0,22)+'）'; throw e; });
   const tid=cd&&cd.createGenerationTask&&cd.createGenerationTask.id;
