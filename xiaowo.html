@@ -2042,9 +2042,10 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
   <div class="sheet">
     <div class="sheetTitle">生图<button class="close" data-close="imgGenSheet">✕</button></div>
     <div class="boxRow"><span class="ic">🎨</span><span class="grow">开启生图</span><button class="wbToggle" id="igOn"></button></div>
-    <div class="field"><label>接口格式</label><select id="igFmt"><option value="openai">OpenAI 兼容（中转站生图）</option><option value="novelai">NovelAI（二次元，浏览器直连）</option><option value="pixai">PixAI（走小桥转发，需会员）</option></select></div>
+    <div class="field"><label>接口格式</label><select id="igFmt"><option value="openai">OpenAI 兼容（中转站生图）</option><option value="novelai">NovelAI（二次元，浏览器直连）</option><option value="pixai">PixAI（走小桥转发，Key要会员/Cookie免费）</option></select></div>
     <div class="field" id="igUrlField"><label>接口地址（OpenAI 兼容，/v1/images/generations 自动补）</label><input id="igUrl" placeholder="https://api.某站.com"></div>
     <div class="field"><label>API Key</label><input id="igKey" type="password" placeholder="sk-… / PixAI 的 API Key"></div>
+    <div class="field" id="igCookieField" style="display:none"><label>或者：登录 Cookie（PixAI 没会员也能用）</label><textarea id="igCookie" style="min-height:64px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px" placeholder="PixAI 网页登录后 F12 → Network → 找任意 pixai.art 请求 → 复制整段 Cookie"></textarea></div>
     <div class="field"><label>模型名 / PixAI 的 modelId</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页的数字 ID"></div>
     <div class="field"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x768</option><option>768x512</option><option>512x512</option></select></div>
     <div class="field"><label>风格附加词（拼在每次提示词最前面，可空）</label><input id="igStyle" placeholder="比如：anime style, masterpiece, soft lighting"></div>
@@ -2052,7 +2053,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
     <button class="ghostBtn" id="igTest">🖼 试画一张（会花一次生图钱）</button>
     <div id="igPreview" style="text-align:center"></div>
-    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。⚠️ 生图按张/按积分计费，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。⚠️ <b>PixAI 的 API 还在内测，官方要求个人用户开会员才能参加</b>——没会员 Key 调不通，别白折腾。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
+    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。⚠️ 生图按张/按积分计费，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。<br><b>没会员？用 Cookie 登录</b>：PixAI 的内测 API Key 要会员才给，但网页账号本身能免费出图——在电脑浏览器登录 PixAI，按 F12 → Network → 刷新，随便点一个 <code>pixai.art</code> 的请求，把请求头里<b>整段 Cookie</b> 复制到上面的「登录 Cookie」框，小桥会拿着它冒充你的浏览器去画，走的还是你账号的免费额度。⚠️ 等于把你账号的通行证存在了本地：只存这台手机、不进备份，但别分享截图；Cookie 大概能用几星期，过期（一直报登录失败）就重新复制一段。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
   </div>
 </div>
 <!-- 云同步设置 -->
@@ -5873,7 +5874,7 @@ const imgGenOn=()=>{
   const g=imgGen(); if(!g.on) return false;
   if(g.fmt==='novelai') return !!(g.key||'').trim();                    // 模型可空，默认 nai-diffusion-3
   if(!(g.model||'').trim()) return false;
-  return g.fmt==='pixai' ? !!(g.key||'').trim() : !!(g.url||'').trim();
+  return g.fmt==='pixai' ? (!!(g.key||'').trim()||!!(g.cookie||'').trim()) : !!(g.url||'').trim();
 };
 /* 浏览器原生解 zip：取第一个文件（NAI 返回的 zip 里就一张 png）。
    method 0=原样存放直接切片；8=deflate 用 DecompressionStream 解 */
@@ -5941,14 +5942,21 @@ async function genImagePixai(g,prompt){
   if(!((f.url||'').trim()&&(f.token||'').trim())) throw new Error('PixAI 要经小桥转发：先去「电脑文件桥」填小桥网址和密码');
   const base=f.url.trim().replace(/\/+$/,'');
   const gql=async(query,variables)=>{
+    const headers={'content-type':'application/json',authorization:'Bearer '+f.token.trim()};
+    if((g.key||'').trim()) headers['x-pixai-key']=g.key.trim();
+    else headers['x-pixai-cookie']=(g.cookie||'').trim();
     const r=await fetch(base+'/pixai/graphql',{
       method:'POST',
-      headers:{'content-type':'application/json',authorization:'Bearer '+f.token.trim(),'x-pixai-key':g.key.trim()},
+      headers,
       body:JSON.stringify({query,variables}),
     });
     if(!r.ok) throw new Error('HTTP '+r.status+'（小桥开着吗？）');
     const j=await r.json();
-    if(j.errors&&j.errors.length) throw new Error(String(j.errors[0].message||'GraphQL出错').slice(0,100));
+    if(j.errors&&j.errors.length){
+      const em=String(j.errors[0].message||'GraphQL出错');
+      if(!g.key&&/login|auth|unauth|登录|token/i.test(em)) throw new Error('Cookie 好像过期了，去 PixAI 网页重新复制一段');
+      throw new Error(em.slice(0,100));
+    }
     return j.data;
   };
   const [w,h]=(g.size||'1024x1024').split('x').map(n=>parseInt(n,10));
@@ -6057,7 +6065,7 @@ async function expandImgPrompt(desc,ch,mode){
 }
 /* 设置面板 */
 function saveImgGen(){
-  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),model:$('igModel').value.trim(),size:$('igSize').value,style:$('igStyle').value.trim(),neg:$('igNeg').value.trim(),expand:$('igExpand').classList.contains('on')};
+  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),cookie:$('igCookie').value.trim(),model:$('igModel').value.trim(),size:$('igSize').value,style:$('igStyle').value.trim(),neg:$('igNeg').value.trim(),expand:$('igExpand').classList.contains('on')};
   persistAll();
 }
 $('igExpand').onclick=()=>{ $('igExpand').classList.toggle('on'); saveImgGen(); };
@@ -6065,24 +6073,25 @@ function igFmtUI(){
   const f=$('igFmt').value;
   $('igUrlField').style.display=f==='openai'?'block':'none';       // NAI/PixAI 端点固定，不用填地址
   $('igNegField').style.display=f==='openai'?'none':'block';       // 负面词：NAI/PixAI 都吃
+  $('igCookieField').style.display=f==='pixai'?'block':'none';     // Cookie 登录只有 PixAI 用得上
 }
 $('imgGenBtn').onclick=()=>{
   const g=imgGen();
   $('igOn').classList.toggle('on',!!g.on);
   $('igFmt').value=g.fmt||'openai';
-  $('igUrl').value=g.url||''; $('igKey').value=g.key||''; $('igModel').value=g.model||'';
+  $('igUrl').value=g.url||''; $('igKey').value=g.key||''; $('igCookie').value=g.cookie||''; $('igModel').value=g.model||'';
   $('igSize').value=g.size||'1024x1024'; $('igStyle').value=g.style||''; $('igNeg').value=g.neg||'';
   $('igExpand').classList.toggle('on',g.expand!==false);
   $('igPreview').innerHTML=''; igFmtUI();
   openSheet('imgGenSheet');
 };
 $('igOn').onclick=()=>{ $('igOn').classList.toggle('on'); saveImgGen(); };
-['igUrl','igKey','igModel','igSize','igStyle','igNeg'].forEach(id=>$(id).onchange=saveImgGen);
+['igUrl','igKey','igCookie','igModel','igSize','igStyle','igNeg'].forEach(id=>$(id).onchange=saveImgGen);
 $('igFmt').onchange=()=>{ igFmtUI(); saveImgGen(); };
 $('igTest').onclick=async()=>{
   saveImgGen();
   const g=imgGen();
-  if(g.fmt==='novelai'?!g.key:(!g.model||(g.fmt!=='pixai'&&!g.url)||(g.fmt==='pixai'&&!g.key))){ toast(g.fmt==='novelai'?'先填 NovelAI 的 Token':g.fmt==='pixai'?'先填 PixAI 的 Key 和 modelId':'先填接口地址和模型名'); return; }
+  if(g.fmt==='novelai'?!g.key:(!g.model||(g.fmt!=='pixai'&&!g.url)||(g.fmt==='pixai'&&!g.key&&!g.cookie))){ toast(g.fmt==='novelai'?'先填 NovelAI 的 Token':g.fmt==='pixai'?'先填 PixAI 的 Key 或登录 Cookie、再填 modelId':'先填接口地址和模型名'); return; }
   const btn=$('igTest'); btn.disabled=true; btn.textContent='画画中…（可能要十几秒）';
   try{
     const t0=Date.now();
@@ -10858,7 +10867,7 @@ if(settings.sysPush) startPushLoop();
 document.querySelectorAll('.themeDot[data-theme]').forEach(d=>d.onclick=()=>{ settings.theme=d.dataset.theme; persistAll(); applyTheme(); });
 /* 备份 JSON 统一在这拼（导出文件和云同步共用）；密钥/令牌/密码一律不进备份 */
 function buildBackupJson(){
-  return JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined,fsBridge:settings.fsBridge?{...settings.fsBridge,token:''}:undefined,imgGen:settings.imgGen?{...settings.imgGen,key:''}:undefined,cloudSync:settings.cloudSync?{...settings.cloudSync,token:'',pass:''}:undefined},characters,chats,worldbook,regexScripts,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2);
+  return JSON.stringify({settings:{...settings,apiKey:'',tavilyKey:'',privPassHash:undefined,fsBridge:settings.fsBridge?{...settings.fsBridge,token:''}:undefined,imgGen:settings.imgGen?{...settings.imgGen,key:'',cookie:''}:undefined,cloudSync:settings.cloudSync?{...settings.cloudSync,token:'',pass:''}:undefined},characters,chats,worldbook,regexScripts,presets,selPresetId,memories,reads,gifts,moments,annivs,wishes,injections,stickers,diaries,studyLog,calNotes,periods,periodMeta,sleepLogs,photos,gamesLog,privPosts,privLives,privScenes,projects},null,2);
 }
 $('exportBtn').onclick=()=>{
   const json=buildBackupJson();
