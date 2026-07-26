@@ -6028,8 +6028,8 @@ async function genImagePixai(g,prompt,count){
     if(j.errors&&j.errors.length){
       const em=String(j.errors[0].message||'GraphQL出错');
       if(!g.key&&/login|auth|unauth|登录|token/i.test(em)) throw new Error('Cookie 好像过期了，去 PixAI 网页重新复制一段');
-      if(/modelId|model id|model\b/i.test(em)&&/invalid|not found|不存在|错误/i.test(em))
-        throw new Error('modelId 不对：去 PixAI 网页点开你想用的模型，看地址栏网址最后那串数字才是它的 ID');
+      if(/modelId|model id|invalid model/i.test(em))
+        throw new Error(`modelId「${(g.model||'').trim()}」被退回来了——确认是模型页网址最后那串数字（不是名字也不是版本号）。小桥的 pixai-last.log 里有服务器原话，不会看就截给我`);
       throw new Error(em.slice(0,100));
     }
     return j.data;
@@ -6043,7 +6043,7 @@ async function genImagePixai(g,prompt,count){
   /* 模式参数：网页的 轻量/标准/專業/極速 在 GraphQL 里叫法不一，多塞几个键，服务端认哪个用哪个 */
   parameters.mode=mode; parameters.quality=mode; parameters.genMode=mode; parameters.speed=mode;
   if((g.neg||'').trim()) parameters.negativePrompts=g.neg.trim();
-  const cd=await gql('mutation createGenerationTask($parameters: JSONObject!){ createGenerationTask(parameters: $parameters){ id status } }',{parameters});
+  const cd=await gql('mutation createGenerationTask($parameters: JSONObject!){ createGenerationTask(parameters: $parameters){ id status } }',{parameters}).catch(e=>{ e.message+='（'+String(parameters.modelId).slice(0,22)+'）'; throw e; });
   const tid=cd&&cd.createGenerationTask&&cd.createGenerationTask.id;
   if(!tid) throw new Error('PixAI 没接活（没返回任务ID）');
   let task=null;
