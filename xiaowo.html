@@ -2093,7 +2093,23 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
       </select>
     </div>
     <div class="boxRow" id="igPriRow" style="display:none"><span class="ic">⚡</span><span class="grow">高优先权（排队更快，多花一点点数；账号没权限时小桥会自动降级成普通排队，不报错）</span><button class="wbToggle" id="igPri"></button></div>
-    <div class="field"><label>风格附加词（拼在每次提示词最前面，可空）</label><input id="igStyle" placeholder="比如：anime style, masterpiece, soft lighting"></div>
+    <div class="field" id="igStyleField"><label>风格附加词（拼在每次提示词最前面，可空）</label><input id="igStyle" placeholder="比如：anime style, masterpiece, soft lighting"></div>
+    <div class="field" id="igPresetField" style="display:none"><label>风格（PixAI：和网页「風格庫」对应的提示词预设，选一个就每次自动带上）</label>
+      <select id="igPreset">
+        <option value="">无风格（光秃秃，容易丑）</option>
+        <option value="anime style, cel shading, vibrant colors, clean lineart, masterpiece, best quality">经典动画（赛璐璐干净线条）</option>
+        <option value="glossy rendering, luminous shading, soft glow, wet-look highlights, delicate finish, masterpiece">莹润渲染（高光水润通透）</option>
+        <option value="modern glossy anime style, shiny skin, detailed highlights, rich colors, studio quality, masterpiece">现代油亮肉感（油亮肤质现代感）</option>
+        <option value="retro anime style, 90s aesthetic, glossy skin, vintage shading, nostalgic colors, masterpiece">复古油亮肉感（90年代复古油亮）</option>
+        <option value="watercolor style, soft washes, paper texture, gentle bleeding, hand-painted feel">水彩（柔和晕染手绘感）</option>
+        <option value="thick oil painting, impasto texture, visible brushstrokes, rich pigments, canvas feel">厚涂油画（笔触肌理感）</option>
+        <option value="flat illustration, minimal shading, bold shapes, clean colors, vector style">平涂（极简色块插画风）</option>
+        <option value="detailed sketch, pencil linework, monochrome, hand-drawn texture, crosshatching">线稿速写（铅笔手绘）</option>
+        <option value="3d render, octane render, subsurface scattering, studio lighting, highly detailed, 8k">3D渲染（立体质感光追）</option>
+        <option value="photorealistic, 85mm lens, natural lighting, candid photography, detailed skin texture, film grain">真人照片（写实摄影）</option>
+      </select>
+      <div class="hintText" style="margin-top:6px">选中后自动拼进「风格附加词」，想自己再改就在下面那栏接着写；这些是提示词预设，PixAI 网页的「风格」本质也是往提示词里塞词。</div>
+    </div>
     <div class="boxRow"><span class="ic">🪄</span><span class="grow">提示词扩写（TA的短描述先扩成详细英文prompt再生图，每张多一次小额文本调用，效果好很多）</span><button class="wbToggle on" id="igExpand"></button></div>
     <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
     <button class="ghostBtn" id="igTest">🖼 试画一批（PixAI/部分中转一次出四张给你挑，会花对应张数的钱）</button>
@@ -6216,7 +6232,7 @@ async function expandImgPrompt(desc,ch,mode){
 }
 /* 设置面板 */
 function saveImgGen(){
-  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),cookie:$('igCookie').value.trim(),model:$('igModel').value.trim(),size:$('igFmt').value==='pixai'?$('igPxSize').value:$('igSize').value,pxMode:$('igMode').value,pxPri:$('igPri').classList.contains('on'),style:$('igStyle').value.trim(),neg:$('igNeg').value.trim(),expand:$('igExpand').classList.contains('on')};
+  settings.imgGen={on:$('igOn').classList.contains('on'),fmt:$('igFmt').value,url:$('igUrl').value.trim(),key:$('igKey').value.trim(),cookie:$('igCookie').value.trim(),model:$('igModel').value.trim(),size:$('igFmt').value==='pixai'?$('igPxSize').value:$('igSize').value,pxMode:$('igMode').value,pxPri:$('igPri').classList.contains('on'),style:$('igStyle').value.trim(),stylePreset:$('igPreset').value,neg:$('igNeg').value.trim(),expand:$('igExpand').classList.contains('on')};
   persistAll();
 }
 $('igExpand').onclick=()=>{ $('igExpand').classList.toggle('on'); saveImgGen(); };
@@ -6229,6 +6245,7 @@ function igFmtUI(){
   $('igPxField').style.display=f==='pixai'?'block':'none';
   $('igModeField').style.display=f==='pixai'?'block':'none';
   $('igPriRow').style.display=f==='pixai'?'flex':'none';
+  $('igPresetField').style.display=f==='pixai'?'block':'none';     // 风格预设只有 PixAI 用得上
   $('igPxProfilesField').style.display=f==='pixai'?'block':'none';
   if(f==='pixai') renderIgPxList();
 }
@@ -6259,6 +6276,7 @@ function renderIgPxList(){
       if(p.size&&$('igPxSize').querySelector(`option[value="${p.size}"]`)) $('igPxSize').value=p.size;
       $('igMode').value=p.pxMode||'light';
       $('igPri').classList.toggle('on',!!p.pxPri);
+      if(p.style!=null){ $('igStyle').value=p.style; $('igPreset').value=[...$('igPreset').options].some(o=>o.value&&o.value===p.style)?p.style:''; }
       saveImgGen(); renderIgPxList(); toast(`切成「${p.name||'未命名'}」啦`);
     };
     it.querySelector('.kDel').onclick=()=>{
@@ -6274,7 +6292,7 @@ $('igPxSave').onclick=()=>{
   const name=(prompt('给这套配置起个名字（比如：二次元·竖图）', $('igPxSize').selectedOptions[0]?.textContent.split('（')[0]||'我的模型')||'').trim().slice(0,20);
   if(name==null) return;
   const list=pxProfiles().filter(x=>!(x.model===model&&x.size===$('igPxSize').value));   // 同模型同尺寸的旧档盖掉
-  list.push({id:rid('px'),name:name||'未命名',model,size:$('igPxSize').value,pxMode:$('igMode').value,pxPri:$('igPri').classList.contains('on'),hasCookie:!!$('igCookie').value.trim()});
+  list.push({id:rid('px'),name:name||'未命名',model,size:$('igPxSize').value,pxMode:$('igMode').value,pxPri:$('igPri').classList.contains('on'),style:$('igStyle').value.trim(),hasCookie:!!$('igCookie').value.trim()});
   savePxProfiles(list); renderIgPxList(); toast('存好啦 💾');
 };
 /* 拉可用模型列表：cookie/key 问 GraphQL，把名字+id 摆出来直接点 */
@@ -6315,12 +6333,15 @@ $('imgGenBtn').onclick=()=>{
   $('igMode').value=g.pxMode||'light';
   $('igPri').classList.toggle('on',!!g.pxPri);
   $('igStyle').value=g.style||''; $('igNeg').value=g.neg||'';
+  /* 风格预设回填：现在的style正好是某个预设就选上，不然选「无风格」 */
+  $('igPreset').value=[...$('igPreset').options].some(o=>o.value&&o.value===(g.style||'').trim())?g.style.trim():'';
   $('igExpand').classList.toggle('on',g.expand!==false);
   $('igPreview').innerHTML=''; igFmtUI();
   openSheet('imgGenSheet');
 };
 $('igOn').onclick=()=>{ $('igOn').classList.toggle('on'); saveImgGen(); };
 $('igPri').onclick=()=>{ $('igPri').classList.toggle('on'); saveImgGen(); };
+$('igPreset').onchange=()=>{ if($('igPreset').value) $('igStyle').value=$('igPreset').value; saveImgGen(); };
 ['igUrl','igKey','igCookie','igModel','igSize','igPxSize','igMode','igStyle','igNeg'].forEach(id=>$(id).onchange=saveImgGen);
 $('igFmt').onchange=()=>{ igFmtUI(); saveImgGen(); };
 $('igTest').onclick=async()=>{
@@ -11455,7 +11476,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v101';
+const XW_BUILD='v102';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
