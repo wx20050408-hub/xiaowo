@@ -737,6 +737,19 @@ body.ppNoCard #plusPanel .ppItem .ppIc svg{width:30px;height:30px}
 /* 生图进行中的呼吸提示 */
 .genPulse{animation:genPulse 1.6s ease-in-out infinite}
 @keyframes genPulse{0%,100%{opacity:.55}50%{opacity:1}}
+/* 四选一画廊：一次画四张翻着看，留最好看的 */
+.pvBox{position:relative;border-radius:4px;overflow:hidden}
+.pvBox img{width:100%;display:block;border-radius:4px}
+.pvNav{position:absolute;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.42);color:#fff;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;z-index:2}
+.pvNav.l{left:4px}.pvNav.r{right:4px}
+.pvDots{position:absolute;bottom:5px;left:0;right:0;display:flex;justify-content:center;gap:4px;z-index:2}
+.pvDots i{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.55)}
+.pvDots i.on{background:#fff}
+.pvIdx{position:absolute;top:5px;right:6px;font-size:9px;color:#fff;background:rgba(0,0,0,.38);border-radius:8px;padding:1px 6px;z-index:2}
+.pvPickRow{display:flex;gap:6px;margin-top:6px;padding:0 2px}
+.pvPickRow button{flex:1;font-size:10.5px;padding:4px 0;border-radius:9px;font-weight:600}
+.pvKeep{background:var(--accent);color:#fff}
+.pvReroll{background:var(--bg-soft);color:var(--ink-soft)}
 /* 相册 */
 #albumGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;padding:4px 2px}
 #albumGrid .polaroid{width:auto;transform:rotate(0deg);position:relative}
@@ -2046,14 +2059,15 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div class="field" id="igUrlField"><label>接口地址（OpenAI 兼容，/v1/images/generations 自动补）</label><input id="igUrl" placeholder="https://api.某站.com"></div>
     <div class="field"><label>API Key</label><input id="igKey" type="password" placeholder="sk-… / PixAI 的 API Key"></div>
     <div class="field" id="igCookieField" style="display:none"><label>或者：登录 Cookie（PixAI 没会员也能用）</label><textarea id="igCookie" style="min-height:64px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px" placeholder="PixAI 网页登录后 F12 → Network → 找任意 pixai.art 请求 → 复制整段 Cookie"></textarea></div>
+/* 模型选择固定：TA 不挑、代码也没给TA切换的口子——固定用你在这里填的这个，画风稳定 */
     <div class="field"><label>模型名 / PixAI 的 modelId</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页的数字 ID"></div>
     <div class="field"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x768</option><option>768x512</option><option>512x512</option></select></div>
     <div class="field"><label>风格附加词（拼在每次提示词最前面，可空）</label><input id="igStyle" placeholder="比如：anime style, masterpiece, soft lighting"></div>
     <div class="boxRow"><span class="ic">🪄</span><span class="grow">提示词扩写（TA的短描述先扩成详细英文prompt再生图，每张多一次小额文本调用，效果好很多）</span><button class="wbToggle on" id="igExpand"></button></div>
     <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
-    <button class="ghostBtn" id="igTest">🖼 试画一张（会花一次生图钱）</button>
+    <button class="ghostBtn" id="igTest">🖼 试画一批（PixAI/部分中转一次出四张给你挑，会花对应张数的钱）</button>
     <div id="igPreview" style="text-align:center"></div>
-    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。⚠️ 生图按张/按积分计费，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。<br><b>没会员？用 Cookie 登录</b>：PixAI 的内测 API Key 要会员才给，但网页账号本身能免费出图——在电脑浏览器登录 PixAI，按 F12 → Network → 刷新，随便点一个 <code>pixai.art</code> 的请求，把请求头里<b>整段 Cookie</b> 复制到上面的「登录 Cookie」框，小桥会拿着它冒充你的浏览器去画，走的还是你账号的免费额度。⚠️ 等于把你账号的通行证存在了本地：只存这台手机、不进备份，但别分享截图；Cookie 大概能用几星期，过期（一直报登录失败）就重新复制一段。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
+    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。<b>一次出一批（最多四张）翻着挑，留下最好看的那张</b>，不喜欢还能「换一批」重画。⚠️ 按张计费，一批四张＝四张的钱，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key/Cookie 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。<br><b>没会员？用 Cookie 登录</b>：PixAI 的内测 API Key 要会员才给，但网页账号本身能免费出图——在电脑浏览器登录 PixAI，按 F12 → Network → 刷新，随便点一个 <code>pixai.art</code> 的请求，把请求头里<b>整段 Cookie</b> 复制到上面的「登录 Cookie」框，小桥会拿着它冒充你的浏览器去画，走的还是你账号的免费额度。⚠️ 等于把你账号的通行证存在了本地：只存这台手机、不进备份，但别分享截图；Cookie 大概能用几星期，过期（一直报登录失败）就重新复制一段。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
   </div>
 </div>
 <!-- 云同步设置 -->
@@ -2936,6 +2950,33 @@ function answerCall(mode){
 }
 /* 宝丽来照片：没有真图，用渐变底+文字描述当"照片"，色调由内容定（同一张永远同色） */
 const PHOTO_GRADS=['linear-gradient(135deg,#FFB88C,#DE6262)','linear-gradient(135deg,#A1C4FD,#7F9CF5)','linear-gradient(135deg,#FBC2EB,#A6C1EE)','linear-gradient(135deg,#5EC9A0,#8FD3F4)','linear-gradient(135deg,#FCCB90,#D57EEB)','linear-gradient(135deg,#B8A9F7,#8EC5FC)'];
+/* 四选一画廊渲染：entry.imgs[] 里有几张就翻几张，候选不重排（免得正在挑的图跑了） */
+function pvGalleryHtml(entry){
+  const imgs=entry.imgs&&entry.imgs.length?entry.imgs:[entry.img];
+  const i=Math.min(entry.pv||0,imgs.length-1);
+  const pick=entry.kind==='draw'?'画这张':'留这张';
+  return `<div class="pvBox" onclick="pvNav(event,'${entry.id}',0)"><img class="zoomable" src="${safeUrl(imgs[i])}" alt="">`
+    +(imgs.length>1?`<button class="pvNav l" onclick="pvNav(event,'${entry.id}',-1)">‹</button><button class="pvNav r" onclick="pvNav(event,'${entry.id}',1)">›</button>`
+      +`<div class="pvDots">${imgs.map((_,k)=>`<i class="${k===i?'on':''}"></i>`).join('')}</div><span class="pvIdx">${i+1}/${imgs.length}</span>`:'')
+    +`</div><div class="pvPickRow"><button class="pvKeep" onclick="pvPick('${entry.id}')">❤ ${pick}</button><button class="pvReroll" onclick="pvReroll('${entry.id}')">🎲 换一批</button></div>`;
+}
+function pvNav(e,id,dir){
+  e.stopPropagation();
+  const ph=photos.find(p=>p.id===id); if(!ph) return;
+  const n=(ph.imgs||[]).length; if(n<2) return;
+  ph.pv=((ph.pv||0)+dir+n)%n; persistPhotos(); renderChat(); if($('albumSheet').classList.contains('show')) renderAlbum();
+}
+function pvPick(id){
+  const ph=photos.find(p=>p.id===id); if(!ph||!ph.imgs) return;
+  ph.img=ph.imgs[Math.min(ph.pv||0,ph.imgs.length-1)];
+  delete ph.imgs; delete ph.pv;
+  persistPhotos(); renderChat(); if($('albumSheet').classList.contains('show')) renderAlbum();
+  toast('留下最好看的这张啦 ❤');
+}
+function pvReroll(id){
+  const ph=photos.find(p=>p.id===id); if(!ph) return;
+  delete ph.imgs; delete ph.pv; retryGen(id);
+}
 function photoHtml(text,msg){
   let h=0; for(const ch of text) h=(h*31+ch.codePointAt(0))%997;
   const d=msg&&msg.ts?new Date(msg.ts):new Date();
@@ -2945,6 +2986,9 @@ function photoHtml(text,msg){
   let inner, capR=`<span>${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}</span>`;
   if(entry&&entry.img){
     inner=`<div class="pImg" style="padding:0;overflow:hidden;min-height:0"><img class="zoomable" src="${safeUrl(entry.img)}" style="width:100%;display:block;border-radius:4px" alt=""></div>`;
+  }else if(entry&&entry.imgs&&entry.imgs.length){
+    inner=`<div class="pImg" style="padding:0;overflow:hidden;min-height:0">${pvGalleryHtml(entry)}</div>`;
+    capR='<span style="color:var(--accent-deep)">左滑挑一张最好看的 ❤</span>';
   }else if(entry&&entry.gen){
     inner=`<div class="pImg genPulse" style="background:${PHOTO_GRADS[h%PHOTO_GRADS.length]}">${fmt(text)}</div>`;
     capR='<span class="genPulse">🎨 正在画，画好自动换…</span>';
@@ -5603,8 +5647,11 @@ async function runReply(c,api,body,ch){
       const ph={id:'p'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,text:pm[1].slice(0,100),ts:Date.now()};
       photos.push(ph);
       if(imgGenOn()){ ph.gen=Date.now(); (async()=>{
-        const img=await genImageQuiet(await expandImgPrompt(pm[1].slice(0,300),ch,'photo'));
-        delete ph.gen; if(img) ph.img=img; else ph.genFail=1;
+        const res=await genImageBatchQuiet(await expandImgPrompt(pm[1].slice(0,300),ch,'photo'));
+        delete ph.gen;
+        if(res&&res.length>1){ ph.imgs=res.slice(0,4); ph.pv=0; }
+        else if(res&&res.length){ ph.img=res[0]; }
+        else ph.genFail=1;
         persistPhotos(); if(c.id===currentId) renderChat();
       })(); }
     }
@@ -5613,8 +5660,11 @@ async function runReply(c,api,body,ch){
       const ph={id:'p'+Date.now()+Math.random().toString(36).slice(2,5),charId:ch?.id,text:pm[1].slice(0,100),kind:'draw',ts:Date.now()};
       photos.push(ph);
       if(imgGenOn()){ ph.gen=Date.now(); (async()=>{
-        const img=await genImageQuiet(await expandImgPrompt(pm[1].slice(0,400),ch,'draw'));
-        delete ph.gen; if(img) ph.img=img; else ph.genFail=1;
+        const res=await genImageBatchQuiet(await expandImgPrompt(pm[1].slice(0,400),ch,'draw'));
+        delete ph.gen;
+        if(res&&res.length>1){ ph.imgs=res.slice(0,4); ph.pv=0; }
+        else if(res&&res.length){ ph.img=res[0]; }
+        else ph.genFail=1;
         persistPhotos(); if(c.id===currentId) renderChat();
       })(); }
       else toast('还没配生图——去 百宝箱→🎨生图 填好，TA 才能真的画出来');
@@ -5937,7 +5987,7 @@ async function shrinkImg(src){
   }catch(_){ return typeof src==='string'?src:null; }
 }
 /* PixAI：GraphQL 建任务 → 轮询 → 取图。浏览器直连被 CORS 拦，全程经小桥转发（复用文件桥的网址+密码） */
-async function genImagePixai(g,prompt){
+async function genImagePixai(g,prompt,count){
   const f=fsBridge();
   if(!((f.url||'').trim()&&(f.token||'').trim())) throw new Error('PixAI 要经小桥转发：先去「电脑文件桥」填小桥网址和密码');
   const base=f.url.trim().replace(/\/+$/,'');
@@ -5961,7 +6011,9 @@ async function genImagePixai(g,prompt){
   };
   const [w,h]=(g.size||'1024x1024').split('x').map(n=>parseInt(n,10));
   const style=(g.style||'').trim();
+  const N=Math.max(1,Math.min(4,count||4));          // 一次画四张挑一张；接口不认就只出一张
   const parameters={prompts:(style?style+', ':'')+prompt,width:w||1024,height:h||1024,modelId:g.model.trim()};
+  parameters.batchSize=N; parameters.n=N; parameters.count=N; parameters.numImages=N;
   if((g.neg||'').trim()) parameters.negativePrompts=g.neg.trim();
   const cd=await gql('mutation createGenerationTask($parameters: JSONObject!){ createGenerationTask(parameters: $parameters){ id status } }',{parameters});
   const tid=cd&&cd.createGenerationTask&&cd.createGenerationTask.id;
@@ -5975,28 +6027,43 @@ async function genImagePixai(g,prompt){
     if(/error|fail|cancel/.test(st)) throw new Error('PixAI 任务失败：'+task.status);
   }
   if(String(task&&task.status||'').toLowerCase()!=='completed') throw new Error('生成超时（90秒）——排队太久，稍后再试');
-  const findMediaId=o=>{ if(!o||typeof o!=='object') return null; if(o.mediaId) return String(o.mediaId);
-    for(const k in o){ const v=findMediaId(o[k]); if(v) return v; } return null; };
-  const mid=findMediaId(task.outputs);
-  if(!mid) throw new Error('任务完成但没找到图');
-  let md;   // media(id) 的参数类型各版本不一，两种都试
-  try{ md=await gql('query getMediaById($id: String!){ media(id: $id){ urls { variant url } } }',{id:mid}); }
-  catch(_){ md=await gql('query getMediaById($id: ID!){ media(id: $id){ urls { variant url } } }',{id:mid}); }
-  const urls=(md&&md.media&&md.media.urls)||[];
-  const u=((urls.find(x=>x.variant==='PUBLIC')||urls[0])||{}).url;
-  if(!u) throw new Error('没拿到图片链接');
-  const ir=await fetch(base+'/pixai/img?url='+encodeURIComponent(u),{headers:{authorization:'Bearer '+f.token.trim()}});
-  if(!ir.ok) return u;                          // 代理拉图失败就存远程链接（可能过期）
-  return await shrinkImg(await ir.blob());
+  /* outputs 里可能藏着好几张：把 mediaId 全抠出来（去重），挨个取链接 */
+  const mids=[];
+  const collect=o=>{ if(!o||typeof o!=='object') return; if(o.mediaId&&mids.length<8){ const s=String(o.mediaId); if(!mids.includes(s)) mids.push(s); }
+    for(const k in o) collect(o[k]); };
+  collect(task.outputs);
+  if(!mids.length) throw new Error('任务完成但没找到图');
+  const urlsAll=[];
+  for(const mid of mids.slice(0,N)){
+    let md;
+    try{ md=await gql('query getMediaById($id: String!){ media(id: $id){ urls { variant url } } }',{id:mid}); }
+    catch(_){ try{ md=await gql('query getMediaById($id: ID!){ media(id: $id){ urls { variant url } } }',{id:mid}); }catch(__){ continue; } }
+    const urls=(md&&md.media&&md.media.urls)||[];
+    const u=((urls.find(x=>x.variant==='PUBLIC')||urls[0])||{}).url;
+    if(u) urlsAll.push(u);
+  }
+  if(!urlsAll.length) throw new Error('没拿到图片链接');
+  const out=[];
+  for(const u of urlsAll){
+    const ir=await fetch(base+'/pixai/img?url='+encodeURIComponent(u),{headers:{authorization:'Bearer '+f.token.trim()}});
+    if(!ir.ok){ out.push(u); continue; }            // 代理拉图失败就存远程链接（可能过期）
+    out.push(await shrinkImg(await ir.blob()));
+  }
+  return out;
 }
 async function genImage(prompt){
+  const r=await genImageBatch(prompt,1);
+  return r&&r[0]||null;
+}
+/* 多张版：返回图片数组（最多 count 张；接口/模型只出一张就老实返回一张） */
+async function genImageBatch(prompt,count){
   if(!imgGenOn()) return null;
   const g=imgGen();
-  if(g.fmt==='novelai') return genImageNovelai(g,prompt);
-  if(g.fmt==='pixai') return genImagePixai(g,prompt);
+  if(g.fmt==='novelai'){ const one=await genImageNovelai(g,prompt); return one?[one]:null; }   // NAI 没搞多张，先试一张
+  if(g.fmt==='pixai') return genImagePixai(g,prompt,count||4);
   const base=g.url.trim().replace(/\/+$/,'').replace(/\/v1$/,'');
   const style=(g.style||'').trim();
-  const body={model:g.model.trim(),prompt:(style?style+'，':'')+prompt,n:1,size:g.size||'1024x1024',response_format:'b64_json'};
+  const body={model:g.model.trim(),prompt:(style?style+'，':'')+prompt,n:count||1,size:g.size||'1024x1024',response_format:'b64_json'};
   const r=await fetch(base+'/v1/images/generations',{
     method:'POST',
     headers:{'content-type':'application/json',...((g.key||'').trim()?{authorization:'Bearer '+g.key.trim()}:{})},
@@ -6004,17 +6071,26 @@ async function genImage(prompt){
     ...(typeof AbortSignal!=='undefined'&&AbortSignal.timeout?{signal:AbortSignal.timeout(120000)}:{}),   // 最多等2分钟，别无限白等
   });
   if(!r.ok){ let msg=''; try{ msg=(await r.json()).error?.message||''; }catch(_){} throw new Error('HTTP '+r.status+(msg?'：'+String(msg).slice(0,80):'')); }
-  const d=((await r.json()).data||[])[0];
-  if(d&&d.b64_json) return await shrinkImg('data:image/png;base64,'+d.b64_json);
-  if(d&&d.url){
-    try{ return await shrinkImg(await (await fetch(d.url)).blob()); }
-    catch(_){ return d.url; }   // 跨域拿不回来就存远程链接（可能过期，聊胜于无）
+  const list=(await r.json()).data||[];
+  if(!list.length) throw new Error('接口没返回图片');
+  const out=[];
+  for(const d of list.slice(0,count||1)){
+    if(d&&d.b64_json){ out.push(await shrinkImg('data:image/png;base64,'+d.b64_json)); continue; }
+    if(d&&d.url){
+      try{ out.push(await shrinkImg(await (await fetch(d.url)).blob())); }
+      catch(_){ out.push(d.url); }   // 跨域拿不回来就存远程链接（可能过期，聊胜于无）
+    }
   }
-  throw new Error('接口没返回图片');
+  if(!out.length) throw new Error('接口没返回图片');
+  return out;
 }
 /* 不打断主流程的版本：失败只 toast 一声，页面照常 */
 async function genImageQuiet(prompt){
   try{ return await genImage(prompt); }
+  catch(e){ toast('生图失败：'+(e.message||'').slice(0,60)); return null; }
+}
+async function genImageBatchQuiet(prompt,count){
+  try{ return await genImageBatch(prompt,count||4); }
   catch(e){ toast('生图失败：'+(e.message||'').slice(0,60)); return null; }
 }
 /* ===== 全屏看图器：点带 zoomable 的图放大，点空白关闭，保存走原生/下载 ===== */
@@ -6043,8 +6119,11 @@ function retryGen(id){
   delete ph.genFail; ph.gen=Date.now(); persistPhotos(); renderChat();
   (async()=>{
     const ch=characters.find(x=>x.id===ph.charId);
-    const img=await genImageQuiet(await expandImgPrompt(ph.text,ch,ph.kind==='draw'?'draw':'photo'));
-    delete ph.gen; if(img) ph.img=img; else ph.genFail=1;
+    const res=await genImageBatchQuiet(await expandImgPrompt(ph.text,ch,ph.kind==='draw'?'draw':'photo'));
+    delete ph.gen;
+    if(res&&res.length>1){ ph.imgs=res.slice(0,4); ph.pv=0; }
+    else if(res&&res.length){ ph.img=res[0]; }
+    else ph.genFail=1;
     persistPhotos(); renderChat();
   })();
 }
@@ -6095,10 +6174,13 @@ $('igTest').onclick=async()=>{
   const btn=$('igTest'); btn.disabled=true; btn.textContent='画画中…（可能要十几秒）';
   try{
     const t0=Date.now();
-    const img=await genImage('一只趴在窗台晒太阳的橘猫，温馨治愈');
-    if(img){ $('igPreview').innerHTML=`<img src="${safeUrl(img)}" style="max-width:70%;border-radius:14px;box-shadow:var(--shadow);margin:6px 0">`; toast(`画好啦 ✓ 用了 ${Math.round((Date.now()-t0)/1000)} 秒`); }
+    const res=await genImageBatch('一只趴在窗台晒太阳的橘猫，温馨治愈',4);
+    if(res&&res.length){
+      $('igPreview').innerHTML=res.map(u=>`<img src="${safeUrl(u)}" style="max-width:44%;border-radius:14px;box-shadow:var(--shadow);margin:4px">`).join('');
+      toast(`画好啦 ✓ 出了 ${res.length} 张，用了 ${Math.round((Date.now()-t0)/1000)} 秒`);
+    }
   }catch(e){ toast('生图失败：'+(e.message||'').slice(0,60)); }
-  btn.disabled=false; btn.textContent='🖼 试画一张（会花一次生图钱）';
+  btn.disabled=false; btn.textContent='🖼 试画一批（PixAI/部分中转一次出四张给你挑，会花对应张数的钱）';
 };
 
 /* ===== 电脑文件桥：TA 经小桥读你电脑白名单文件夹（只读，/fs 接口，不吃任何订阅额度） ===== */
