@@ -1,5 +1,5 @@
 /* Serenade Service Worker：同源资源网络优先、断网走缓存；API 请求不拦截 */
-const CACHE = 'xiaowo-v95';
+const CACHE = 'xiaowo-v96';
 const ASSETS = ['./xiaowo.html', './manifest.json', './icon.svg', './app-icon.svg'];
 
 self.addEventListener('install', e => {
@@ -18,7 +18,10 @@ self.addEventListener('activate', e => {
 
 /* 后台保活：心跳让 SW 偶尔醒着（配合主线程消息）。只是尽量延缓休眠，浏览器仍可能回收 */
 setInterval(() => { /* heartbeat：什么都不做，仅保持线程活跃 */ }, 30000);
-self.addEventListener('message', e => { /* 收到主线程消息本身就会重置 SW 休眠倒计时 */ });
+self.addEventListener('message', e => {
+  /* 主线程发现新版本下好了：立刻接管（不等全部标签页关闭，不然旧代码能赖好几天） */
+  if (e.data === 'xw-activate') self.skipWaiting();
+});
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
