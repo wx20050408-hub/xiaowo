@@ -2086,7 +2086,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
         <option value="professional">专业（免费可开，最精细最慢）</option>
       </select>
     </div>
-    <div class="boxRow" id="igPriRow" style="display:none"><span class="ic">⚡</span><span class="grow">高优先权（插队快出图，多花一点点数）</span><button class="wbToggle" id="igPri"></button></div>
+    <div class="boxRow" id="igPriRow" style="display:none"><span class="ic">⚡</span><span class="grow">高优先权（要会员！免费账号开了会报 turbo 错，别勾）</span><button class="wbToggle" id="igPri"></button></div>
     <div class="field"><label>风格附加词（拼在每次提示词最前面，可空）</label><input id="igStyle" placeholder="比如：anime style, masterpiece, soft lighting"></div>
     <div class="boxRow"><span class="ic">🪄</span><span class="grow">提示词扩写（TA的短描述先扩成详细英文prompt再生图，每张多一次小额文本调用，效果好很多）</span><button class="wbToggle on" id="igExpand"></button></div>
     <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
@@ -6046,6 +6046,8 @@ async function genImagePixai(g,prompt,count){
     if(j.errors&&j.errors.length){
       const em=String(j.errors[0].message||'GraphQL出错');
       if(!g.key&&/login|auth|unauth|登录|token/i.test(em)) throw new Error('Cookie 好像过期了，去 PixAI 网页重新复制一段');
+      if(/turbo|priority/i.test(em)&&/member|会员/i.test(em))
+        throw new Error('高优先权要会员才能用——去生图设置把「⚡高优先权」开关关掉再画（关掉就通了）');
       if(/modelId|model id|invalid model/i.test(em))
         throw new Error(`modelId「${(g.model||'').trim()}」被退回来了——它可能不认网页的模型ID。小桥的 pixai-last.log 里有服务器原话，整段截给我（日志里Cookie已打码）`);
       throw new Error(em.slice(0,100));
@@ -6060,7 +6062,7 @@ async function genImagePixai(g,prompt,count){
   parameters.batchSize=N; parameters.n=N; parameters.count=N; parameters.numImages=N;
   /* 模式参数：网页的 轻量/标准/專業/極速 在 GraphQL 里叫法不一，多塞几个键，服务端认哪个用哪个 */
   parameters.mode=mode; parameters.quality=mode; parameters.genMode=mode; parameters.speed=mode;
-  /* 高优先权：网页那个勾，插队快出图多花一点。服务器要求 priority 是整数（报错原话"type must be integer"），给 1 */
+  /* 高优先权：服务器原话"type must be integer"，给整数1；免费账号开了会被拒（turbo要会员），报错时会提示关掉 */
   if(g.pxPri){ parameters.priority=1; parameters.highPriority=true; parameters.prioritized=true; }
   if((g.neg||'').trim()) parameters.negativePrompts=g.neg.trim();
   const cd=await gql('mutation createGenerationTask($parameters: JSONObject!){ createGenerationTask(parameters: $parameters){ id status } }',{parameters}).catch(e=>{ e.message+='（'+String(parameters.modelId).slice(0,22)+'）'; throw e; });
@@ -11377,7 +11379,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v96';
+const XW_BUILD='v97';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
