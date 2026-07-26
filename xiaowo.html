@@ -2042,7 +2042,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
   <div class="sheet">
     <div class="sheetTitle">生图<button class="close" data-close="imgGenSheet">✕</button></div>
     <div class="boxRow"><span class="ic">🎨</span><span class="grow">开启生图</span><button class="wbToggle" id="igOn"></button></div>
-    <div class="field"><label>接口格式</label><select id="igFmt"><option value="openai">OpenAI 兼容（中转站生图）</option><option value="novelai">NovelAI（二次元，浏览器直连）</option><option value="pixai">PixAI（走小桥转发）</option></select></div>
+    <div class="field"><label>接口格式</label><select id="igFmt"><option value="openai">OpenAI 兼容（中转站生图）</option><option value="novelai">NovelAI（二次元，浏览器直连）</option><option value="pixai">PixAI（走小桥转发，需会员）</option></select></div>
     <div class="field" id="igUrlField"><label>接口地址（OpenAI 兼容，/v1/images/generations 自动补）</label><input id="igUrl" placeholder="https://api.某站.com"></div>
     <div class="field"><label>API Key</label><input id="igKey" type="password" placeholder="sk-… / PixAI 的 API Key"></div>
     <div class="field"><label>模型名 / PixAI 的 modelId</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页的数字 ID"></div>
@@ -2052,7 +2052,7 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div class="field" id="igNegField" style="display:none"><label>负面词（不想出现的东西，PixAI 支持）</label><input id="igNeg" placeholder="比如：worst quality, low quality, extra digits"></div>
     <button class="ghostBtn" id="igTest">🖼 试画一张（会花一次生图钱）</button>
     <div id="igPreview" style="text-align:center"></div>
-    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。⚠️ 生图按张/按积分计费，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
+    <div class="hintText">开了之后 TA 聊天里的〈随手拍〉和私密小屋的更新会真的画出图（照片描述当提示词）。⚠️ 生图按张/按积分计费，留意余额；图会压缩后存进本地（IndexedDB）。没生成出来时还是原来的文字宝丽来，不影响用。Key 不进备份。<br><b>PixAI 模式</b>：它不让浏览器直连，要经小桥转发——先在「💻 电脑文件桥」里填好小桥网址和密码、电脑开着小桥，这里选 PixAI 格式即可（接口地址不用填）。modelId 在 PixAI 模型页网址里，一串数字。⚠️ <b>PixAI 的 API 还在内测，官方要求个人用户开会员才能参加</b>——没会员 Key 调不通，别白折腾。<br><b>NovelAI 模式</b>：浏览器直连，地址不用填。Key = NovelAI 网站 设置→Account→<b>Get Persistent API Token</b> 那串；模型留空默认 nai-diffusion-3（v4 系填全名如 nai-diffusion-4-5-full）。Opus 订阅在「尺寸≤1216×832、步数≤28」内<b>无限出图不扣点</b>——本档生成参数已按这个甜点位设置，放心造。</div>
   </div>
 </div>
 <!-- 云同步设置 -->
