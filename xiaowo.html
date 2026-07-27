@@ -2080,15 +2080,17 @@ try{ if(JSON.parse(localStorage.getItem('xw_settings')||'{}').splash===false) do
     <div class="field"><label>API Key</label><input id="igKey" type="password" placeholder="sk-… / PixAI 的 API Key"></div>
     <div class="field" id="igPxProfilesField" style="display:none"><label>PixAI 配置（存好几套，点一下就换，像 Key 列表一样）</label>
       <div id="igPxList"></div>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <button class="ghostBtn" id="igPxSave" style="margin-top:0;flex:1;font-size:13px">💾 把当前填的存成一套</button>
-        <button class="ghostBtn" id="igPxFetch" style="margin-top:0;flex:1;font-size:13px">🔄 拉一下可用模型列表</button>
-      </div>
+      <button class="ghostBtn" id="igPxSave" style="margin-top:6px;font-size:13px">💾 把当前填的存成一套</button>
     </div>
     <div class="field" id="igCookieField" style="display:none"><label>或者：登录 Cookie（PixAI 没会员也能用）</label><textarea id="igCookie" style="min-height:64px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px" placeholder="PixAI 网页登录后 F12 → Network → 找任意 pixai.art 请求 → 复制整段 Cookie"></textarea></div>
-/* 模型选择固定：TA 不挑、代码也没给TA切换的口子——固定用你在这里填的这个，画风稳定 */
+/* 模型选择固定：TA 不挑、代码也没给TA切换的口子——固定用你在这里填的这个，画风稳定 -->
     <div class="field" id="igLoraField" style="display:none"><label>自定义风格编码（PixAI 風格/LoRA 的<strong>版本ID</strong>，和模型一样要版本ID不是页面ID，可多个逗号隔开）</label><input id="igLora" placeholder="比如：1598504735551829169"></div>
-    <div class="field"><label>模型名 / PixAI 的模型ID</label><input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填模型页网址最后那串数字"></div>
+    <div class="field"><label>模型名 / PixAI 的模型ID</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="igModel" placeholder="比如：gpt-image-1 / flux-schnell；PixAI 填版本ID" style="flex:1">
+        <button class="ghostBtn" id="igPxFetch" style="margin-top:0;flex-shrink:0;width:auto;padding:8px 14px;font-size:13px">🔄 拉列表</button>
+      </div>
+    </div>
     <div class="hintText" id="igModelHint" style="display:none;margin-top:-6px">⚠️ <b>要填的是「版本ID」，不是页面网址里那串</b>——填页面ID服务器不报错，会偷偷退回默认模型（同价照扣，画出来却是别的模型）。版本ID两个拿法：①点上面「🔄 拉一下可用模型列表」，列出模型+版本ID，点编号直接填 ②网页 F12 抓 listGenerationModels 的 Response，找你要的模型的 <code>latestAvailableVersion.id</code>。填好几套后可以「存成一套」，以后点一下就换。</div>
     <div class="field" id="igSizeField"><label>尺寸</label><select id="igSize"><option>1024x1024</option><option>1024x1536</option><option>1536x1024</option><option>512x768</option><option>768x512</option><option>512x512</option></select></div>
     <div class="field" id="igPxField" style="display:none"><label>长宽比 / 解析度（PixAI 和网页版一套）</label>
@@ -6374,7 +6376,7 @@ $('igPxFetch').onclick=async()=>{
         arr.forEach(e=>{
           const n=e.node; if(!n||n.id==null) return;
           const ver=n.latestAvailableVersion;
-          models.push({id:String(ver&&ver.id||n.id),name:(n.title||'未命名')+(ver&&ver.name?'·'+ver.name:'')+tag,pageId:String(n.id)});
+      models.push({id:String(ver&&ver.id||n.id),name:(n.title||'未命名')+(ver&&ver.name&&ver.name!==String(ver.id)?'·'+ver.name:'')+tag,pageId:String(n.id)});
         });
       }catch(_){}
     }
@@ -6401,7 +6403,7 @@ $('igPxFetch').onclick=async()=>{
     search.value=''; search.oninput=paint; paint();
     openSheet('igModelSheet');
   }catch(e){ toast((e.message||'拉取失败').slice(0,90)); }
-  btn.disabled=false; btn.textContent='🔄 拉一下可用模型列表';
+  btn.disabled=false; btn.textContent='🔄 拉列表';
 };
 $('imgGenBtn').onclick=()=>{
   const g=imgGen();
@@ -11575,7 +11577,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v115';
+const XW_BUILD='v116';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
