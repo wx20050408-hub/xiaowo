@@ -6380,11 +6380,12 @@ $('igPxFetch').onclick=async()=>{
           const ver=n.latestAvailableVersion;
       models.push({id:String(ver&&ver.id||n.id),name:(n.title||'未命名')+(ver&&ver.name&&ver.name!==String(ver.id)?'·'+ver.name:'')+tag,pageId:String(n.id)});
         });
-      }catch(_){}
+      }catch(e2){ models._errs=(models._errs||[]).concat(type+':'+String(e2.message||'').slice(0,40)); }
     }
-    if(!models.length) throw new Error('模型列表的接口名我没猜中——不过生图能不能用跟它没关系，直接试画一批，报错了点小 toast 复制给我');
+    if(!models.length) throw new Error('一个类型都没拉到——'+(models._errs||[]).join('；').slice(0,90)+'（小桥 pixai-last.log 有原话）');
     /* 弹层列表（可滚动可搜索，告别 prompt 不能滑） */
     const win=$('igModelSheet'), list=$('igModelList'), search=$('igModelSearch');
+    if(!win||!list||!search) throw new Error('弹层元素没找到，代码没更新到 v117（igModelSheet/igModelList/igModelSearch）');
     const paint=()=>{
       const kw=(search.value||'').trim().toLowerCase();
       list.innerHTML='';
@@ -6404,8 +6405,10 @@ $('igPxFetch').onclick=async()=>{
     };
     search.value=''; search.oninput=paint; paint();
     openSheet('igModelSheet');
-  }catch(e){ toast((e.message||'拉取失败').slice(0,90)); }
-  btn.disabled=false; btn.textContent='🔄 拉列表';
+    if(!win.classList.contains('show')) toast('拉到 '+models.length+' 个但弹层没起来，把这句话发我');
+    else toast('拉到 '+models.length+' 个模型 ✓');
+  }catch(e){ toast((e.message||'拉取失败').slice(0,140)); }
+  btn.disabled=false; btn.innerHTML='<span class="ic">🔄</span> 拉列表';
 };
 $('imgGenBtn').onclick=()=>{
   const g=imgGen();
@@ -11579,7 +11582,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v117';
+const XW_BUILD='v118';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
