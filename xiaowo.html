@@ -6404,9 +6404,10 @@ $('igPxFetch').onclick=async()=>{
       if(!list.children.length) list.innerHTML='<div style="text-align:center;color:var(--ink-soft);font-size:13px;padding:14px">没搜到</div>';
     };
     search.value=''; search.oninput=paint; paint();
+    /* 生图设置层还开着的话先关——两层 sheet 同 z-index，后开的在下层会被盖死（这就是"拉到了但啥也没弹"的真凶） */
+    if($('imgGenSheet').classList.contains('show')) closeSheet('imgGenSheet');
     openSheet('igModelSheet');
     if(!win.classList.contains('show')) toast('拉到 '+models.length+' 个但弹层没起来，把这句话发我');
-    else toast('拉到 '+models.length+' 个模型 ✓');
   }catch(e){ toast((e.message||'拉取失败').slice(0,140)); }
   btn.disabled=false; btn.innerHTML='<span class="ic">🔄</span> 拉列表';
 };
@@ -11582,7 +11583,7 @@ function fishingNote(){
 }
 
 /* PWA：托管在 http(s) 时注册 Service Worker，可安装到主屏幕、断网可开 */
-const XW_BUILD='v118';
+const XW_BUILD='v119';
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     /* 后台默默下好的新版本，叫醒它接管；老 SW 正在用的话就等下次 */
